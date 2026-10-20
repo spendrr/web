@@ -1,0 +1,79 @@
+/* Changelog sheet (ChangelogSheet.tsx). Rides on the shared sheet
+   (sheet/PaySheet.css); theme tokens only (src/index.css). */
+
+/* A bare glyph like the refresh sheet's: the shared mark box, grey, no tile. */
+.clg-mark {
+  width: 68px;
+  height: 68px;
+}
+
+.clg-mark path {
+  stroke: var(--text-dim);
+}
+
+.clg-mark path:last-child {
+  fill: var(--text-dim);
+}
+
+.clg-version {
+  margin: -8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.clg-list {
+  width: 100%;
+  max-height: min(56vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  text-align: left;
+}
+
+.clg-entry {
+  padding: 16px 0;
+}
+
+.clg-entry + .clg-entry {
+  border-top: 2px solid var(--border-soft);
+}
+
+.clg-entry:first-child {
+  padding-top: 4px;
+}
+
+.clg-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.clg-title {
+  margin: 2px 0 8px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+}
+
+.clg-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clg-items li {
+  font-size: 15px;
+  line-height: 1.42;
+  color: var(--text-h);
+}
+
+.clg-beta {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}

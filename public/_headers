@@ -1,0 +1,28 @@
+# style-src/font-src are 'self' only since the webfonts were self-hosted
+# (src/fonts.css) — fonts.googleapis.com and fonts.gstatic.com used to be
+# the only third-party origins here apart from connect-src's deliberately
+# broad `https:` (which Lightning-address/LNURL sends need; see ARCHITECTURE.md).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https: wss://relay.damus.io wss://nos.lol wss://relay.primal.net wss://purplepag.es wss://nostr.mom wss://nostr.wine wss://offchain.pub wss://relay.snort.social wss://relay.satlantis.io; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+# Build output is content-hashed (/assets/<name>-<hash>.<ext>), so a name never
+# changes meaning: no revalidation round trip per file on every reload.
+# index.html keeps max-age=0, which is what picks up a new deploy.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Opts into the Sec-CH-Prefers-Color-Scheme client hint on the document
+# response so the browser attaches it to the manifest.json fetch that
+# follows — worker/index.ts uses it to serve a dark-themed manifest to a
+# system-dark device instead of always the light one. Critical-CH forces a
+# one-time reload of the very first visit (before the origin has ever sent
+# Accept-CH) so the manifest fetch on that first load already carries it.
+/
+  Accept-CH: Sec-CH-Prefers-Color-Scheme
+  Critical-CH: Sec-CH-Prefers-Color-Scheme
+  Vary: Sec-CH-Prefers-Color-Scheme

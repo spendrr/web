@@ -1,0 +1,228 @@
+/* Receive (v2), ReceiveScreen.tsx. Builds on .panel, .qr-wrap, .address,
+   .sht-actions and the PaySheet amount field; only what is new lives here. */
+
+.rcv {
+  align-items: center;
+  text-align: center;
+  padding-top: 16px;
+  /* Pushes the format row to the bottom of the screen instead of right
+     under the buttons, so it reads as a way out, not as part of the task. */
+  min-height: calc(100dvh - 190px);
+}
+
+.rcv-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  animation: fade-slide-in 0.18s ease;
+}
+
+.rcv-body .qr-wrap {
+  margin-bottom: 22px;
+}
+
+/* The address itself: the name carries it, the domain is quieter (the same
+   split the profile sheet uses). One tap copies it. */
+.rcv-ln,
+.rcv-addr {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rcv-ln {
+  font-family: var(--sans);
+  font-size: clamp(21px, 6.6vw, 27px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.rcv-ln-name {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.rcv-ln-domain {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* A long name wraps before "@", never inside the domain or mid-name. */
+.rcv-ln .rcv-ln-name,
+.rcv-ln .rcv-ln-domain {
+  display: inline-block;
+}
+
+.rcv-addr.address {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+}
+
+.rcv-ln:hover:not(:disabled),
+.rcv-ln:active:not(:disabled),
+.rcv-addr:hover:not(:disabled),
+.rcv-addr:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.rcv-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.rcv-actions {
+  margin-top: 22px;
+}
+
+.rcv-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rcv-actions svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* --- Lightning invoice ------------------------------------------------- */
+
+/* The amount step: the same big field as the payment request sheet, where
+   the QR would otherwise be. */
+.rcv-compose {
+  --sht-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding-top: 36px;
+}
+
+/* PaySheet scopes its "just digits, no box" override to .sht-sheet; this
+   screen is not a sheet. */
+.rcv-compose .sht-amount-input,
+.rcv-compose .sht-amount-input:focus {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  outline: none;
+}
+
+.rcv-field {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.rcv-create {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.rcv-body {
+  --sht-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.rcv-invoice-sub {
+  max-width: 100%;
+  font-size: 15px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* No address yet: one quiet line under the buttons, not a card. */
+.rcv-setup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: var(--border-w) dashed var(--border-soft);
+  border-radius: 12px;
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.rcv-setup:hover:not(:disabled),
+.rcv-setup:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--text-dim);
+}
+
+.rcv-setup-addr {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.rcv-setup-cta {
+  color: var(--text-h);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+/* Ark and on-chain: there for whoever needs them, not competing with the
+   address. Small, dim, no chrome. */
+.rcv-formats {
+  margin-top: auto;
+  padding-top: 28px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.rcv-dot {
+  margin: 0 6px;
+}
+
+.rcv-format {
+  padding: 6px 4px;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border-soft);
+  text-underline-offset: 3px;
+}
+
+.rcv-format:hover:not(:disabled),
+.rcv-format:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-h);
+}
+
+.rcv-paid {
+  margin: 40px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+}

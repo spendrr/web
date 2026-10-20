@@ -1,0 +1,3045 @@
+.dashboard {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  text-align: left;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.dashboard-header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.header-wordmark {
+  font-size: 30px;
+  -webkit-tap-highlight-color: transparent;
+  /* A tap opens the price widget; some browsers read a tap on plain text
+     as "select this word" and offer copy. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 23px;
+  height: 23px;
+}
+
+.icon-btn .spin {
+  animation: spin 0.8s linear infinite;
+  /* Promotes the icon to its own compositor layer so the rotation keeps
+     running smoothly off the main thread even while refresh() is busy with
+     several wallet.* calls and the state updates they trigger. Smooth on
+     desktop Chrome/Safari but visibly janky on Android Chrome/WebView
+     without the extra nudges below — mobile GPU compositors there are
+     pickier about actually promoting an animated inline SVG to its own
+     layer, and about where its rotation origin sits. */
+  will-change: transform;
+  transform-box: fill-box;
+  transform-origin: center;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+@keyframes spin {
+  from {
+    transform: translateZ(0) rotate(0deg);
+  }
+  to {
+    transform: translateZ(0) rotate(360deg);
+  }
+}
+
+.balance-card {
+  margin: 38px 0 42px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  /* Without this, mobile browsers flash their default tap-highlight
+     rectangle over the whole card on every tap/swipe — now that it's an
+     interactive element, that highlight is just visual noise on top of
+     our own animations. */
+  -webkit-tap-highlight-color: transparent;
+  /* Same for text selection: a tap, double tap or held swipe on the amount
+     must not select it and pop the browser's copy menu. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* Lets the browser still handle vertical scrolling on the balance card
+     while our own pointer handlers own horizontal drags — without this the
+     browser's native scroll/refresh gestures fight the swipe detection. */
+  touch-action: pan-y;
+}
+
+.balance-swipe-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+@keyframes balance-slide-in-right {
+  from {
+    transform: translateX(36px);
+    opacity: 0;
+  }
+}
+
+@keyframes balance-slide-in-left {
+  from {
+    transform: translateX(-36px);
+    opacity: 0;
+  }
+}
+
+.balance-slide-right {
+  animation: balance-slide-in-right 0.26s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+.balance-slide-left {
+  animation: balance-slide-in-left 0.26s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-slide-right,
+  .balance-slide-left {
+    animation: none !important;
+  }
+}
+
+/* Tapping the balance swaps which unit (sats/fiat) is the big headline and
+   which is the small line underneath. Each side animates in on its own
+   remount (the primary/secondary `key` changes) — the big number scales up
+   like it's stepping forward, the small line drops down like it's stepping
+   back, so the two visually trade places. If this happens to coincide with
+   the one-time load animation below, the load animation wins (it's declared
+   later, so its `animation` shorthand overrides this one on the same
+   element) — no harm, they look similar.
+   These two classes are NOT applied permanently — Dashboard.tsx puts them on
+   only while `showBalanceSwap` is armed (~0.3s per swap/toggle). A permanent
+   .balance-primary-swap would be "unshadowed" the moment .balance-enter or
+   .balance-bump is removed in place and would replay from its `from` frame —
+   that was the post-load / post-payment flicker. */
+@keyframes balance-swap-primary {
+  from {
+    transform: scale(0.88);
+    opacity: 0;
+  }
+}
+
+@keyframes balance-swap-secondary {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
+.balance-primary-swap {
+  animation: balance-swap-primary 0.28s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+.balance-secondary-swap {
+  animation: balance-swap-secondary 0.28s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-primary-swap,
+  .balance-secondary-swap {
+    animation: none !important;
+  }
+}
+
+/* One-time drop-in when the balance first loads after opening the app —
+   distinct from the swipe-triggered slide above, which fires on every
+   hide/reveal toggle instead of just once at load. */
+@keyframes balance-drop-in {
+  from {
+    transform: translateY(-22px);
+    opacity: 0;
+  }
+}
+
+.balance-enter {
+  animation: balance-drop-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.balance-enter-fiat {
+  animation: balance-drop-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-enter,
+  .balance-enter-fiat {
+    animation: none !important;
+  }
+}
+
+/* A payment landing bumps the balance — a quick, positive-feeling pop
+   rather than a full re-entrance, since the number is already visible and
+   just changed. Declared after the swap/enter rules above so it wins the
+   `animation` cascade when it coincides with balance-primary-swap (the
+   common case: a payment arriving while the element is already mounted,
+   not a fresh remount). */
+@keyframes balance-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.balance-bump {
+  animation: balance-bump 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-bump {
+    animation: none !important;
+  }
+}
+
+.balance-main {
+  display: flex;
+  /* baseline, not flex-end: box-bottom alignment looked right for a single
+     font-size, but .balance-value (92px) and .balance-unit (30px, "sats")
+     sit at very different sizes, and neither digits nor "sats" have any
+     descender — their ink stops at the baseline, well above the box's
+     bottom edge, by an amount that scales with font-size (confirmed live:
+     92px left a 14.5px gap between box-bottom and true baseline, 30px only
+     5px). Bottom-aligning the BOXES therefore left the two *baselines*
+     ~9.5px apart, reading as the number floating visibly higher than
+     "sats". Real baseline alignment fixes that regardless of size — the
+     .rd-col ghost trick below is what makes that safe to use again. */
+  align-items: baseline;
+  gap: 10px;
+  --balance-scale: 1;
+  /* Pinned to the tallest possible rendering (scale 1, i.e. unscaled) so
+     the row's own height never depends on --balance-scale or on subtle
+     baseline differences the rolling-digit markup introduces (an
+     inline-block with overflow:hidden — .rd-col — computes its baseline as
+     its bottom margin edge instead of a glyph baseline, per spec). Without
+     this, crossing the 100k/1M scale threshold — or even just the roll
+     itself — could grow/shrink .balance-card's height for the transition's
+     duration and visibly push everything below it (the Přijmout/Odeslat
+     buttons) down and back.
+     min-height alone isn't enough, though: it only sets a *floor*, and
+     right as a value crosses the 100k/1M scale threshold (see the font-size
+     transition below) the new, longer digit string first paints at the
+     still-unscaled (largest) font-size, before the transition has shrunk it
+     down — e.g. going from a near-zero balance straight to six figures on a
+     single incoming payment. On a narrow phone that transient width can
+     exceed the card, and without nowrap that just wraps the row onto a
+     second line, growing PAST min-height and pushing the fiat sub-line and
+     the Přijmout/Odeslat buttons down and back for the transition's
+     duration. `.balance-card`'s own overflow:hidden doesn't prevent this —
+     it clips visually but the wrapped box still occupies the extra height
+     in normal flow. nowrap forces any transient overflow to clip
+     horizontally (inert until the shrink transition catches up) instead of
+     growing vertically. */
+  min-height: calc(clamp(56px, 21vw, 92px) * var(--balance-scale));
+  /* Follows the headline's font-size glide so the fiat line closes up with
+     the shrinking number instead of keeping the unscaled row height. */
+  transition: min-height 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* Compounding on purpose ("dalších 15%" from the already-reduced size, not
+   from the original) — 0.85 at 100k sats, 0.85 * 0.85 = 0.7225 at 1M. */
+.balance-main--scale-100k {
+  --balance-scale: 0.85;
+}
+
+.balance-main--scale-1m {
+  --balance-scale: 0.7225;
+}
+
+/* Hand-fitted, not compounding: "10 000 000" and "100 000 000" with "sats"
+   still fit a 320px phone. Same steps as the Kotlin app. */
+.balance-main--scale-10m {
+  --balance-scale: 0.614;
+}
+
+.balance-main--scale-100m {
+  --balance-scale: 0.55;
+}
+
+.balance-value {
+  font-size: calc(clamp(56px, 21vw, 92px) * var(--balance-scale));
+  font-weight: 800;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.balance-dots {
+  font-size: clamp(32px, 11vw, 48px);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.balance-unit {
+  font-size: calc(30px * var(--balance-scale));
+  color: var(--accent);
+  font-weight: 800;
+  /* Matches .balance-value/.rolling-digits — align-items: flex-end above
+     bottom-aligns by each item's line-box edge, and without this the
+     default (~1.2) line-height leaves "sats" sitting visibly below the
+     digits' tight line-height:1 baseline, most noticeably while its own
+     font-size is mid-transition across the 100k/1M scale step. */
+  line-height: 1;
+}
+
+.balance-fiat {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Revolut-style rolling digits — only mounted while a bump animation is in
+   flight (RollingDigits, Dashboard.tsx), so the CSS animation below always
+   autoplays fresh on mount rather than needing a JS-driven restart. */
+.rolling-digits {
+  display: inline-flex;
+  /* .rd-col/.rd-strip below size themselves in 1em units on the assumption
+     that 1em of height == one line box, which only holds if line-height is
+     exactly 1. .balance-value already sets that for the headline number,
+     but .balance-fiat (the smaller sats/fiat sub-line) never did — there,
+     digit glyphs rendered at the browser's default (~1.2-1.5) line-height
+     didn't fit the 1em-tall .rd-col box, splitting each digit in half. Set
+     here so every RollingDigits usage is self-contained regardless of its
+     parent's own line-height. */
+  line-height: 1;
+  /* No vertical-align override needed (and none should be added) — .rd-col's
+     ::after ghost below gives it a real baseline, so .rolling-digits'
+     default (baseline) alignment inside .balance-value's line now matches
+     plain text exactly, in both height and vertical position. Two earlier
+     attempts each fixed one symptom while reintroducing the other:
+     `vertical-align: top` stopped the containing line box from growing
+     mid-roll but visibly lifted the digits above "sats"; reverting that
+     (git history) brought the growth back. Neither treated the actual
+     cause — see .rd-col's own comment. */
+}
+
+.rd-col {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Per spec, an inline-block with overflow other than visible and no
+   in-flow baseline-contributing content reports its baseline as its own
+   bottom margin edge — .rd-col's real content (.rd-strip) is about to
+   become absolutely positioned (out of flow) specifically so it can be
+   clipped to 1em while sliding through 2em of digits, which would leave
+   .rd-col with NO in-flow content at all and that fallback baseline. That
+   fallback sits well below where the digit glyphs actually are (confirmed
+   live: 14.5px below the true baseline at 92px font-size, 5px at 30px) —
+   scaling with font-size like that is exactly what made the headline
+   number visibly float above "sats" (very different sizes) when
+   .balance-main bottom-aligned the boxes to route around this. An
+   invisible ghost digit, left in normal flow, gives .rd-col back a real,
+   correctly-positioned baseline (same font/size/weight as the real
+   digits, so it lines up exactly) without being seen or selectable. */
+.rd-col::after {
+  content: "0";
+  visibility: hidden;
+}
+
+/* transform is set directly by RollingDigits (Dashboard.tsx) via a
+   requestAnimationFrame loop, not a CSS animation — it re-measures a live
+   .rd-col's actual current height every frame and writes translateY in px
+   from that, so the roll always matches whatever the concurrent
+   .balance-value font-size transition (100k/1M
+   scale step, further down) is doing at that exact instant. A CSS
+   `@keyframes` animation using a percentage transform can't offer that
+   guarantee: it and a same-duration font-size *transition* are two
+   independent engines (compositor-driven transform vs. main-thread
+   layout) animating the same box height at once, with no guarantee they
+   resolve against the same instantaneous height on every frame — that
+   showed up as the roll and the size-shrink visibly drifting apart instead
+   of moving as one motion. See RollingDigits' own comment for the rest.
+   Reduced motion is also handled there (JS checks the media query and
+   jumps straight to the final frame, no loop).
+   position: absolute (not a normal flow child) so .rd-col's own baseline
+   comes from its ::after ghost alone, not from this — see .rd-col's
+   comment. Positioned against .rd-col (position: relative), full width so
+   it still lines up with the ghost's tabular-nums digit width. */
+.rd-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 200%;
+}
+
+.rd-digit {
+  display: block;
+  height: 50%;
+}
+
+/* When a rolling-digit transition crosses a scale threshold
+   (100k/1M sats — balanceScaleClass in Dashboard.tsx), the parent's
+   --balance-scale custom property flips and font-size would otherwise snap
+   instantly mid-roll — the box's em-relative dimensions (.rd-col/.rd-strip)
+   change out from under the in-flight percentage-based transform, which
+   reads as the whole animation stuttering or momentarily freezing.
+   Transitioning font-size itself keeps it changing smoothly in step with
+   the roll's own duration instead of jumping ahead of it. */
+.balance-value,
+.balance-unit {
+  transition: font-size 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-value,
+  .balance-unit,
+  .balance-main {
+    transition: none !important;
+  }
+}
+
+/* Sits under the fiat sub-line, deliberately quieter than both: it is a
+   footnote explaining why the number above dropped, not a second balance —
+   this money is not spendable and won't be for days. */
+.balance-exit-note {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-skeleton {
+  display: block;
+  width: 190px;
+  height: 76px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-soft) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-pulse 1.4s ease infinite;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* The home action row, the "Ovladač" (picked from two rounds of mockups
+   2026-09-24). Přijmout and Odeslat are two separate buttons with the scan
+   button in its own grid column between them, carrying the accent colour:
+   paying at a till is mostly scanning a QR code, and that is where the thumb
+   lands. Both buttons stay plain on purpose; with one of them filled, the
+   row read as a toggle with Přijmout switched on. Sides are picked by
+   --receive/--send, never by .amenu-host--left/right: Odeslat only gets the
+   hold-menu wrapper when a gift key exists, so it is sometimes a bare grid
+   item. State rules carry the .big-actions prefix to outrank App.css's
+   generic button:hover/:active and ActionMenu.css's .amenu-anchor.is-holding. */
+.big-actions {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 4px 0 28px;
+}
+
+.big-action-btn {
+  height: 56px;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 2.5px solid var(--border);
+  box-shadow: 3.4px 3.4px 0 var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.14s ease;
+}
+
+.big-action-btn--receive,
+.big-action-btn--send {
+  border-radius: 20px;
+  padding: 0 12px;
+}
+
+.big-action-btn--send {
+  flex-direction: row-reverse;
+}
+
+/* A bare arrow, one step quieter than the label. */
+.big-action-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.big-action-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.big-action-label {
+  text-transform: capitalize;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The buttons don't lift on hover: a tint instead, and only on real
+   pointers, since a touch :hover stays matched after the tap. */
+.big-actions .big-action-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: 3.4px 3.4px 0 var(--border);
+}
+
+@media (hover: hover) {
+  .big-actions .big-action-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--surface) 92%, var(--accent));
+  }
+}
+
+/* Pressed, held or with its menu open, a button sinks along its shadow.
+   Replaces ActionMenu.css's scale() while holding; its 420ms transition
+   still applies, so a hold presses in slowly. */
+.big-actions .big-action-btn:active:not(:disabled),
+.big-actions .big-action-btn.is-holding,
+.big-actions .big-action-btn.is-menu-open {
+  transform: translate(3.4px, 3.4px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+/* The same hard offset shadow every other button casts, so it presses the
+   same way too. */
+.big-action-scan {
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 3px 3px 0 var(--border);
+  transition:
+    transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.14s ease;
+}
+
+.big-action-scan svg {
+  width: 29px;
+  height: 29px;
+}
+
+.big-action-scan svg path,
+.big-action-scan svg rect {
+  stroke-width: 2.4;
+}
+
+.big-actions .big-action-scan:hover:not(:disabled) {
+  transform: none;
+  box-shadow: 3px 3px 0 var(--border);
+}
+
+@media (hover: hover) {
+  .big-actions .big-action-scan:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--border);
+  }
+}
+
+.big-actions .big-action-scan:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+/* The hold menu drops a little further below the row, clear of the taller
+   scan button. */
+.big-actions .amenu {
+  top: calc(100% + 16px);
+}
+
+/* Below ~340px a label and its arrow no longer fit beside the scan button;
+   the arrows go, the labels stay. */
+@media (max-width: 350px) {
+  .big-action-icon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-action-scan {
+    transition: none;
+  }
+}
+
+.recent-activity {
+  margin-top: 30px;
+}
+
+.lock-gesture-area {
+  /* Base height — Dashboard.tsx overrides this via an inline `style` with
+     a value grown by how many history rows are missing from a full card
+     (see `lockGestureAreaHeight`'s own comment there), so the rectangle
+     always sits flush under the history card instead of leaving a dead
+     gap when there's little/no history. NOT flex:1 stretched to fill
+     whatever viewport space is left below the card — that varies with the
+     browser chrome (URL bar) showing/hiding between the two taps of a
+     double-tap, which could shift the element's on-screen position/size
+     between the first and second click, so the second tap sometimes
+     landed on a different spot than the first — read as the gesture
+     working "randomly". History-row-count doesn't have that failure mode:
+     it can't change mid-gesture from viewport chrome behavior, only from
+     an actual data refresh, a far rarer coincidence. */
+  height: 140px;
+  margin-top: 12px;
+  /* "manipulation" (permits native single-finger panning) used to be enough
+     to remove the double-tap-to-zoom ~300ms delay ambiguity, and it does —
+     but it also means the browser is free to treat a real physical swipe
+     here as a native scroll/pan gesture. Confirmed live on a real phone:
+     the right-swipe-into-Utility gesture worked reliably in every emulated
+     (mouse-drag) test yet never worked on an actual touchscreen — the
+     browser was recognizing the touch as a pan and firing `pointercancel`
+     instead of the `pointerup` handleLockAreaPointerUp needs to compute
+     dx/dy, so the swipe logic never ran at all. Same root cause
+     .btc-price-chart-frame.scrubbable already documents for its own drag.
+     "none" removes all native touch handling on this element (so no
+     ambiguity for double-tap either — there's nothing here to zoom or pan
+     natively in the first place, it's a fixed empty rectangle), letting
+     every touch reach the pointer handlers as-is. */
+  touch-action: none;
+}
+
+.recent-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: -4px;
+  padding: 0 2px;
+}
+
+.recent-activity-header h2 {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin: 0;
+  /* Not selectable, like the wordmark: on some phones a tap near the header
+     selected the heading and offered copy. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.link-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  opacity: 0.8;
+}
+
+.link-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.subview--no-balance {
+  /* Receive has no balance-card above it to push things down (it's
+     deliberately hidden there), so without this the back button and QR sit
+     right under the header — a bit more breathing room reads better. */
+  margin-top: 48px;
+}
+
+.subview--no-balance.subview--reserve-qr {
+  /* Lightning-before-an-invoice-exists renders no QR (there's nothing to
+     encode yet), which used to collapse that space and pull the back
+     button + mode-toggle up to sit right under the header instead of at
+     the level they'd be at with a QR above them on Ark/On-chain. Pushing
+     the whole subview (back button included, not just the panel content)
+     down by this much — instead of reserving blank space between the back
+     button and the toggle — keeps the back button directly above the
+     toggle with its normal small gap, moving as one block. 235px is ~85%
+     of the QR box's own rendered size (240px code + 16px padding + 2.5px
+     border per side = 277px), landing the block a bit higher than an exact
+     QR-height match, per explicit request. */
+  margin-top: 283px;
+}
+
+.subview-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 4px 2px;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.subview-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.subview-back:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-h);
+}
+
+.subview-back:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Utility hub's own slide-in/out — see openUtility/closeUtility in
+   Dashboard.tsx for why this needs to be a real overlay (home stays
+   mounted underneath) rather than the instant full-tree swap Settings
+   uses. Slides in from the left/off-screen to match the rightward swipe
+   gesture that opens it (the panel follows the finger's direction), and
+   reverses symmetrically on close. Same easing as the mode-toggle's own
+   sliding thumb (design-v2.css) for a consistent feel across the app's
+   other motion. z-index above the payment toast (20) and modal backdrops
+   (10) — this is meant to cover the entire screen while it's up. */
+.utility-hub-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
+  transform: translateX(-100%);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  /* Mapa is taller than the window and Pokladna exactly fits it, so with
+     classic (desktop) scrollbars the whole page shifted sideways when
+     switching between them. Always reserve the gutter. */
+  scrollbar-gutter: stable;
+  /* Same compositor-layer promotion as .icon-btn .spin above — cheap
+     hygiene for a fixed+scrollable element running its own transform
+     transition, but NOT what actually fixed the "Zpět do peněženky needs
+     two taps" report below; user-confirmed live that this alone didn't
+     fix it. Left in place anyway, doesn't hurt. */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.utility-hub-overlay--visible {
+  transform: translateX(0);
+}
+
+/* The actual, user-confirmed fix: tapping "Zpět do peněženky" as the very
+   first touch right after the swipe-open needed two taps; waiting ~1-2s
+   for the slide-in to definitely settle before tapping worked every
+   time — a genuine hit-testing race against the in-flight transform, not
+   just visual jank. Blocking pointer-events for the overlay's entire
+   subtree until Dashboard.tsx's utilitySettled confirms the transform
+   transitionend has actually fired closes the race outright. Not gated on
+   `--visible` (which flips true almost immediately, well before the CSS
+   transition itself finishes) — a separate class driven by the real
+   transitionend. */
+.utility-hub-overlay:not(.utility-hub-overlay--settled) {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .utility-hub-overlay {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-action-btn,
+  .big-action-icon {
+    transition: none !important;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.panel-transition {
+  animation: fade-slide-in 0.22s ease;
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-action-btn,
+  .big-action-icon,
+  .panel-transition {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.panel {
+  padding: 24px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.receive-panel {
+  align-items: center;
+  text-align: center;
+  /* .panel's own 24px top padding (shared with Send/History) is most of the
+     gap between the Zpět button and the first thing below it (QR or, on
+     Lightning with no invoice yet, the mode-toggle) — trimmed here rather
+     than in .panel, so Send and History keep their own spacing. Trimmed
+     three times (24 -> 14 -> 10 -> 3px): each step measured via
+     getBoundingClientRect rather than trusting the padding value alone,
+     since margin-bottom on .subview-back and .panel's own row-gap both add
+     to the rendered gap — original 50px, then ~40px (-20%), ~36px
+     (-10%), now ~29px (a further -20%). */
+  padding-top: 3px;
+}
+
+.receive-panel--has-qr {
+  /* Ark/On-chain always show a QR right under Zpět — a touch more room
+     than the shared 3px reads better here specifically. */
+  padding-top: 16px;
+}
+
+.receive-panel--no-qr {
+  /* Lightning before an invoice exists has no QR, so Zpět sits directly
+     above the mode-toggle — a touch less than the shared 3px. */
+  padding-top: 0;
+}
+
+.receive-panel .mode-toggle {
+  margin-top: 10px;
+}
+
+.receive-qr-transition,
+.receive-details-transition {
+  animation: fade-slide-in 0.18s ease;
+}
+
+.receive-details-transition {
+  /* detailsSection's children used to be direct flex items of .panel
+     (gap: 14px between each, align-items: center from .receive-panel).
+     Wrapping them in this one keyed div for the remount-on-mode-switch fix
+     means they're no longer direct flex children, so both have to be
+     reapplied here — without align-items: center they default to stretch,
+     which fills the address box and amount field to the full panel width
+     instead of their natural content width. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .receive-qr-transition,
+  .receive-details-transition {
+    animation: none;
+  }
+}
+
+.onchain-info-banner {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+
+/* Button floats right and the text wraps around it, rather than sitting on
+   its own row below — the button needs to come first in the DOM for the
+   float to pull text up alongside it (see the button-before-span order in
+   Dashboard.tsx). */
+.onchain-info-banner > div::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.onchain-info-banner button {
+  float: right;
+  margin: 0 0 4px 8px;
+}
+
+.qr-wrap {
+  padding: 16px;
+  border-radius: 16px;
+  border: 2.5px solid transparent;
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, #e4e4e4, #8a8a8a) border-box;
+  /* Matches the gradient's own dark stop instead of --pop-sm's theme
+     border color, which clashed against the gray gradient border above. */
+  box-shadow: 2px 2px 0 #8a8a8a;
+}
+
+.qr-wrap-button {
+  line-height: 0;
+}
+
+/* Same outer size as the QR (240px inside .qr-wrap's padding and border). */
+.qr-wrap-placeholder {
+  line-height: 0;
+}
+
+.qr-placeholder-inner {
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  font-size: 0.95rem;
+  /* The frame is white in both themes (a QR needs it), so the text can't
+     follow the theme's muted colour. */
+  color: #6b6b6b;
+}
+
+.qr-wrap-button.qr-pulse {
+  animation: qr-copy-pulse 0.28s ease;
+}
+
+@keyframes qr-copy-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-wrap-button.qr-pulse {
+    animation: none;
+  }
+}
+
+.address-copy-row {
+  max-width: 100%;
+}
+
+.address-copy-row .copy-btn {
+  flex-shrink: 0;
+}
+
+.address {
+  font-family: var(--mono);
+  font-size: 21.85px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  line-height: 1.5;
+  /* Truncation head/tail lengths (TruncatedAddress's callers) are sized to
+     always fit this on one line down to a 360px-wide viewport at this font
+     size — nowrap instead of the old word-break: break-all, which used to
+     let a too-long value wrap into a second line. */
+  white-space: nowrap;
+  /* No box/border/background by design — plain text next to the copy
+     button reads cleaner at this size than the old bordered chip did. */
+  max-width: 100%;
+  color: var(--text-h);
+}
+
+/* Lightning invoices are much longer than an address even truncated (head=13
+   vs 9), so the same 21.85px would wrap across far more lines — one size
+   down keeps it from dominating the panel. */
+.address.address-ln {
+  font-size: 17.25px;
+  letter-spacing: 0.03em;
+}
+
+.address-ellipsis {
+  color: var(--text);
+  /* Negative — deliberately tighter than .address's own letter-spacing
+     (0.045em/0.03em), pulling the three dots closer together than a normal
+     run of characters. Values barely above the base letter-spacing here
+     were visually indistinguishable from it (sub-pixel differences),
+     however small the percentage cut — going negative is what actually
+     moves the needle. */
+  letter-spacing: -0.15em;
+  /* letter-spacing pads *after* every character it applies to, including
+     the last one — so that same -0.15em also yanks the gap between the
+     last dot and the tail text tight, well past even, while the gap before
+     the first dot (governed by .address's own un-tightened letter-spacing)
+     stays at the normal 0.045em/0.03em. margin-right adds that trailing
+     -0.15em back plus the normal base gap, so both sides end up visually
+     equal instead of the tail sitting flush against the dots. */
+  margin-right: 0.195em;
+}
+
+.address.address-ln .address-ellipsis {
+  /* .address-ln's base letter-spacing is 0.03em, not 0.045em — same
+     0.15em correction, matched to the smaller base gap. */
+  margin-right: 0.18em;
+}
+
+/* Last few characters of the truncated tail, highlighted as a quick visual
+   anchor for manually checking an address/invoice against another copy of
+   it — same purple as the wordmark's "r" (--accent-2). */
+.address-tail-highlight {
+  color: var(--accent-2);
+}
+
+.field-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.field-label-row .link-btn {
+  font-size: 12.5px;
+}
+
+.field-label-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unit-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: 8px;
+}
+
+.unit-toggle button {
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.unit-toggle button:hover:not(.active) {
+  transform: none;
+  box-shadow: none;
+}
+
+.unit-toggle button.active {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.unit-toggle button.active:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.destination-row {
+  display: flex;
+  gap: 8px;
+}
+
+.destination-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-btn {
+  flex: none;
+  /* .destination-row's default align-items:stretch was sizing this button's
+     height to match the input's (padding-driven, ~52px) while width stayed
+     fixed at 46px, making it visibly taller than wide. align-self:center
+     opts back out of that stretch so both dimensions are the same 46px. */
+  align-self: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.history-list {
+  gap: 0;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  color: var(--text);
+}
+
+.history-empty svg {
+  width: 28px;
+  height: 28px;
+  opacity: 0.5;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 2px solid var(--border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  font: inherit;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-2);
+}
+
+.history-item:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* "Zobrazit vše" groups the full history into one card per calendar day
+   (dayGroups in Dashboard.tsx) — the same bordered-card look as a boxed
+   list, so it reads as an existing pattern rather than a new one. Rows inside keep the plain
+   divider look .history-item already has; only the extra side padding and
+   the last-row border removal are re-scoped to apply per group instead of
+   to the whole (now ungrouped) list. */
+.history-list--grouped {
+  gap: 16px;
+}
+
+.history-day-group {
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.history-day-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: var(--border-w) solid var(--border);
+}
+
+.history-day-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.history-day-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.history-day-group .history-item {
+  padding: 12px 14px;
+}
+
+.history-day-group .history-item:last-child {
+  border-bottom: none;
+}
+
+/* The toast: a black "dynamic island" pill that grows out of the top
+   centre. Web content cannot draw into the real iPhone island or an Android
+   punch-hole, so it sits just below the status bar (safe-area inset) and
+   only borrows the look: on a phone with a centred camera it reads as
+   dropping out of it, on anything else as a floating pill. Black in both
+   themes, with a faint ring so it still has an edge on the dark background. */
+.toast-island-wrap {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 0;
+  right: 0;
+  /* Above every overlay (modals 500, coachmark 600): errors now come from
+     Settings, the gift sheets and the Utility hub too, and a toast hidden
+     behind the screen that caused it is no toast at all. */
+  z-index: 700;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.toast-island {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: min(100%, 380px);
+  padding: 7px 18px 7px 7px;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  transform-origin: 50% 0;
+  animation: island-in 0.5s cubic-bezier(0.3, 1.35, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+/* The refresh-engine island (beta) is a tappable button: undo the global
+   button look so it matches the other islands. */
+button.toast-island {
+  border: none;
+  font-weight: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.toast-island:hover:not(:disabled) {
+  transform: none;
+}
+
+.toast-island > * {
+  animation: island-content-in 0.3s 0.15s both;
+}
+
+.toast-island--closing {
+  animation: island-out 0.25s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  pointer-events: none;
+}
+
+/* Copies the SDK's raw error for a bug report. Small and quiet: the
+   sentence next to it is what the user is meant to read. */
+.toast-island-copy {
+  flex: none;
+  margin: 0 -8px 0 4px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.toast-island-copy:active {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.toast-island-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #3a3a3a;
+}
+
+.toast-island-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.toast-island--in .toast-island-icon,
+.toast-island--success .toast-island-icon {
+  background: #1fa56c;
+}
+
+.toast-island--out .toast-island-icon {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.toast-island--danger .toast-island-icon {
+  background: #e2463b;
+}
+
+/* Offline turns into "Jsi zase online" in place: same element, the icon
+   recolours and the (keyed) text fades in again. */
+.toast-island--net .toast-island-icon {
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+.toast-island--offline .toast-island-icon {
+  background: #57534a;
+}
+
+.toast-island--online .toast-island-icon {
+  background: #1fa56c;
+}
+
+.toast-island-headline {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.toast-island-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.toast-island-title {
+  font-size: 12px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.toast-island-amount {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.toast-island--in .toast-island-amount {
+  color: #4fe0a0;
+}
+
+.toast-island-fiat {
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.toast-island-message {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@keyframes island-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3, 0.6);
+  }
+}
+
+@keyframes island-content-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes island-out {
+  to {
+    opacity: 0;
+    transform: scale(0.3, 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-island,
+  .toast-island > *,
+  .toast-island--closing {
+    animation: none !important;
+  }
+}
+
+.onchain-receive-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  /* More room before the big-actions buttons below (was 12px, felt glued
+     to them) — collapses with .big-actions' own 4px top margin, so this is
+     ~the actual rendered gap, not just a contributor to it. */
+  margin-bottom: 26px;
+  background: var(--neutral-bg);
+  color: var(--neutral);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+  font-weight: 700;
+  font-size: 13px;
+  animation: fade-slide-in 0.2s ease;
+}
+
+.balance-card + .onchain-receive-toast {
+  /* Pulls the first notice up out of .balance-card's own 42px bottom
+     margin (which collapses with this) — was reading as too far detached
+     from the balance it's about. Negative margins collapse by summing with
+     the adjacent positive one, so the rendered gap here is 42 - 24 = 18px. */
+  margin-top: -24px;
+}
+
+.onchain-receive-toast + .onchain-receive-toast {
+  /* Without this, two stacked notices (confirmed + pending) would inherit
+     the same enlarged 26px gap between each other as before the buttons —
+     pulls that back down close to the original spacing. */
+  margin-top: -14px;
+}
+
+.onchain-receive-toast svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.onchain-receive-toast--pending {
+  /* No action here (an unconfirmed UTXO can't be boarded), so it reads as
+     purely informational — dashed border + reduced opacity distinguish it
+     at a glance from the confirmed notice above, which needs a tap. */
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.onchain-receive-toast span {
+  flex: 1;
+}
+
+.onchain-receive-toast button {
+  flex-shrink: 0;
+}
+
+/* Same visual language as .onchain-receive-toast (see above) — a distinct
+   class rather than sharing the name because it's a different kind of
+   pending state (unilateral exit progress, not an onchain receive), but the
+   base rules, the --pending dashed variant, and the margin-collapse
+   adjacent-sibling spacing tricks are all deliberately identical. */
+.exit-progress-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 26px;
+  background: var(--neutral-bg);
+  color: var(--neutral);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+  font-weight: 700;
+  font-size: 13px;
+  animation: fade-slide-in 0.2s ease;
+}
+
+.balance-card + .exit-progress-toast {
+  margin-top: -24px;
+}
+
+.onchain-receive-toast + .exit-progress-toast,
+.exit-progress-toast + .onchain-receive-toast,
+.exit-progress-toast + .exit-progress-toast {
+  margin-top: -14px;
+}
+
+.exit-progress-toast svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.exit-progress-toast--pending {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+/* Variant that also lists the exiting VTXOs' own onchain txids (CopyRow per
+   tx) below the status line — the base .exit-progress-toast is a single
+   flex row, too cramped once txids join it, so this switches to a column
+   and gives the status line its own inline row inside that. */
+.exit-progress-toast--column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+/* One line per distinct "what is this waiting on" state, under the header
+   and above the txid rows. */
+.exit-progress-toast-state {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.exit-progress-toast-state--alert {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.exit-progress-toast-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exit-progress-toast--column .info-row {
+  padding: 8px 0 0;
+  border-bottom: none;
+  font-weight: 400;
+}
+
+/* Reset the leaked ".exit-progress-toast span { flex: 1 }" rule above —
+   meant for the single status-line span in the row-layout variants, but it
+   also (wrongly) grabs CopyRow's own label span here since it's still a
+   descendant .exit-progress-toast span. Without this the label eats all the
+   width and squeezes the value/copy button into a wrapped mess. */
+.exit-progress-toast--column .info-row span {
+  flex: 0 0 auto;
+}
+
+/* Same fix as .confirm-summary below: the general .info-row code rule wraps
+   at any character (word-break: break-all) and caps width at 60%, which
+   here breaks the short truncateMiddle() txid across two lines for no
+   reason — it easily fits on one. Wrapping also threw off vertical
+   alignment against the label and copy button. */
+.exit-progress-toast--column .info-row .copy-value code {
+  max-width: none;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+.exit-progress-toast span {
+  flex: 1;
+}
+
+.exit-progress-toast button {
+  flex-shrink: 0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  z-index: 10;
+  animation: modal-backdrop-fade 0.16s ease;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 380px;
+  max-height: 75svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--pop);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: modal-card-in 0.2s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@keyframes modal-backdrop-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-card {
+    animation: none !important;
+  }
+}
+
+@media (min-width: 480px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .modal-card {
+    border-bottom: 2.5px solid var(--border);
+    border-radius: 20px;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sized to match the height of the plain text "Zavřít" button next to it
+   (.icon-btn's fixed 48px is the header's square icon-button size and made
+   this look oversized/misaligned in a small modal header) rather than
+   reusing .icon-btn. Only mounts once the camera stream reports torch
+   support, which lags a beat behind the rest of the header — the animation
+   below makes that a deliberate pop-in instead of a jarring late insertion
+   that shoves Close sideways. */
+button.torch-btn {
+  width: 37px;
+  height: 37px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: torch-btn-in 0.2s ease;
+}
+
+@keyframes torch-btn-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.torch-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.torch-btn.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent-border);
+}
+
+.qr-scanner-card {
+  align-items: stretch;
+}
+
+.qr-scanner-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: var(--border-w) solid var(--border);
+  border-radius: 18px;
+  background: #000;
+}
+
+.qr-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.qr-scanner-canvas {
+  display: none;
+}
+
+/* The guide frame: one box carries both the dim around it (a spread shadow)
+   and the gray outline (its child), so the dim meets the outline exactly.
+   They used to be two elements with different corners (18px against the
+   SVG outline's ~16%, drawn a few px inside its box) and only the outline
+   pulsed, which left a second line beside it. Motion design moves this box
+   onto a found code with the brackets (QrScanner.tsx lockOn), hence the
+   radius transition and a spread that reaches every corner of the preview
+   from anywhere the box can go. */
+.qr-scanner-frame {
+  position: absolute;
+  inset: 12%;
+  border-radius: 16%;
+  box-shadow: 0 0 0 600px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  transform-origin: center;
+  transition: border-radius 0.3s ease;
+}
+
+/* The gradient outline: the box's padding ring, cut out with a mask so the
+   middle stays clear (a `background: gradient padding-box, gradient
+   border-box` double layer can't do it: the transparent inner layer doesn't
+   occlude the outer one, so the hole fills in). Fixed gray tones rather than
+   the app's accent colors: the guide frame is a neutral camera-UI
+   affordance, not a themed brand element. Without mask compositing it
+   falls back to a plain gray border rather than a filled square. */
+.qr-scanner-frame-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 4px solid #cfcfcf;
+}
+
+@supports (mask-composite: exclude) or (-webkit-mask-composite: xor) {
+  .qr-scanner-frame-ring {
+    border: 0;
+    padding: 4px;
+    background: linear-gradient(to bottom right, #e4e4e4, #8a8a8a);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+}
+
+/* Pulses the guide frame for a few seconds once the camera shows, to draw
+   the eye to where to hold the code. 4 iterations of 1.5 s end at rest, so
+   it never snaps (QrScanner.tsx clears "is-pulsing" at 6.2 s). The box
+   scales, so the dim's cutout grows with the outline; only the outline
+   fades. Transform/opacity: compositor-only, clear of the jsQR loop. */
+.qr-scanner-frame.is-pulsing {
+  animation: qr-frame-pulse 1.5s ease-in-out 4;
+}
+
+.qr-scanner-frame.is-pulsing .qr-scanner-frame-ring {
+  animation: qr-frame-ring-pulse 1.5s ease-in-out 4;
+}
+
+@keyframes qr-frame-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes qr-frame-ring-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-scanner-frame.is-pulsing,
+  .qr-scanner-frame.is-pulsing .qr-scanner-frame-ring {
+    animation: none;
+  }
+}
+
+/* v2: the scanner in the shared sheet (PaySheet.tsx). The preview reaches
+   a little into the screen's side padding, so the camera is close to the
+   v1 modal's size on a phone (319 vs ~335px at 375) while keeping a clear
+   gap to the sheet's outline. Stays square: lockOn() in QrScanner.tsx maps
+   the brackets for a 1:1 box with the guide frame at 12%. */
+.sht-sheet .qr-scanner-viewport {
+  align-self: stretch;
+  width: auto;
+  margin: 2px -8px 0;
+  border-radius: 20px;
+  /* Double tap toggles the torch: no zoom, no text selection, no iOS
+     callout on the video. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.qr-scanner-starting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* Shown only while the scene is dark and the torch is off, for as long as
+   that lasts. Fixed colours like the guide frame: it sits on the camera
+   image in both themes. */
+.qr-torch-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.qr-torch-hint.is-shown {
+  opacity: 1;
+}
+
+.qr-torch-hint svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* The torch's keyboard/screen-reader control (the double tap has none).
+   Visually hidden; the button rules it has to beat are in App.css. */
+button.qr-torch-a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Scoped under .modal-amount-row (every .modal-amount is always its direct
+   child, both the real amount and the balanceHidden "•••" placeholder —
+   TxDetailModal, Dashboard.tsx) rather than a bare .modal-amount selector.
+   .amount (below, ~line 1702) is equal specificity and declared later, so
+   a bare .modal-amount here loses this rule's font-size/font-weight to
+   .amount's smaller 14px/700 whenever both classes land on the same
+   element — which they do for the real (non-hidden) amount. This was
+   silently shrinking the modal's amount to list-row size in production. */
+.modal-amount-row .modal-amount {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.modal-amount-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btc-change-badge {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.btc-change-up {
+  color: var(--success);
+}
+
+.btc-change-down {
+  color: var(--danger);
+}
+
+.btc-price-value {
+  font-size: clamp(30px, 11.25vw, 48px);
+  font-weight: 800;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.btc-price-change {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.btc-price-chart-wrap {
+  width: 100%;
+  height: 90px;
+  margin-top: 4px;
+}
+
+.btc-price-chart {
+  width: 100%;
+  height: 90px;
+  overflow: visible;
+}
+
+.btc-price-chart-skeleton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--surface-2);
+  animation: skeleton-pulse 1.1s ease-in-out infinite;
+}
+
+.btc-price-chart-retry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-2);
+  border: none;
+  box-shadow: none;
+  border-radius: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px;
+}
+
+/* The left-to-right "draw-in" look, without animating the path itself:
+   stroke-dasharray/pathLength left a visible gap at the line's endpoint on
+   some renderers, and a clip-path wipe of the chart was reported choppy —
+   clip-path needs a per-frame repaint on several engines. Instead the chart
+   renders immediately at full opacity, and a solid cover slides off it via
+   translateX — transform is the one property every engine can animate
+   purely on the compositor thread, so it stays smooth regardless of point
+   count or what else the main thread is doing right after the double-click
+   that opens this modal. */
+.btc-price-chart-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.btc-price-chart-wipe {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  animation: btc-chart-wipe 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes btc-chart-wipe {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btc-price-chart-wipe {
+    display: none;
+  }
+}
+
+.btc-price-line {
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.btc-price-area {
+  opacity: 0.14;
+}
+
+.btc-price-line.up {
+  stroke: var(--success);
+}
+
+.btc-price-line.down {
+  stroke: var(--danger);
+}
+
+.btc-price-area.up {
+  fill: var(--success);
+}
+
+.btc-price-area.down {
+  fill: var(--danger);
+}
+
+/* touch-action: none stops the page from scrolling while a finger drags
+   across the chart to scrub it — without it, mobile browsers treat the drag
+   as a scroll gesture and pointermove never fires. */
+.btc-price-chart-frame.scrubbable {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.btc-price-scrub-date {
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+/* v2 beta: the price in the shared bottom sheet (BtcPriceModal's PriceSheet). */
+/* RollingNumber: one-digit windows over 0-9 strips. The window is a bit
+   taller than the glyphs so nothing clips. */
+.odo {
+  display: inline-flex;
+  white-space: pre;
+}
+
+.odo-col {
+  display: inline-block;
+  height: 1.1em;
+  overflow: hidden;
+  /* Live-price flash (RollingNumber's `flash`): the animation name is set
+     inline. Two identical keyframes per direction so a repeat flash
+     restarts. */
+  animation-duration: 1.4s;
+  animation-timing-function: ease-out;
+}
+
+@keyframes odo-flash-up-a { from { color: var(--success); } }
+@keyframes odo-flash-up-b { from { color: var(--success); } }
+@keyframes odo-flash-down-a { from { color: var(--danger); } }
+@keyframes odo-flash-down-b { from { color: var(--danger); } }
+
+.odo-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.odo-strip > span,
+.odo > span:not(.odo-col) {
+  height: 1.1em;
+  line-height: 1.1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .odo-strip {
+    transition: none;
+  }
+}
+
+.btc-sheet-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btc-sheet-logo {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.btc-sheet-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.btc-sheet-price .btc-price-change {
+  font-variant-numeric: tabular-nums;
+}
+
+.btc-sheet-fresh {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.btc-sheet-dot {
+  margin: 0 8px;
+}
+
+.btc-sheet-fresh a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.btc-sheet-error {
+  height: 76px;
+}
+
+/* Range picker (segmented control). --n options, --i the chosen one; the
+   thumb is one option wide and slides by whole widths. */
+.btc-range {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  width: 100%;
+  padding: 3px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border);
+  border-radius: 12px;
+}
+
+.btc-range-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n));
+  border-radius: 9px;
+  background: var(--accent);
+  transform: translateX(calc(var(--i) * 100%));
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.btc-range button {
+  position: relative;
+  margin: 0;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  transition: color 0.25s ease;
+}
+
+.btc-range button:hover,
+.btc-range button:active {
+  transform: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.btc-range button:hover:not(.is-active) {
+  color: var(--text);
+}
+
+.btc-range button.is-active {
+  color: var(--accent-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btc-range-thumb {
+    transition: none;
+  }
+}
+
+/* Sheet chart: taller, with headroom for the high/low labels (the SVG's
+   own padding, SHEET_CHART_PAD_Y) and a time axis. */
+.btc-sheet-chart {
+  width: 100%;
+}
+
+.btc-price-chart-wrap.is-smooth {
+  height: 150px;
+  margin-top: 0;
+}
+
+.btc-price-chart-wrap.is-smooth .btc-price-chart {
+  height: 100%;
+}
+
+.btc-price-area.is-grad {
+  opacity: 1;
+}
+
+.btc-grad-stop.up {
+  stop-color: var(--success);
+}
+
+.btc-grad-stop.down {
+  stop-color: var(--danger);
+}
+
+.btc-chart-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: sht-fade-in 0.3s ease-out 0.35s both;
+}
+
+.btc-chart-mark {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.btc-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+/* Smooth scrub cursor (usePriceWidget's `smooth`): HTML overlays moved only
+   by transform, so every frame is a compositor-only update. */
+.btc-price-chart-wrap.is-smooth {
+  position: relative;
+}
+
+.btc-scrub-cursor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+
+.btc-scrub-cursor.is-on {
+  opacity: 1;
+}
+
+.btc-scrub-cursor-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.5px;
+  width: 1px;
+  background: var(--text-dim);
+  will-change: transform;
+}
+
+.btc-scrub-cursor-dot {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+  will-change: transform;
+}
+
+.btc-scrub-cursor-dot.up {
+  background: var(--success);
+}
+
+.btc-scrub-cursor-dot.down {
+  background: var(--danger);
+}
+
+.copy-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.confirm-summary .info-row .copy-value code {
+  max-width: none;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-h);
+  box-shadow: none;
+}
+
+.copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.copy-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--border-soft);
+}
+
+.copy-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.history-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-w) solid var(--border);
+}
+
+.history-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.history-icon.in {
+  background: var(--history-in-bg);
+  color: var(--history-in);
+}
+
+/* Red, not the neutral --surface-2/--text used before — a clearer green/red
+   "plus/minus" pairing for received vs sent, picked after a round of
+   mockups. --danger is reused as-is (not a dedicated --history-out) since
+   it isn't used for anything else this shouldn't also apply to. */
+.history-icon.out {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* One-shot entrance for a movement that just arrived (HistoryPanel tracks
+   which ids are new vs. already-seen) — the icon flies in along the same
+   diagonal its own arrow points, so the motion reads as a continuation of
+   the arrow rather than a generic pop-in. Not `infinite` — plays once per
+   new item and HistoryPanel removes the class on animationend, since a
+   looping animation on every icon in a long list read as distracting/noisy
+   rather than a subtle detail. */
+@keyframes history-icon-fly-in-receive {
+  0% {
+    transform: translate(-18px, -18px) scale(0.55);
+    opacity: 0;
+    animation-timing-function: ease-in;
+  }
+  40% {
+    transform: translate(-9px, -9px) scale(0.78);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  75% {
+    transform: translate(1.5px, 1.5px) scale(1.04);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes history-icon-fly-in-send {
+  0% {
+    transform: translate(-18px, 18px) scale(0.55);
+    opacity: 0;
+    animation-timing-function: ease-in;
+  }
+  40% {
+    transform: translate(-9px, 9px) scale(0.78);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  75% {
+    transform: translate(1.5px, -1.5px) scale(1.04);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+.history-icon.in.fly-in {
+  animation: history-icon-fly-in-receive 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.history-icon.out.fly-in {
+  animation: history-icon-fly-in-send 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-icon.fly-in {
+    animation: none;
+  }
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The chat note before the time: one line, cut rather than wrapped. */
+.history-sub {
+  display: flex;
+  min-width: 0;
+  white-space: pre;
+}
+
+.history-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-kind {
+  font-weight: 700;
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.amount {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.amount.positive {
+  color: var(--success);
+}
+
+.amount.negative {
+  color: var(--text-h);
+}
+
+.amount-dots {
+  color: var(--text);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.mode-toggle button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  border: none;
+  box-shadow: none;
+  border-radius: 10px;
+  padding: 9px;
+  font-size: 13px;
+}
+
+.mode-toggle button:hover:not(.active) {
+  transform: none;
+  box-shadow: none;
+}
+
+.mode-toggle button svg {
+  /* 19px rather than the plain 15px other icon uses elsewhere — the boat
+     (ArkIcon) and Bitcoin mark (OnchainIcon) need the extra couple of
+     pixels to actually read as their shape instead of a blob. */
+  width: 19px;
+  height: 19px;
+}
+
+.mode-toggle button.active {
+  /* Background comes from the sliding .mode-toggle::before thumb underneath
+     instead (see design-v2.css) — the button itself just changes text
+     color as the thumb glides under it. */
+  color: var(--accent-ink);
+  background: transparent;
+}
+
+.mode-toggle button.active:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.kind-badge {
+  align-self: flex-start;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: var(--border-w) solid var(--border);
+  padding: 3px 10px;
+  border-radius: 999px;
+  animation: fade-slide-in 0.18s ease;
+}
+
+.kind-badge-invalid {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.paid-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--success);
+  font-weight: 700;
+  font-size: 15px;
+  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.check-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  padding: 14px;
+  border-radius: 50%;
+  background: var(--success-bg);
+  border: calc(var(--border-w) + 0.5px) solid var(--border);
+  /* Springs open from nothing rather than just nudging size — the
+     overshoot built into this easing curve (already used for toasts
+     elsewhere) is what gives the actual bounce. */
+  animation: check-badge-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.check-badge svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+@keyframes check-badge-in {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* A ring expands outward from the badge and fades once, right after the
+   checkmark finishes drawing — a "confirmed" ripple instead of just a
+   static circle+checkmark, which read as too plain at the larger size. */
+.check-badge::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid var(--success);
+  opacity: 0;
+  animation: check-ripple 0.7s ease-out 0.9s backwards;
+}
+
+@keyframes check-ripple {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.check-ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: check-ring-draw 0.35s ease-out 0.3s both;
+}
+
+.check-mark {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: check-mark-draw 0.3s ease-out 0.6s both;
+}
+
+@keyframes check-ring-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes check-mark-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-badge {
+    animation: none !important;
+  }
+  .check-badge::after {
+    animation: none !important;
+    opacity: 0;
+  }
+  .check-ring,
+  .check-mark {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}
+
+.lightning-wait-icon {
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+  margin-bottom: -1px;
+  color: var(--accent);
+  animation: bolt-strike 3.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes bolt-strike {
+  0%,
+  55% {
+    opacity: 0.3;
+    transform: scale(0.9);
+    filter: none;
+  }
+  66% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 3px var(--accent));
+  }
+  74% {
+    opacity: 0.4;
+    transform: scale(0.95);
+    filter: none;
+  }
+  85% {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 3px var(--accent));
+  }
+  93%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightning-wait-icon {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+.confirm-summary {
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--pop-sm);
+  overflow: hidden;
+}
+
+.confirm-summary .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.confirm-summary .info-row:last-child {
+  border-bottom: none;
+}
+
+.confirm-summary .info-row code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-h);
+  font-weight: 700;
+  word-break: break-all;
+  text-align: right;
+  max-width: 65%;
+}
+
+.confirm-summary .info-row strong {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.gift-seed-banner {
+  /* Single row (overrides .banner's icon-beside-text-block layout): icon +
+     title on the left, the button pinned right. A gentle slide-in — it
+     appears the moment the user taps "Přijmout dárek", so it shouldn't
+     just pop. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  animation: gift-seed-banner-in 0.28s ease both;
+}
+
+@keyframes gift-seed-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gift-seed-banner {
+    animation: none;
+  }
+}
+
+.gift-seed-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.gift-seed-head svg {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+.gift-seed-head strong {
+  font-size: 13.5px;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+.gift-seed-btn {
+  flex-shrink: 0;
+}
+
+/* A @handle resolved in the send field, or shown as the recipient on the
+   confirm screen: the avatar drawn from its address next to the name. */
+.recipient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* "pavel@spendrr.app": the name carries it, the domain is there to show what
+   the full address is, quieter. */
+.recipient-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipient-chip-domain {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.recipient-chip.is-checking {
+  opacity: 0.75;
+}
+
+/* Handles paid before, under the send field while one is being typed. */
+.name-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 6px;
+}
+
+.name-suggestions .name-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.name-suggestions .name-suggestion:hover,
+.name-suggestions .name-suggestion:active,
+.name-suggestions .name-suggestion:focus-visible {
+  background: var(--surface-2);
+  box-shadow: none;
+  transform: none;
+}
+
+.history-kind .history-handle {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+
+/* Payment detail in the shared sheet (TxDetailSheet, v2). Built like the
+   home screen: the amount is the headline in the balance's own type, the
+   details in the same card as the history list. No chips. */
+.txd-kind {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+}
+
+.txd-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 4px;
+}
+
+.txd-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.txd-amount-num {
+  font-size: clamp(44px, 15vw, 64px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-h);
+}
+
+.txd-amount-unit {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-h);
+}
+
+.txd-amount--in .txd-amount-num {
+  color: var(--success);
+}
+
+.txd-amount--out .txd-amount-num {
+  color: var(--danger);
+}
+
+.txd-dots {
+  margin: 6px 0 4px;
+}
+
+/* The fiat line and the price-change value arrive after the sheet is up:
+   their place is held so nothing below them jumps, and they fade in. */
+.txd-fiat {
+  min-height: 1.5em;
+}
+
+.txd-fiat-note {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.txd-skeleton {
+  display: block;
+  width: 52px;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-soft) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-pulse 1.4s ease infinite;
+}
+
+.txd-value-in {
+  animation: sht-fade-in 0.25s ease-out both;
+}
+
+.txd-up {
+  color: var(--success) !important;
+}
+
+.txd-down {
+  color: var(--danger) !important;
+}
+
+.txd-card {
+  align-self: stretch;
+  text-align: left;
+}
+
+/* Camera / gallery side by side, as tall tiles like the tap-to-pay choice
+   (BumpOverlay.css). The sheet's column centres its children, so the row
+   needs its own full width. */
+.qr-source-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.qr-source-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 10px 16px;
+  margin: 0;
+  border-radius: 20px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: none;
+  transition: transform 0.18s var(--sht-ease), background-color 0.2s ease;
+}
+
+.qr-source-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.qr-source-btn:active:not(:disabled) {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.qr-source-btn svg {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+.qrs-mark {
+  width: 72px;
+  height: 72px;
+}
+
+.qrs-mark .sht-mark-glyph {
+  stroke: var(--text-dim);
+  stroke-width: 2.6;
+}

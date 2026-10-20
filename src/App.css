@@ -1,0 +1,831 @@
+.centered-screen {
+  max-width: 440px;
+  margin: 0 auto;
+  min-height: 100svh;
+  padding: 56px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  text-align: left;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 4px solid var(--border-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.brand-mark {
+  font-size: 36px;
+}
+
+.onboarding-screen {
+  position: relative;
+  overflow: hidden;
+}
+
+.onboarding-screen .brand {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: onboarding-brand-in 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes onboarding-brand-in {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.onboarding-card {
+  position: relative;
+  z-index: 1;
+  box-shadow: 4px 4px 0 var(--border);
+  opacity: 0;
+  animation: onboarding-card-in 500ms 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes onboarding-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onboarding-card h1 {
+  line-height: 1.2;
+}
+
+.onboarding-learn {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.onboarding-badge {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: var(--border-w) solid var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+  transform: rotate(5deg);
+  /* Wobbles once, 2s after the card has settled — not a continuous idle
+     loop, which read as distracting on a screen showing real-money copy. */
+  animation: onboarding-badge-wobble 2s 2s ease-in-out 1;
+}
+
+@keyframes onboarding-badge-wobble {
+  0%,
+  100% {
+    transform: rotate(5deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+/* Two radial glows reusing the app's existing --glow-1/--glow-2 strength
+   tokens (0% in light mode, ~15% in dark — see index.css's #root rule) so
+   they stay invisible in light mode the same way the rest of the app's
+   background glow already does, without a separate light-mode override. */
+.onboarding-glow {
+  position: absolute;
+  z-index: 0;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.onboarding-glow-1 {
+  top: -140px;
+  left: 8%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) var(--glow-1), transparent), transparent 70%);
+  animation: onboarding-drift-1 11s ease-in-out infinite;
+}
+
+.onboarding-glow-2 {
+  top: 40px;
+  right: 2%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--success) var(--glow-2), transparent), transparent 70%);
+  animation: onboarding-drift-2 9s ease-in-out infinite;
+}
+
+@keyframes onboarding-drift-1 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(18px, 14px);
+  }
+}
+
+@keyframes onboarding-drift-2 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-16px, 10px);
+  }
+}
+
+.onboarding-bg-icons {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+}
+
+.onboarding-bg-icon {
+  position: absolute;
+  color: var(--border);
+  animation-name: onboarding-bg-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes onboarding-bg-float {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(var(--drift-r, 0deg));
+  }
+  50% {
+    transform: translate(var(--drift-x, 10px), var(--drift-y, -14px)) rotate(var(--drift-r, 0deg));
+  }
+}
+
+.auth-card {
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--pop);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-card h1 {
+  text-align: center;
+}
+
+.auth-card > .muted {
+  text-align: center;
+  line-height: 1.5;
+}
+
+.muted {
+  color: var(--text);
+}
+
+.muted.small,
+.small {
+  font-size: 13px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 13px 20px;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  box-shadow: var(--pop-sm);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.4s ease;
+  /* Without this, mobile browsers flash their default tap-highlight
+     rectangle over every button on tap — every tappable element in the app
+     is a <button>, so this is set once here rather than per-component. */
+  -webkit-tap-highlight-color: transparent;
+  /* Tells the browser this element has no double-tap-to-zoom or pan
+     gesture to wait for, so it can fire the tap immediately instead of
+     the ~300ms it otherwise holds to see if a second tap follows —
+     mainly matters on iOS Safari, which doesn't fully drop that delay
+     the way Chrome does just from the viewport meta tag alone. */
+  touch-action: manipulation;
+}
+
+button:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--pop);
+}
+
+button:active:not(:disabled) {
+  /* Matches --pop-sm's now-shorter offset (see index.css) — .big-action-btn
+     and .big-action-scan keep their own explicit, more specific :active
+     rule in Dashboard.css, so they're unaffected by this. */
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: var(--pop-sm);
+  transform: none;
+}
+
+button.secondary {
+  background: var(--surface);
+  color: var(--text-h);
+}
+
+button.danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+button.small {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  border-radius: 9px;
+  border-width: 2px;
+  box-shadow: 2.5px 2.5px 0 var(--border);
+}
+
+button.small:hover:not(:disabled) {
+  box-shadow: 3px 3px 0 var(--border);
+}
+
+button.small:active:not(:disabled) {
+  transform: translate(2.5px, 2.5px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+input,
+textarea {
+  font: inherit;
+  font-size: 15px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  width: 100%;
+  outline: none;
+  transition: box-shadow 0.12s ease;
+}
+
+/* iOS Safari zooms into any field under 16px on focus and stays zoomed after
+   the keyboard closes (the page is cut off at the edge until a reload).
+   -webkit-touch-callout exists only on iOS, so other engines are untouched.
+   !important because field-specific rules (seed words, unlock, icon inputs)
+   set smaller sizes with higher specificity. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+input:focus,
+textarea:focus {
+  box-shadow: var(--pop-accent);
+}
+
+.input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon-wrap svg {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.input-icon-wrap input {
+  padding-left: 42px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-icon-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-icon-row svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.success {
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.mnemonic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 12px;
+  padding: 18px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.mnemonic-word {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  padding: 4px 0;
+}
+
+.mnemonic-word .idx {
+  color: var(--text);
+  font-size: 11px;
+  min-width: 14px;
+  text-align: right;
+  font-weight: 400;
+}
+
+.mnemonic-dots {
+  color: var(--text);
+  letter-spacing: 0.1em;
+  user-select: none;
+}
+
+.mnemonic-input {
+  font-family: var(--mono);
+  resize: vertical;
+}
+
+.word-count-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.word-count-toggle button {
+  flex: 1;
+  padding: 8px 0;
+}
+
+.mnemonic-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+  padding: 14px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.mnemonic-input-word {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  padding: 2px 8px;
+}
+
+.mnemonic-input-word .idx {
+  color: var(--text);
+  font-size: 11px;
+  min-width: 14px;
+  text-align: right;
+}
+
+.mnemonic-input-word input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  padding: 6px 0;
+  outline: none;
+  box-shadow: none;
+  caret-color: var(--text-h);
+  caret-shape: bar;
+}
+
+.mnemonic-input-word {
+  transition: border-color 150ms ease;
+}
+
+.mnemonic-input-word.state-valid {
+  border-color: var(--success);
+}
+
+.mnemonic-input-word.state-invalid {
+  border-color: var(--danger);
+}
+
+.mnemonic-input-word.autocompleted input {
+  animation: mnemonic-autofill 260ms ease;
+}
+
+@keyframes mnemonic-autofill {
+  0% {
+    color: var(--success);
+    letter-spacing: 0.04em;
+  }
+  100% {
+    color: var(--text-h);
+    letter-spacing: normal;
+  }
+}
+
+.mnemonic-import-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.icon-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  box-shadow: var(--pop-sm);
+}
+
+.banner svg {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.banner-warning {
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+/* .banner sets font-weight: 600, but the app's self-hosted Space Grotesk
+   only ships 500/700 files (see fonts.css) — the browser rounds 600 up to
+   the nearest available weight, 700, so the banner text was already
+   effectively bold. A bare <strong> inside it (also 700) was therefore
+   indistinguishable from the rest of the sentence. Pin the non-emphasized
+   text to the actually-lighter 500 face so <strong>'s 700 reads as a real
+   step up. */
+.seed-warning-text {
+  font-weight: 500;
+}
+
+.seed-warning-text strong {
+  font-weight: 700;
+  /* Fixed white rather than inheriting --text-h: in light mode --text-h is
+     near-black, which barely contrasts against a saturated red fill —
+     white reads clearly against --danger in both themes. */
+  color: #fff;
+  background: color-mix(in srgb, var(--danger) 75%, transparent);
+  border-radius: 4px;
+  padding: 0 3px;
+  margin: 0 -3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.banner-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.banner-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+/* Technical resetWorker() reason shown on the unlock screen's forced-relock
+   banner (App.tsx) — kept visually secondary to the plain-language sentence
+   above it, but still copy-pasteable for a bug report. */
+.worker-lost-reason {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.75;
+  word-break: break-word;
+}
+
+/* Reset-wallet escape hatch on the unlock screen. Overrides the app's whole
+   button signature (border + --pop offset shadow + accent fill) on purpose —
+   it sits outside .auth-card and must not read as a third action of the same
+   weight as Odemknout. */
+.forgot-password-link {
+  align-self: center;
+  margin-top: 16px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  opacity: 0.75;
+}
+
+.forgot-password-link:hover:not(:disabled),
+.forgot-password-link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* ---- V2 (beta) unlock screen --------------------------------------------
+   Deliberately calm: one outline padlock, every state change a single
+   transition (no multi-step keyframes, no loops on the lock itself). The
+   open state only ever applies after the wallet has actually opened (see
+   UNLOCK_CELEBRATION_MS in App.tsx). */
+.unlock-v2 {
+  position: relative;
+  overflow: hidden;
+  /* Room for the pinned logo (.unlock-v2 > .brand) so the centred content
+     can never slide under it on a short screen. */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 112px);
+  /* 38px more than the top: balances the padlock above the card against the
+     shorter "Zapomenuté heslo" link below, so the card itself (not the whole
+     group) sits at the vertical centre. */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
+}
+
+/* Logo pinned to the top of the screen so the padlock + card own the
+   centre on their own. */
+.unlock-v2 > .brand {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 40px);
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+
+.unlock-lock {
+  align-self: center;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-h);
+  transition: color 0.5s ease;
+}
+
+.unlock-lock svg {
+  width: 72px;
+  height: 72px;
+  overflow: visible;
+}
+
+.unlock-lock path,
+.unlock-lock rect {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.unlock-shackle {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.unlock-lock.is-open {
+  color: var(--success);
+}
+
+.unlock-lock.is-open .unlock-shackle {
+  transform: translateY(-3px);
+}
+
+/* Indeterminate hairline under the lock while an open is in flight. The
+   track fades in/out via transition, so it never pops. */
+.unlock-progress {
+  position: relative;
+  width: 56px;
+  height: 2px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: var(--border-soft);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.unlock-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 1px;
+  background: var(--text-h);
+  animation: unlock-progress-slide 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.unlock-lock.is-busy .unlock-progress {
+  opacity: 1;
+}
+
+@keyframes unlock-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.unlock-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.unlock-password input {
+  width: 100%;
+  padding-right: 50px;
+}
+
+/* Icon-only toggle inside the field: strips the app's button signature
+   (border, offset shadow, accent fill), same approach as
+   .forgot-password-link. */
+.unlock-password .unlock-reveal {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--text);
+}
+
+.unlock-password .unlock-reveal svg {
+  width: 20px;
+  height: 20px;
+}
+
+.unlock-password .unlock-reveal:hover:not(:disabled),
+.unlock-password .unlock-reveal:active:not(:disabled),
+.unlock-v2 .unlock-text-link:hover:not(:disabled),
+.unlock-v2 .unlock-text-link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-h);
+}
+
+.unlock-caps {
+  margin: -6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.unlock-v2 .unlock-text-link {
+  padding: 6px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Dashboard swap after a V2 unlock (document.startViewTransition in
+   App.tsx's openSessionInner) — the only view transition in the app. A
+   plain crossfade, nothing else. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 360ms;
+  animation-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-lock,
+  .unlock-shackle,
+  .unlock-progress {
+    transition: none;
+  }
+
+  .unlock-progress::after {
+    animation: none;
+  }
+}

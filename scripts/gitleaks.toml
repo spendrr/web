@@ -1,0 +1,10 @@
+# Used by export-public.mjs. Everything here was read and is not a secret.
+title = "spendrr export"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Official NIP-44 test vectors (public) and a localStorage key name"
+paths = ['''tests/fixtures/nip44\.vectors\.json''']
+regexes = ['''^btc-wallet-onchain-bloat-fixed-v1$''']

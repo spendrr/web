@@ -1,0 +1,39 @@
+/* DeleteWalletSheet.tsx: the hold-to-confirm button. The fill is a
+   transform transition, so the 2 s hold runs on the compositor and keeps
+   going while the main thread is busy. Releasing drains it back quickly. */
+
+.sht-sheet .dws-hold {
+  position: relative;
+  width: 100%;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--danger);
+  background: var(--danger-bg);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.dws-hold-fill {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--danger) 38%, transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+
+.dws-hold.is-holding .dws-hold-fill {
+  transform: scaleX(1);
+  transition: transform var(--dws-hold-ms) linear;
+}
+
+.dws-hold-label {
+  position: relative;
+  transition: color 0.2s;
+}
+
+.dws-hold.is-holding .dws-hold-label {
+  color: var(--text-h);
+}

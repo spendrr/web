@@ -1,0 +1,269 @@
+.prf-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  /* Room between the name and the QR below it. */
+  margin-bottom: 12px;
+}
+
+.prf-handle {
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+  /* Up to 20 characters plus the edit button have to fit one line on a 320px
+     phone, so the size follows the screen width instead of a fixed 22px. */
+  font-size: clamp(17px, 5.6vw, 22px);
+}
+
+.prf-preview {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* Registered screen: positioning context for the corner close button, and the
+   same vertical rhythm as the other sheet screens. */
+.prf-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.prf-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.prf-edit,
+.prf-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-soft);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.prf-close {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+
+/* Same as .shl-link-btn: the global button:hover shadow does not belong on
+   these round icon buttons either. */
+.prf-edit:hover:not(:disabled),
+.prf-edit:active:not(:disabled),
+.prf-close:hover:not(:disabled),
+.prf-close:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Lightning-address opt-in, below the main @handle QR (beta). */
+.prf-ln {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* The confirmation stands alone under the address: no rule above it. */
+.prf-ln.is-confirming {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.prf-ln-ask {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.prf-ln-confirm .prf-ln-note {
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.prf-ln-note {
+  margin: 0;
+  text-align: left;
+}
+
+.prf-ln-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.prf-ln-copy-state {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* v2: the handle written as the full address. "@spendrr.app" is quieter than
+   the name, and dashed while the Lightning address is off (the full form only
+   works from Spendrr until then). */
+.prf-address {
+  font-size: clamp(16px, 5vw, 21px);
+}
+
+.prf-address-btn {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+/* While a change is in flight the button is disabled; the global
+   button:disabled would give it back its hard shadow (right and bottom edge). */
+.prf-address-btn:disabled,
+.prf-address-btn:hover:not(:disabled),
+.prf-address-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.prf-address-domain {
+  color: var(--text-dim);
+  font-weight: 500;
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  transition: color 0.3s ease, text-decoration-color 0.3s ease;
+}
+
+.prf-address-btn.is-on .prf-address-domain {
+  color: inherit;
+  text-decoration-color: transparent;
+}
+
+.prf-address-hint {
+  margin: -6px 0 0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.prf-address-hint strong {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.prf-ln-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The address as on the receive screen: no box, the name over the short-form
+   hint. With the Lightning address on, tapping the name copies it. */
+.prf-addr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.prf-addr-card .prf-address {
+  font-size: clamp(24px, 8vw, 32px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.prf-addr-card .prf-address-hint {
+  margin: 0;
+}
+
+/* A long name wraps before "@", never inside the domain or mid-name. */
+.prf-addr-card .prf-address-btn {
+  display: block;
+}
+
+.prf-addr-card .prf-address-domain {
+  display: inline-block;
+}
+
+.prf-address-btn.is-on .prf-address-domain {
+  color: var(--text-dim);
+}
+
+/* Secondary actions under Sdílet: small, dim, underlined, like the other
+   formats on the receive screen. */
+.prf-quiet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin: -4px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.prf-quiet button {
+  padding: 6px 4px;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border-soft);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.prf-quiet button:hover:not(:disabled),
+.prf-quiet button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-h);
+}

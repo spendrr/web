@@ -1,0 +1,698 @@
+/* Unilateral exit sheet (ExitSheet.tsx) and its journey picture
+   (ExitJourney.tsx). Theme tokens from src/index.css only. Motion follows the
+   sheet's own curves (--sht-ease / --sht-spring from PaySheet.css) and stops
+   under prefers-reduced-motion (end of file). */
+
+/* --- journey -------------------------------------------------------------- */
+
+.ex-journey {
+  --ex-dot: 12px;
+  --ex-coin-size: 30px;
+  position: relative;
+  width: calc(100% - 36px);
+  margin: 6px auto 4px;
+  padding-top: 8px;
+}
+
+.ex-track {
+  position: relative;
+  height: var(--ex-coin-size);
+}
+
+/* The whole route, dashed: what is still ahead. */
+.ex-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 2px dashed var(--border-soft);
+  transform: translateY(-1px);
+}
+
+/* The part already travelled, solid, ending under the coin. */
+.ex-track-done {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 3px;
+  width: var(--ex-coin);
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 1.1s var(--sht-ease);
+}
+
+/* The segment the coin is crossing right now: light running along it. */
+.ex-track-flow {
+  position: absolute;
+  top: 50%;
+  height: 3px;
+  width: 33.34%;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) 0 0 / 50% 100% repeat-x;
+  opacity: 0.55;
+  animation: ex-flow 1.6s linear infinite;
+}
+
+.ex-track-flow--seg0 {
+  left: 0;
+}
+
+.ex-track-flow--seg2 {
+  left: 66.66%;
+}
+
+@keyframes ex-flow {
+  from { background-position: -50% 0; }
+  to { background-position: 150% 0; }
+}
+
+.ex-station {
+  position: absolute;
+  top: 50%;
+  width: var(--ex-dot);
+  height: var(--ex-dot);
+  margin: calc(var(--ex-dot) / -2) 0 0 calc(var(--ex-dot) / -2);
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-soft);
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+
+.ex-station.is-reached {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.ex-coin {
+  position: absolute;
+  top: 50%;
+  left: var(--ex-coin);
+  width: var(--ex-coin-size);
+  height: var(--ex-coin-size);
+  margin: calc(var(--ex-coin-size) / -2) 0 0 calc(var(--ex-coin-size) / -2);
+  transition: left 1.1s var(--sht-ease);
+  z-index: 1;
+}
+
+.ex-coin svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
+}
+
+/* The official Bitcoin mark: the B is a cut-out, so the surface shows
+   through it. */
+.ex-coin svg {
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.ex-coin path {
+  fill: var(--accent);
+}
+
+/* Travelling: a small hop, like it's being carried along. */
+.ex-coin.is-moving svg {
+  animation: ex-hop 1.6s var(--sht-ease) infinite;
+}
+
+@keyframes ex-hop {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  40% { transform: translateY(-5px) rotate(-8deg); }
+  70% { transform: translateY(0) rotate(4deg); }
+}
+
+/* Start screen: resting in Ark, breathing. */
+.ex-journey.is-idle .ex-coin svg {
+  animation: ex-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes ex-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+/* Timelock: a ring slowly winding around the coin. */
+.ex-coin-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  opacity: 0.7;
+  animation: ex-wind 3s linear infinite;
+}
+
+@keyframes ex-wind {
+  to { transform: rotate(360deg); }
+}
+
+/* Ready to claim: the ring stops and the coin calls for attention. */
+.ex-journey.is-ready .ex-coin-ring {
+  animation: none;
+  border-color: var(--accent);
+  opacity: 0.35;
+}
+
+.ex-journey.is-ready .ex-coin svg {
+  animation: ex-call 1.8s var(--sht-spring) infinite;
+}
+
+@keyframes ex-call {
+  0%, 60%, 100% { transform: scale(1); }
+  30% { transform: scale(1.14); }
+}
+
+/* Arrived: lands with a pop. */
+.ex-coin.is-home svg {
+  animation: ex-land 0.7s var(--sht-spring) both;
+}
+
+@keyframes ex-land {
+  from { transform: scale(0.6); }
+  to { transform: scale(1); }
+}
+
+.ex-labels {
+  position: relative;
+  height: 18px;
+  margin-top: 6px;
+}
+
+.ex-labels span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.4s ease;
+}
+
+.ex-labels span:first-child {
+  transform: none;
+  margin-left: -6px;
+}
+
+.ex-labels span:last-child {
+  transform: translateX(-100%);
+  margin-left: 6px;
+}
+
+.ex-labels span.is-reached {
+  color: var(--text);
+}
+
+/* --- content -------------------------------------------------------------- */
+
+.ex-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: -6px;
+}
+
+.ex-amount strong {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-amount span {
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 260px;
+}
+
+.ex-note.ex-note--center {
+  text-align: center;
+}
+
+/* No lone last word under the exit's centered title. */
+.sht-sheet:has(.ex-journey) .sht-sub {
+  text-wrap: balance;
+}
+
+.ex-loading {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.ex-facts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: 16px;
+  overflow: hidden;
+  text-align: left;
+}
+
+.ex-fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.ex-fact + .ex-fact {
+  border-top: 1px solid var(--border-soft);
+}
+
+.ex-fact span {
+  flex: 1;
+}
+
+.ex-fact strong {
+  white-space: nowrap;
+  color: var(--text-h);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ex-fact--bad strong {
+  color: var(--danger);
+}
+
+.ex-fact--ok strong {
+  color: var(--success);
+}
+
+.ex-note {
+  margin: 0;
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.ex-note--ok {
+  color: var(--success);
+}
+
+.ex-alert {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  animation: sht-rise 0.3s var(--sht-ease) both;
+}
+
+.ex-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  /* A tap on the label toggles the box; without this the browser also
+     selected the words (blue highlight) or flashed its tap rectangle. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The global input rule (App.css) makes every input a full-width field. */
+.ex-check input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  accent-color: var(--danger);
+}
+
+.ex-rules {
+  margin: 0;
+  padding: 0 0 0 18px;
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.ex-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ex-hint {
+  margin: 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+.ex-hint--bad {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* The typed address read back, ends in bold. */
+.ex-readback {
+  font-family: var(--mono);
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+.ex-readback strong {
+  color: var(--text-h);
+}
+
+.ex-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.ex-panel--claim {
+  animation: sht-rise 0.35s var(--sht-ease) both;
+}
+
+.ex-claims {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ex-claim {
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: var(--border-w) solid var(--border-soft);
+  font-size: 13px;
+  text-align: left;
+}
+
+.ex-claim-status {
+  margin-top: 2px;
+  color: var(--text-dim);
+}
+
+.ex-txlink {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  /* Orange text on the light sheet is ~2.3:1; the accent stays in the line. */
+  color: var(--text-h);
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.ex-destination {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.ex-destination strong {
+  font-family: var(--mono);
+  color: var(--text-h);
+}
+
+.ex-badge {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.ex-badge--bad {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.ex-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 4px;
+  margin: -6px 0;
+}
+
+.ex-coins {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.ex-coins li {
+  padding: 9px 2px;
+  font-size: 13px;
+}
+
+.ex-coins li + li {
+  border-top: 1px solid var(--border-soft);
+}
+
+.ex-coin-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ex-coin-head strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-coin-phase {
+  color: var(--text-dim);
+}
+
+.ex-coin-phase--claimable {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.ex-coin-phase--aborted {
+  color: var(--danger);
+}
+
+.ex-footer {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ex-inline-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* The global button:hover shadow and lift drew an outline around the word;
+   same fix as .sht-link in PaySheet.css. */
+.ex-inline-link:hover:not(:disabled),
+.ex-inline-link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* --- home card ------------------------------------------------------------ */
+
+.exit-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 26px;
+  background: var(--neutral-bg);
+  color: var(--neutral);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  animation: fade-slide-in 0.2s ease;
+}
+
+.balance-card + .exit-card {
+  margin-top: -24px;
+}
+
+.exit-card + .onchain-receive-toast,
+.onchain-receive-toast + .exit-card {
+  margin-top: -14px;
+}
+
+.exit-card--ready {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.exit-card--alert {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.exit-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exit-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* Red at 0.75 on the pink card is under 3:1. */
+.exit-card--alert .exit-card-title {
+  opacity: 1;
+}
+
+.exit-card-sub {
+  font-weight: 500;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.exit-card-cta {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  color: var(--text-h);
+  font-size: 12px;
+}
+
+/* The plain on-chain Bitcoin mark, same as the home screen's on-chain
+   notices (Dashboard.tsx's OnchainIcon). */
+.exit-card-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ex-track-done,
+  .ex-coin,
+  .ex-station,
+  .ex-labels span {
+    transition: none;
+  }
+  .ex-track-flow,
+  .ex-coin svg,
+  .ex-coin-ring,
+  .ex-journey.is-idle .ex-coin svg,
+  .ex-journey.is-ready .ex-coin svg,
+  .ex-coin.is-moving svg,
+  .ex-coin.is-home svg {
+    animation: none !important;
+  }
+}
+
+/* A closed Collapse still takes a slot in the sheet's flex stack, and with it
+   one full gap; pull that gap back while it's closed. */
+.ex-collapsible {
+  width: 100%;
+  transition: margin-top 0.42s var(--sht-ease);
+}
+
+.ex-collapsible:not(:has(.sht-collapse.is-open)) {
+  margin-top: -14px;
+}
+
+/* Coins in a pending refresh round (InRoundChoice): information plus a
+   choice, not an error, so the neutral outline of .ex-facts. */
+.ex-inround {
+  width: 100%;
+  padding: 12px 14px;
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.ex-inround p {
+  margin: 0;
+}
+
+.ex-inround .ex-inround-warn {
+  margin-top: 8px;
+  color: var(--danger);
+}
+
+/* A fee row still loading (loadStartFees), the same look as the app's other
+   skeletons (.txd-skeleton in Dashboard.css), own keyframes so it also
+   animates in tools/exit-preview/. */
+.ex-skeleton {
+  display: inline-block;
+  width: 72px;
+  height: 14px;
+  border-radius: 6px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-soft) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: ex-skeleton-pulse 1.4s ease infinite;
+}
+
+@keyframes ex-skeleton-pulse {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ex-skeleton {
+    animation: none;
+  }
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Data from the status Worker on its own Cloudflare account (status/, status.js).
+         No inline script or style: the site's CSP allows only 'self'. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2ede4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#100e0a" media="(prefers-color-scheme: dark)" />
+    <title>Status, Spendrr</title>
+    <meta name="description" content="Whether Spendrr and the services it depends on are working right now." />
+    <link rel="canonical" href="https://spendrr.app/status" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/learn.css" />
+    <link rel="stylesheet" href="/status.css" />
+    <script src="/status-theme.js"></script>
+    <script src="/status.js" defer></script>
+  </head>
+  <body>
+    <header class="top wrap">
+      <a class="wordmark" href="/learn/en" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
+      <div class="top-right">
+        <button id="theme-toggle" class="st-theme" type="button" aria-label="Switch theme">
+          <svg class="st-theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
+          <svg class="st-theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" /></svg>
+        </button>
+        <a class="pill pill--small" href="/">Open</a>
+      </div>
+    </header>
+
+    <main class="st wrap">
+      <h1>Status</h1>
+      <section id="overall" class="st-card st-overall" aria-live="polite">
+        <div class="st-mark st-mark--unknown" aria-hidden="true">?</div>
+        <div>
+          <p class="st-overall-title">Loading…</p>
+          <p class="st-overall-sub"></p>
+        </div>
+      </section>
+      <section id="round" class="st-card st-round" hidden aria-label="Ark round">
+        <div id="st-ring" class="st-mark st-pie" aria-hidden="true"></div>
+        <div class="st-round-text">
+          <p class="st-round-label">Next Ark round</p>
+          <p class="st-round-hint">Coin refresh</p>
+        </div>
+        <p id="st-round" class="st-round-time"></p>
+      </section>
+      <noscript><p class="st-note">This page needs JavaScript to show the live status.</p></noscript>
+
+      <section id="services" class="st-card st-services" aria-label="Services"></section>
+
+      <h2>Incidents</h2>
+      <div id="incidents"></div>
+
+      <p class="st-note">Checked every minute from a separate server, the way the app sees each service. Times in UTC.</p>
+    </main>
+
+    <div id="st-tip" class="st-tip" role="tooltip"></div>
+
+    <footer class="foot">
+      <div class="foot-inner wrap">
+        <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
+        <div class="foot-links">
+          <span class="foot-group">
+            <a href="mailto:help@spendrr.app">help@spendrr.app</a>
+            <a href="/terms/en">Terms of Service</a>
+            <a href="/privacy/en">Privacy</a>
+          </span>
+          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

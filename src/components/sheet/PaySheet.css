@@ -1,0 +1,687 @@
+/* Shared bottom-sheet design system.
+   Extracted from BumpOverlay.css (tap-to-pay) so the gift-link and
+   payment-request flows are literally the same sheet, not a lookalike —
+   one motion language, one amount field, one status mark.
+
+   Uses this app's real theme tokens (src/index.css: --surface, --border,
+   --text, --danger, --success, --surface-2, …), never guessed names with
+   literal fallbacks — that mistake once made the tap-to-pay overlay render
+   dark even in light mode. No fallback values on purpose: a wrong token
+   name should look visibly broken rather than silently pick a fixed color.
+
+   Motion language: iOS sheet curve (cubic-bezier(0.32, 0.72, 0, 1)) for
+   anything that travels, a gentle overshoot spring for things that "land",
+   staggered reveals via a per-element --d delay. Everything collapses to
+   plain opacity under prefers-reduced-motion (end of file). */
+
+/* No blur behind a sheet, on purpose: just the dim. It fades as a plain
+   `::before` layer, an opacity animation with nothing expensive underneath. */
+.sht-backdrop {
+  --sht-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --sht-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: fixed;
+  inset: 0;
+  /* Above Coachmark's 500/501 (src/components/Coachmark.css) — confirmed
+     live that without this, the Utility-hub swipe hint sat on top of this
+     overlay's own buttons and ate the click. */
+  z-index: 600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* --kb: the on-screen keyboard's height (useKeyboardInset), so the sheet
+     sits above the keys instead of under them. */
+  padding: 12px 12px calc(12px + max(env(safe-area-inset-bottom), var(--kb, 0px)));
+  transition: padding-bottom 0.25s var(--sht-ease);
+}
+
+.sht-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.45);
+  animation: sht-fade-in 0.32s ease-out both;
+}
+
+/* The backdrop is still a full-screen fixed element for the whole 260ms
+   exit fade — without this, a tap on a home-screen button placed right
+   after "Zrušit" lands on this still-present (if fading) overlay instead of
+   what's underneath, and does nothing; only a second, later tap gets
+   through. The close is already committed (closeThen's setTimeout is
+   running) by the time .is-closing is applied, so nothing here still needs
+   pointer input. */
+.sht-backdrop.is-closing {
+  pointer-events: none;
+}
+
+.sht-backdrop.is-closing::before {
+  animation: sht-fade-out 0.26s ease-in both;
+}
+
+.sht-sheet {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border-w) solid var(--border);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  /* With the keyboard up there may not be room for all of it: scroll inside
+     rather than push the top off screen. */
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: sht-sheet-in 0.52s var(--sht-ease) both;
+}
+
+.sht-sheet.is-closing {
+  animation: sht-sheet-out 0.26s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes sht-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sht-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes sht-sheet-in {
+  from { transform: translateY(calc(100% + 40px)); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sht-sheet-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(40%); opacity: 0; }
+}
+
+/* Height follows the current step (AutoHeight in the component). Animating
+   `height` forces layout every frame; `contain` scopes that recalculation to
+   this box alone instead of the whole document, so the browser isn't
+   re-laying-out content behind the sheet on every animation frame too. */
+.sht-autoheight {
+  transition: height 0.42s var(--sht-ease);
+  overflow: hidden;
+  contain: layout style;
+}
+
+/* Each step enters on its own: rises a touch, sharpens, fades in. */
+.sht-screen {
+  padding: 28px 22px 22px;
+  animation: sht-screen-in 0.42s var(--sht-ease) both;
+}
+
+@keyframes sht-screen-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* Keyboard up: tighter spacing so the amount step fits above it whole. */
+.sht-backdrop.has-keyboard {
+  padding-top: 8px;
+}
+
+.sht-backdrop.has-keyboard .sht-screen {
+  padding: 16px 18px 14px;
+}
+
+.sht-backdrop.has-keyboard .sht-stack {
+  gap: 9px;
+}
+
+.sht-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+@keyframes sht-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sht-pop {
+  from { opacity: 0; transform: scale(0.3) translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.sht-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+}
+
+.sht-sub {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  max-width: 300px;
+}
+
+.sht-warning {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.sht-error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger);
+  animation: sht-rise 0.3s var(--sht-ease) both;
+}
+
+.sht-wide {
+  width: 100%;
+  margin: 4px 0 0;
+}
+
+.sht-sheet .sht-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Two actions side by side, equal width, primary on the right. */
+.sht-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.sht-actions button {
+  flex: 1;
+  margin: 0;
+}
+
+/* --- Amount entry ------------------------------------------------------- */
+
+.sht-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 0 2px;
+}
+
+.sht-amount-row {
+  width: 100%;
+}
+
+.sht-amount-input {
+  display: block;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  caret-color: var(--accent);
+  line-height: 1.15;
+  transition: font-size 0.2s var(--sht-ease), color 0.2s ease;
+}
+
+/* The app-wide `input:focus` rule (a pop shadow + rounded box) outranks a
+   bare class; the big amount is meant to be just digits on the sheet. */
+.sht-sheet .sht-amount-input,
+.sht-sheet .sht-amount-input:focus {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  outline: none;
+}
+
+.sht-amount-input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.45;
+}
+
+.sht-amount.is-over .sht-amount-input {
+  color: var(--danger);
+}
+
+.sht-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  /* A small toggle, not an action: none of the global button's offset
+     shadow or hover lift, only its own press scale. */
+  box-shadow: none;
+  transition: transform 0.16s var(--sht-ease);
+}
+
+.sht-unit:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.sht-unit:active:not(:disabled) {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+
+.sht-unit:disabled {
+  cursor: default;
+  box-shadow: none;
+}
+
+.sht-unit-glyph {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sht-secondary {
+  margin: 0;
+  min-height: 1.3em;
+  font-size: 14px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sht-balance {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  transition: color 0.2s ease;
+}
+
+.sht-balance.is-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* A normal, full-width text field on the sheet (message, password). */
+.sht-field {
+  width: 100%;
+  margin: 0;
+}
+
+/* Grid-rows trick: animates to the content's own height, no measuring. */
+.sht-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  opacity: 0;
+  transition: grid-template-rows 0.36s var(--sht-ease), opacity 0.24s ease;
+}
+
+.sht-collapse.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.sht-collapse-inner {
+  overflow: hidden;
+  /* Room for the input's focus ring inside the clipped box. */
+  padding: 3px;
+  margin: -3px;
+}
+
+/* --- Big amount (progress / result screens) ----------------------------- */
+
+.sht-bigamount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: sht-rise 0.4s var(--sht-ease) 0.08s both;
+}
+
+.sht-bigamount-sats {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.sht-bigamount-unit {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.sht-bigamount-fiat {
+  font-size: 15px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Identity / label pill ---------------------------------------------- */
+
+.sht-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* --- Status mark: ring, spinner, drawn checkmark ------------------------ */
+
+.sht-mark {
+  width: 76px;
+  height: 76px;
+  animation: sht-pop 0.5s var(--sht-spring) both;
+}
+
+.sht-mark svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sht-mark-track,
+.sht-mark-ring {
+  fill: none;
+  stroke-width: 4;
+}
+
+.sht-mark-track {
+  stroke: var(--border);
+  opacity: 0.5;
+}
+
+.sht-mark-ring {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  /* Circumference of r=28: 2πr ≈ 175.9 */
+  stroke-dasharray: 176;
+  transform-origin: 32px 32px;
+}
+
+.sht-mark-check,
+.sht-mark-glyph {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sht-mark--progress .sht-mark-ring {
+  stroke-dashoffset: 120;
+  animation: sht-spin 0.9s linear infinite;
+}
+
+@keyframes sht-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success: the ring closes, then the check draws itself. */
+.sht-mark--success .sht-mark-ring {
+  stroke: var(--success);
+  stroke-dashoffset: 176;
+  transform: rotate(-90deg);
+  animation: sht-ring-close 0.5s var(--sht-ease) 0.05s forwards;
+}
+
+.sht-mark--success .sht-mark-check {
+  stroke: var(--success);
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: sht-draw 0.36s var(--sht-ease) 0.42s forwards;
+}
+
+.sht-mark--success {
+  filter: drop-shadow(0 0 0 transparent);
+  animation: sht-pop 0.5s var(--sht-spring) both, sht-glow 1.2s ease-out 0.4s both;
+}
+
+/* Sent (wallet call succeeded, nothing confirmed yet): the same closing
+   ring and check, in the accent color and without the glow. */
+.sht-mark--sent .sht-mark-ring {
+  stroke-dashoffset: 176;
+  transform: rotate(-90deg);
+  animation: sht-ring-close 0.5s var(--sht-ease) 0.05s forwards;
+}
+
+.sht-mark--sent .sht-mark-check {
+  stroke: var(--accent);
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: sht-draw 0.36s var(--sht-ease) 0.42s forwards;
+}
+
+@keyframes sht-ring-close {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes sht-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes sht-glow {
+  0% { filter: drop-shadow(0 0 0 var(--success)); }
+  40% { filter: drop-shadow(0 0 14px var(--success)); }
+  100% { filter: drop-shadow(0 0 0 transparent); }
+}
+
+/* Incoming: a full ring breathing, arrow gently bobbing. */
+.sht-mark--incoming .sht-mark-ring {
+  stroke: var(--success);
+  stroke-dashoffset: 0;
+  animation: sht-breathe 1.6s ease-in-out infinite;
+}
+
+.sht-mark--incoming .sht-mark-glyph {
+  stroke: var(--success);
+}
+
+.sht-mark-arrow {
+  animation: sht-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes sht-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sht-bob {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(3px); }
+}
+
+.sht-mark--warn .sht-mark-ring,
+.sht-mark--neutral .sht-mark-ring {
+  stroke-dashoffset: 0;
+}
+
+.sht-mark--warn .sht-mark-ring,
+.sht-mark--warn .sht-mark-glyph {
+  stroke: var(--danger);
+}
+
+.sht-mark--neutral .sht-mark-ring,
+.sht-mark--neutral .sht-mark-glyph {
+  stroke: var(--text-dim);
+}
+
+/* Refresh: two grey arrows turning, nothing behind them. */
+.sht-mark-arrows {
+  transform-origin: 32px 32px;
+  animation: sht-spin 2.4s linear infinite;
+}
+
+.sht-mark-arrows path {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Refresh info card: two short lines, and an OK button that drains to show
+   when the card will close by itself (paused while the card is touched). */
+.sht-refresh-sub {
+  margin: -4px 0 6px;
+  white-space: pre-line;
+}
+
+.sht-sheet .sht-refresh-ok {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.sht-refresh-ok::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--surface-2);
+  transform-origin: left;
+  animation: sht-refresh-drain var(--sht-refresh-ms) linear var(--sht-refresh-delay) both;
+}
+
+.sht-refresh-ok.is-held::before {
+  animation-play-state: paused;
+}
+
+@keyframes sht-refresh-drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* --- Waiting dots ------------------------------------------------------- */
+
+.sht-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sht-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.sht-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sht-dot 1.2s ease-in-out infinite;
+}
+
+.sht-dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.sht-dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes sht-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* --- Reduced motion ----------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sht-backdrop::before,
+  .sht-backdrop.is-closing::before,
+  .sht-sheet,
+  .sht-sheet.is-closing,
+  .sht-screen,
+  .sht-bigamount,
+  .sht-mark,
+  .sht-error {
+    animation-name: sht-fade-in;
+    animation-duration: 0.2s;
+    animation-delay: 0s;
+    animation-timing-function: ease-out;
+  }
+
+  .sht-backdrop.is-closing::before,
+  .sht-sheet.is-closing {
+    animation-name: sht-fade-out;
+  }
+
+  .sht-dots span,
+  .sht-mark-arrow,
+  .sht-mark--incoming .sht-mark-ring {
+    animation: none;
+  }
+
+  .sht-mark--success .sht-mark-ring,
+  .sht-mark--success .sht-mark-check,
+  .sht-mark--sent .sht-mark-ring,
+  .sht-mark--sent .sht-mark-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .sht-mark--progress .sht-mark-ring {
+    animation-duration: 2s;
+  }
+
+  .sht-mark-arrows {
+    animation-duration: 6s;
+  }
+
+  .sht-refresh-ok::before {
+    animation: none;
+    transform: scaleX(0);
+  }
+
+  .sht-autoheight,
+  .sht-collapse {
+    transition: none;
+  }
+}
+
+/* Text links inside a sheet ("Teď ne", "Zavřít"): the global button:hover
+   shadow drew a bar under the word, and on touch it stayed after a tap. */
+.sht-sheet .sht-link:hover:not(:disabled),
+.sht-sheet .sht-link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}

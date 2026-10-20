@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Default until src/lib/ui/theme.ts takes over on load — kept in sync with
+         the light/dark values there. A single plain tag (no `media` query) so
+         a `data-theme` override from Settings can actually win: a browser
+         ignores a theme-color tag whose `media` condition doesn't match the
+         *system* setting, regardless of its `content`, which would otherwise
+         block an explicit in-app override from ever applying. -->
+    <meta name="theme-color" content="#f2ede4" />
+    <!-- Fonts are self-hosted (src/fonts.css explains why). Preloaded
+         because the @font-face rules they satisfy live inside the CSS
+         bundle, which the browser only discovers after parsing it — these
+         two `latin` subsets cover essentially all UI text, so starting them
+         alongside the bundle rather than after it removes a round trip from
+         first paint. latin-ext (Czech diacritics) is deliberately not
+         preloaded: it's needed for a minority of glyphs and its own
+         unicode-range gates it fine. -->
+    <link rel="preload" href="/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/space-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="description" content="Spendrr is a self-custodial Bitcoin wallet for your phone. Fast, cheap payments with no middleman. Only you hold the keys. Free, no signup." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Spendrr" />
+    <title>Spendrr: self-custodial Bitcoin wallet</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Plain classic script, loaded and executed before the module bundle
+         below ever starts — see fetch-guard.js for why. -->
+    <script src="/fetch-guard.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

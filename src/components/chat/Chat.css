@@ -1,0 +1,2061 @@
+/* Zprávy (beta). Prefix cht-. Amounts use the app's sans with tabular figures,
+   never --mono: Space Mono draws a dotted zero. */
+
+.cht-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  animation: cht-in 0.28s var(--ease-out) both;
+}
+
+@keyframes cht-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.cht-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+}
+
+.cht-panel.has-keyboard .cht-inner {
+  padding-bottom: calc(var(--kb) + 8px);
+}
+
+.cht-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- header ---------------------------------------------------------------- */
+
+.cht-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.cht-title {
+  flex: 1;
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+}
+
+.cht-title.is-small {
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The conversation header opens the contact's profile. */
+button.cht-peer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  text-align: left;
+}
+
+button.cht-peer:hover {
+  background: var(--neutral-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+button.cht-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-h);
+  box-shadow: none;
+}
+
+/* A picture drawn from a bare Nostr key: dashed edge, so it never passes for a
+   verified contact's. */
+.cht-avatar-key {
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  outline: 1.5px dashed var(--text-dim);
+  outline-offset: 2px;
+}
+
+.cht-avatar-blank {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px dashed var(--border-soft);
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+/* ---- notes and callouts ---------------------------------------------------- */
+
+.cht-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.cht-note.is-error,
+.cht-error {
+  color: var(--danger);
+}
+
+.cht-error {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.cht-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  background: var(--accent-bg);
+  box-shadow: var(--pop-sm);
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.cht-callout > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.cht-warning {
+  margin: 0;
+  padding: 8px 12px;
+  border: var(--border-w) solid var(--danger);
+  border-radius: 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.cht-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ---- new conversation ------------------------------------------------------ */
+
+.cht-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cht-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 12px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* The field's frame is the wrapper, so the focus look (App.css gives every
+   input:focus the --pop-accent shadow) goes on the wrapper, once. */
+.cht-field:focus-within,
+.cht-input-row:focus-within {
+  box-shadow: var(--pop-accent);
+}
+
+.cht-field input:focus,
+.cht-input:focus {
+  box-shadow: none;
+}
+
+.cht-field-at {
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+.cht-field input,
+.cht-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-h);
+  font: inherit;
+  font-size: 16px;
+}
+
+/* The arrow inside the @name field: dim until there is a name to open. */
+button.cht-new-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-h);
+  box-shadow: none;
+  color: var(--bg);
+  transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out);
+}
+
+button.cht-new-go:disabled {
+  background: transparent;
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+button.cht-new-go:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---- list ------------------------------------------------------------------ */
+
+.cht-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  min-height: 0;
+  margin-inline: -4px;
+  padding: 2px 4px 6px;
+}
+
+/* One continuous list: flat rows, a hairline between them (from the text,
+   not under the avatar), a tint on press. */
+button.cht-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+
+button.cht-row + button.cht-row .cht-row-main::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.cht-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cht-row-bottom .cht-row-last {
+  flex: 1;
+  min-width: 0;
+}
+
+.cht-row-last.is-live {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cht-row-last.is-error {
+  color: var(--danger);
+}
+
+button.cht-row.is-unread strong {
+  font-weight: 800;
+}
+
+button.cht-row.is-unread .cht-row-last:not(.is-live, .is-error) {
+  color: var(--text-h);
+}
+
+button.cht-row.is-unread .cht-row-time {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cht-row-count {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* "Platil jsi": a strip of faces, scrolled sideways. */
+.cht-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cht-suggest-row {
+  display: flex;
+  gap: 4px;
+  margin-inline: -4px;
+  padding: 2px 4px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cht-suggest-row::-webkit-scrollbar {
+  display: none;
+}
+
+button.cht-suggest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: 76px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+button.cht-suggest:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-2);
+}
+
+button.cht-suggest.is-busy {
+  opacity: 0.6;
+}
+
+.cht-suggest-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.cht-suggest-error {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.cht-row-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cht-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cht-row-top strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+.cht-row-time {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.cht-row-last {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+button.cht-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-h);
+  font-size: 14px;
+  text-align: left;
+}
+
+p.cht-section.is-static {
+  margin: 10px 0 0;
+  padding: 4px 2px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cht-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.cht-chevron {
+  margin-left: auto;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.cht-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.cht-empty {
+  margin: auto;
+  padding: 32px 0;
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ---- conversation ---------------------------------------------------------- */
+
+.cht-schedules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cht-schedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-h);
+}
+
+button.cht-schedule-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-dim);
+}
+
+button.cht-schedule-x svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* The list and the jump button over its bottom edge. */
+.cht-scroll {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cht-messages {
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  margin-inline: -4px;
+  padding: 4px 4px 8px;
+  /* The reaction picker is placed against the bubbles inside it. */
+  position: relative;
+}
+
+.cht-day {
+  align-self: center;
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.cht-time {
+  margin: 3px 4px 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.cht-time.is-out {
+  align-self: flex-end;
+}
+
+.cht-bubble {
+  max-width: 78%;
+  margin-top: 6px;
+  padding: 9px 13px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* A long press opens the picker, so the browser's own text selection and
+   callout must not start on the same press. */
+.cht-bubble {
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 0.18s var(--ease-out);
+}
+
+/* Swipe right to reply: the bubble follows the finger and a reply mark
+   grows in behind it (--swipe goes 0 to 1). Vertical moves stay scrolling. */
+.cht-bubble {
+  touch-action: pan-y;
+}
+
+.cht-bubble.is-swiping {
+  transition: none;
+}
+
+.cht-bubble::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -34px;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  background: var(--text-dim);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 14l-4-4 4-4'/%3E%3Cpath d='M5 10h11a4 4 0 1 1 0 8h-1'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 14l-4-4 4-4'/%3E%3Cpath d='M5 10h11a4 4 0 1 1 0 8h-1'/%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: var(--swipe, 0);
+  transform: scale(calc(0.5 + var(--swipe, 0) * 0.5));
+  pointer-events: none;
+}
+
+/* ---- links in messages ---------------------------------------------------- */
+
+button.cht-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+button.cht-link:is(:hover, :active):not(:disabled) {
+  background: none;
+  box-shadow: none;
+  transform: none;
+  text-decoration-color: var(--accent);
+}
+
+.cht-dest {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* A payment thing someone sent: what it is, how much, and the action. */
+button.cht-linkcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 200px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text-h) 5%, transparent);
+  box-shadow: none;
+  color: var(--text-h);
+  font-weight: 400;
+  text-align: left;
+}
+
+button.cht-linkcard:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--accent);
+}
+
+.cht-linkcard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cht-linkcard-kind {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.cht-linkcard-main b {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cht-linkcard-main b small {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cht-linkcard-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* "Otevřít" is a link (see LeaveSheet) dressed as the sheet's main button. */
+a.cht-leave-open {
+  display: block;
+  width: 100%;
+  padding: 13px 20px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 12px;
+  background: var(--accent);
+  box-shadow: var(--pop-sm);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a.cht-leave-open:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+.cht-leave-host {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.cht-leave-host span {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.cht-leave-host b {
+  color: var(--text-h);
+  font-weight: 800;
+}
+
+.cht-leave-url {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Top of every conversation: the lock line, quiet, with an info dot. */
+.cht-e2e {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+button.cht-e2e-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-family: Georgia, serif;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+}
+
+button.cht-e2e-info:hover {
+  background: var(--neutral-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+.cht-e2e-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.cht-e2e-mark svg {
+  width: 26px;
+  height: 26px;
+}
+
+.cht-unread {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cht-unread::before,
+.cht-unread::after {
+  content: "";
+  flex: 1;
+  height: 1.5px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+button.cht-jump {
+  position: absolute;
+  right: 6px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: var(--border-w) solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--pop-sm);
+  color: var(--text-h);
+}
+
+.cht-jump-count {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.cht-read {
+  color: var(--accent);
+}
+
+/* The other side typing, or entering an amount (tap-to-pay's dots). */
+.cht-activity {
+  display: inline-flex;
+  align-self: flex-start;
+  min-width: 0;
+  padding: 13px 16px;
+}
+
+.cht-activity.is-amount {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 168px;
+  padding: 11px 14px 14px;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.cht-typing {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.cht-typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  opacity: 0.5;
+}
+
+.cht-activity.is-amount .cht-typing span {
+  width: 10px;
+  height: 10px;
+}
+
+/* ---- contact profile ------------------------------------------------------- */
+
+.cht-profile-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.cht-profile-head .cht-avatar-blank {
+  font-size: 28px;
+}
+
+.cht-profile-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.cht-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.cht-profile-row + .cht-profile-row {
+  border-top: 1.5px solid var(--border-soft);
+}
+
+button.cht-profile-row:hover {
+  background: var(--neutral-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+.cht-profile-note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cht-verified {
+  flex: none;
+  margin-left: 6px;
+  color: var(--success);
+  vertical-align: -2px;
+}
+
+.cht-safety {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1.5px solid var(--border-soft);
+}
+
+/* Two rows of four groups, read aloud or side by side. */
+.cht-safety-code {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 4px;
+  margin: 0;
+  color: var(--text-h);
+  font-size: clamp(14px, 4.2vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.cht-profile-day {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.cht-profile-row b.is-in {
+  color: var(--success);
+}
+
+button.cht-danger {
+  color: var(--danger);
+}
+
+.cht-bubble.is-pressed {
+  transform: scale(1.03);
+  z-index: 3;
+}
+
+.cht-bubble.has-reacts {
+  margin-bottom: 14px;
+}
+
+.cht-reacts {
+  position: absolute;
+  bottom: -14px;
+  display: inline-flex;
+  gap: 1px;
+  padding: 1px 6px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.cht-bubble.is-in .cht-reacts {
+  right: -6px;
+}
+
+.cht-bubble.is-out .cht-reacts {
+  left: -6px;
+}
+
+/* The answered message, one line, inside the reply. */
+.cht-quote {
+  display: flex;
+  flex-direction: column;
+  margin: -2px -5px 6px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-h) 7%, transparent);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.cht-quote b {
+  font-weight: 700;
+}
+
+.cht-quote span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.cht-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+}
+
+.cht-menu {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 48px;
+  padding: 4px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--pop-sm);
+}
+
+button.cht-menu-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  font-size: 22px;
+  line-height: 1;
+}
+
+button.cht-menu-emoji:hover {
+  background: var(--neutral-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+button.cht-menu-emoji.is-mine {
+  background: var(--accent-bg);
+}
+
+.cht-menu-sep {
+  width: 1.5px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--border-soft);
+}
+
+button.cht-menu-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-h);
+}
+
+button.cht-menu-act:hover {
+  background: var(--neutral-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+button.cht-menu-act.is-done {
+  color: var(--success);
+}
+
+/* Replying to: a strip on top of the field. */
+.cht-replying {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.cht-replying-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cht-replying-text b {
+  color: var(--text-h);
+}
+
+.cht-bubble.is-joined {
+  margin-top: 0;
+}
+
+.cht-bubble.is-in {
+  align-self: flex-start;
+}
+
+.cht-bubble.is-out {
+  align-self: flex-end;
+  background: var(--accent-bg);
+}
+
+/* Our message before a relay has it: there, but not yet out. Dimmed only
+   after a moment, so the usual sub-second send does not flicker. */
+.cht-bubble.is-sending {
+  opacity: 0.6;
+  transition: opacity 0.2s 0.4s;
+}
+
+.cht-bubble.is-failed {
+  border-color: var(--danger);
+}
+
+button.cht-retry {
+  align-self: flex-end;
+  margin: 3px 4px 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+button.cht-retry:hover {
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.cht-money.is-link {
+  cursor: pointer;
+}
+
+.cht-money.is-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The corner pointing at the sender is squared off on the last bubble of a
+   run, the way a group of messages reads as one. */
+.cht-bubble.is-in:has(+ .cht-time) {
+  border-bottom-left-radius: 6px;
+}
+
+.cht-bubble.is-out:has(+ .cht-time) {
+  border-bottom-right-radius: 6px;
+}
+
+.cht-money {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  padding: 11px 14px 12px;
+  box-shadow: var(--pop-sm);
+}
+
+.cht-bubble.is-out.cht-money {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.cht-money-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.cht-money-amount {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.cht-money-amount small {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.cht-money-note {
+  font-size: 14px;
+}
+
+.cht-money-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.cht-tag {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--neutral-bg);
+  color: var(--neutral);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cht-tag.is-ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.cht-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cht-system {
+  align-self: center;
+  margin: 10px 0 4px;
+  padding: 4px 12px;
+  border: 1.5px dashed var(--border-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text);
+  text-align: center;
+}
+
+/* A send made outside the chat, shown only here: a system line you can tap. */
+button.cht-local-send {
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+button.cht-local-send:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+/* ---- composer -------------------------------------------------------------- */
+
+.cht-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The recurrence suggestion: a quiet strip that belongs to the field below,
+   not a floating button. Accent only on the icon. */
+button.cht-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  animation: cht-chip-in 0.22s var(--ease-out) both;
+}
+
+.cht-chip-icon {
+  flex: none;
+  color: var(--accent);
+}
+
+.cht-chip-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cht-chip-when {
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.cht-chip-go {
+  flex: none;
+  color: var(--text-dim);
+}
+
+@keyframes cht-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Buttons stay at the bottom edge while the field grows upward. */
+.cht-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 4px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+}
+
+textarea.cht-input {
+  display: block;
+  max-height: 120px;
+  margin: 0;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 20px;
+  resize: none;
+  overflow-y: auto;
+}
+
+button.cht-btc,
+button.cht-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+button.cht-btc {
+  border: var(--border-w) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* The fill grows out of the middle when there is something to send and
+   shrinks back when the field empties, the plane settles to full size;
+   nothing snaps. */
+button.cht-send {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: var(--border-w) solid var(--border);
+  background: transparent;
+  color: var(--bg);
+  transition:
+    color 0.24s var(--ease-out),
+    border-color 0.24s var(--ease-out),
+    transform 0.16s var(--ease-out);
+}
+
+button.cht-send::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--text-h);
+  transition: transform 0.34s var(--ease-spring);
+}
+
+button.cht-send svg {
+  transform: translateX(-1px);
+  transition: transform 0.38s var(--ease-spring);
+}
+
+button.cht-send:disabled {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border-soft);
+  opacity: 1;
+  box-shadow: none;
+}
+
+button.cht-send:disabled::before {
+  transform: scale(0);
+  transition-duration: 0.22s;
+  transition-timing-function: var(--ease-out);
+}
+
+button.cht-send:disabled svg {
+  transform: translateX(-1px) scale(0.9);
+}
+
+button.cht-btc {
+  transition: transform 0.16s var(--ease-out);
+}
+
+/* ---- sheet bits ------------------------------------------------------------ */
+
+/* ---- the pay sheet (ChatPaySheet.tsx) ------------------------------------- */
+
+/* Who, then send/request, the amount, and the options in one card. The two
+   switches are the app's shared .mode-toggle (design-v2.css), same look and
+   slide as everywhere else. */
+.cht-pay-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.cht-pay-head .sht-title {
+  margin: 0;
+}
+
+.mode-toggle.cht-pay-modes {
+  align-self: center;
+  width: min(100%, 240px);
+}
+
+.cht-pay-options {
+  align-self: stretch;
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+input.cht-pay-note {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 14px 16px;
+}
+
+input.cht-pay-note:focus {
+  box-shadow: none;
+}
+
+.cht-pay-note + .cht-repeat {
+  border-top: 2px solid var(--border-soft);
+}
+
+.cht-repeat {
+  padding: 10px 16px 12px;
+}
+
+.cht-repeat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.cht-repeat-label {
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.mode-toggle.cht-pay-intervals {
+  margin-top: 10px;
+}
+
+.cht-repeat-hint {
+  margin: 8px 0 0;
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.cht-fixed-amount {
+  margin: 8px 0;
+  text-align: center;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.cht-fixed-amount span {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+/* ---- header entry point ---------------------------------------------------- */
+
+.icon-btn-chat {
+  position: relative;
+}
+
+.cht-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1.5px solid var(--bg);
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+/* ---- buttons vs App.css ----------------------------------------------------
+   App.css gives every <button> a resting --pop-sm shadow and a lift on hover.
+   Flat controls (icon buttons, the Žádosti section, mode tabs, send) get
+   neither; rows and pills keep their resting shadow but do not lift, they
+   tint. Press stays App.css's. Hover is gated to real pointers: on touch
+   :hover stays matched after the tap. */
+button:is(.cht-icon-btn, .cht-section, .cht-send, .cht-btc, .cht-schedule-x, .cht-chip):is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* The two round composer buttons sink a little when pressed instead. */
+button:is(.cht-send, .cht-btc):active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+button.cht-row:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  button:is(.cht-row, .cht-icon-btn, .cht-chip):hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  button.cht-section:hover:not(:disabled) {
+    color: var(--accent);
+  }
+
+  button:is(.cht-btc, .cht-send):hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+}
+
+button:is(.cht-row, .cht-icon-btn, .cht-chip):active:not(:disabled) {
+  background: var(--border-soft);
+}
+
+button:is(.cht-btc, .cht-send):active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* ---- motion (the app-wide motion switch, src/lib/ui/motion.ts) ----------------- */
+
+:root[data-motion="on"] .cht-view.is-push {
+  animation: cht-push 0.26s var(--ease-out) both;
+}
+
+:root[data-motion="on"] .cht-view.is-pop {
+  animation: cht-pop 0.26s var(--ease-out) both;
+}
+
+@keyframes cht-push {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes cht-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+:root[data-motion="on"] .cht-bubble.is-new {
+  animation: cht-bubble-in 0.3s var(--ease-spring) both;
+}
+
+:root[data-motion="on"] .cht-bubble.is-new.is-out {
+  transform-origin: bottom right;
+}
+
+:root[data-motion="on"] .cht-bubble.is-new.is-in {
+  transform-origin: bottom left;
+}
+
+@keyframes cht-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+}
+
+:root[data-motion="on"] .cht-activity {
+  animation: cht-bubble-in 0.3s var(--ease-spring) both;
+  transform-origin: bottom left;
+}
+
+:root[data-motion="on"] .cht-typing span {
+  animation: cht-typing 1.2s ease-in-out infinite;
+}
+
+:root[data-motion="on"] .cht-typing span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+:root[data-motion="on"] .cht-typing span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes cht-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+:root[data-motion="on"] button.cht-jump {
+  animation: cht-react-in 0.25s var(--ease-spring) both;
+}
+
+:root[data-motion="on"] .cht-unread {
+  animation: cht-in 0.4s var(--ease-out) both;
+}
+
+:root[data-motion="on"] .cht-menu {
+  animation: cht-menu-in 0.22s var(--ease-spring) both;
+}
+
+:root[data-motion="on"] .cht-menu.is-out {
+  transform-origin: bottom right;
+}
+
+:root[data-motion="on"] .cht-menu.is-in {
+  transform-origin: bottom left;
+}
+
+:root[data-motion="on"] .cht-menu.is-below {
+  transform-origin: top center;
+}
+
+:root[data-motion="on"] .cht-menu-emoji {
+  animation: cht-emoji-in 0.28s var(--ease-spring) both;
+  animation-delay: calc(var(--i) * 25ms + 40ms);
+}
+
+@keyframes cht-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes cht-emoji-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.5);
+  }
+}
+
+:root[data-motion="on"] .cht-reacts {
+  animation: cht-react-in 0.3s var(--ease-spring) both;
+}
+
+@keyframes cht-react-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* A payment arriving: the card lifts in with a bit more weight than a text
+   bubble, a single sheen runs across it, then the amount settles. */
+:root[data-motion="on"] .cht-bubble.is-new.is-payment {
+  animation: cht-pay-in 0.55s var(--ease-spring) both;
+}
+
+:root[data-motion="on"] .cht-bubble.is-new.is-payment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    color-mix(in srgb, white 38%, transparent) 50%,
+    transparent 62%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  /* Even pace, so the band is seen crossing rather than flashing past. */
+  animation: cht-pay-sheen 0.75s 0.3s cubic-bezier(0.45, 0, 0.35, 1) both;
+}
+
+:root[data-motion="on"] .cht-bubble.is-new.is-payment .cht-money-amount {
+  animation: cht-pay-amount 0.45s 0.18s var(--ease-spring) both;
+}
+
+:root[data-motion="on"] .cht-bubble.is-new.is-payment .cht-money-amount {
+  transform-origin: left center;
+}
+
+:root[data-motion="on"] .cht-tag.is-fresh {
+  animation: cht-react-in 0.35s var(--ease-spring) both;
+}
+
+@keyframes cht-pay-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.78);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.035);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes cht-pay-sheen {
+  /* With a 260% wide image these two ends put the band just outside the
+     card on either side, so the whole sweep is visible. */
+  from {
+    background-position: 105% 0;
+  }
+  to {
+    background-position: -5% 0;
+  }
+}
+
+@keyframes cht-pay-amount {
+  from {
+    opacity: 0.2;
+    transform: scale(0.86);
+  }
+}
+
+:root[data-motion="on"] .cht-replying {
+  animation: cht-chip-in 0.22s var(--ease-out) both;
+}
+
+:root[data-motion="on"] .cht-read {
+  animation: cht-fade 0.4s var(--ease-out) both;
+}
+
+@keyframes cht-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+:root[data-motion="on"] .cht-activity.is-leaving {
+  animation: cht-activity-out 0.2s var(--ease-out) both;
+}
+
+@keyframes cht-activity-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cht-view,
+  .cht-bubble,
+  .cht-bubble::after,
+  .cht-money-amount,
+  .cht-menu,
+  .cht-menu-emoji,
+  .cht-reacts,
+  .cht-tag,
+  .cht-activity,
+  .cht-typing span,
+  button.cht-jump,
+  .cht-unread,
+  .cht-panel,
+  .cht-replying,
+  .cht-read,
+  button.cht-chip {
+    animation: none;
+  }
+
+  .cht-chevron,
+  button.cht-send,
+  button.cht-send::before,
+  button.cht-send svg {
+    transition: none;
+  }
+}
+
+/* ---- Element polish (beta, V2 only): the lighter outline of design-v2.css carried into Zprávy.
+   1.5px on purpose: a fractional width snaps to 1px at 1x density, on phones it renders as written.
+   Incoming bubbles rest on the soft border, our own and money cards keep a stronger edge. */
+[data-design-version="v2"] .cht-bubble {
+  border-width: 1.5px;
+}
+
+[data-design-version="v2"] .cht-bubble.is-in {
+  border-color: var(--border-soft);
+}
+
+[data-design-version="v2"] .cht-bubble.is-out {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-soft));
+}
+
+[data-design-version="v2"] .cht-bubble.is-failed {
+  border-color: var(--danger);
+}
+
+[data-design-version="v2"] .cht-money {
+  box-shadow: 1.5px 1.5px 0 var(--border-soft);
+}
+
+[data-design-version="v2"] .cht-bubble.is-out.cht-money {
+  border-color: var(--accent);
+  box-shadow: 1.5px 1.5px 0 var(--border-soft);
+}
+
+[data-design-version="v2"] :is(.cht-field, .cht-input-row, .cht-callout, .cht-menu) {
+  border-width: 1.5px;
+}
+
+[data-design-version="v2"] :is(.cht-field, .cht-input-row) {
+  border-color: var(--border-soft);
+}
+
+/* Quiet at rest, full outline once focused; the accent offset shadow is dropped. */
+[data-design-version="v2"] :is(.cht-field, .cht-input-row):focus-within {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+[data-design-version="v2"] :is(button.cht-btc, button.cht-jump) {
+  border-width: 1.5px;
+}
+
+/* List (beta, V2 only): Žádosti is its own bordered row, not a heading that reads as the label of
+   the conversations under it; rows get a press tint and the unread time and count line up. */
+[data-design-version="v2"] button.cht-section {
+  margin: 4px 0 8px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+  font-weight: 600;
+}
+
+[data-design-version="v2"] button.cht-section:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-2);
+}
+
+[data-design-version="v2"] button.cht-section + button.cht-row .cht-row-main::before {
+  display: none;
+}
+
+[data-design-version="v2"] button.cht-row:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-2);
+}
+
+/* The last open request leaves a gap before the conversations, with no hairline across it. */
+[data-design-version="v2"] button.cht-row.is-request:not(:has(+ .is-request)) {
+  margin-bottom: 10px;
+}
+
+[data-design-version="v2"] button.cht-row.is-request + button.cht-row:not(.is-request) .cht-row-main::before {
+  display: none;
+}
+
+/* Conversation header (beta, V2 only): the banners under it are quiet strips with a gap to the
+   header, not offset-shadow cards; their buttons keep the lighter small-button edge. */
+[data-design-version="v2"] .cht-callout {
+  margin-top: 4px;
+  border-color: var(--border-soft);
+  box-shadow: none;
+}
+
+[data-design-version="v2"] .cht-callout button.small {
+  min-height: 0;
+  border-width: 1.5px;
+  box-shadow: 1.5px 1.5px 0 var(--border-soft);
+}
+
+[data-design-version="v2"] .cht-warning {
+  margin-top: 4px;
+  border-width: 1.5px;
+}
+
+[data-design-version="v2"] .cht-head + .cht-schedules {
+  margin-top: 4px;
+}
+
+/* Pay sheet (beta, V2 only), scoped to Zprávy so the wallet's own sheets keep theirs: the same
+   1.5px edge as the rest, and the two actions match (the bare secondary one already had the
+   lighter edge, the primary one did not). */
+[data-design-version="v2"] .cht-panel .sht-sheet {
+  border-width: 1.5px;
+}
+
+[data-design-version="v2"] .cht-pay-options {
+  border-width: 1.5px;
+  border-color: var(--border-soft);
+}
+
+[data-design-version="v2"] .cht-pay-note + .cht-repeat {
+  border-top-width: 1.5px;
+}
+
+[data-design-version="v2"] .cht-panel .sht-actions button {
+  min-height: 48px;
+  border-width: 1.5px;
+  box-shadow: 1.5px 1.5px 0 var(--border-soft);
+}
+
+[data-design-version="v2"] .cht-panel .sht-actions button:active:not(:disabled) {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
+}
+
+/* The info dot stays 18px but its touch target is 44px (the .cht-e2e line has room around it). */
+[data-design-version="v2"] button.cht-e2e-info {
+  position: relative;
+}
+
+[data-design-version="v2"] button.cht-e2e-info::after {
+  content: "";
+  position: absolute;
+  inset: -13px;
+}
+
+/* Retry and the pay button on a request card are the actions people miss with a thumb:
+   the retry line gets a taller touch area, the card button a 40px minimum. */
+[data-design-version="v2"] button.cht-retry {
+  position: relative;
+}
+
+[data-design-version="v2"] button.cht-retry::after {
+  content: "";
+  position: absolute;
+  inset: -12px -8px;
+}
+
+[data-design-version="v2"] .cht-money button.cht-money-btn {
+  min-height: 40px;
+  padding-inline: 18px;
+}
+
+/* Encryption sheet (beta, V2 only): the claim reads at full strength, the honest limit under it
+   stays quiet, and the safety code is one tap away for a contact not yet verified. */
+[data-design-version="v2"] .cht-e2e-lead {
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+[data-design-version="v2"] .cht-e2e-limit {
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+/* The lock in the encryption sheet stands alone and large, no circle behind it. */
+[data-design-version="v2"] .cht-e2e-mark {
+  width: auto;
+  height: auto;
+  background: none;
+}
+
+[data-design-version="v2"] .cht-e2e-mark svg {
+  width: 72px;
+  height: 72px;
+  stroke-width: 1.8;
+}

@@ -1,0 +1,42 @@
+# Spendrr payment push relay (relay/relay.ts). Installed by bootstrap.sh.
+[Unit]
+Description=Spendrr payment push relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=relay
+Group=relay
+EnvironmentFile=/etc/spendrr-relay/env
+ExecStart=/usr/local/bin/node --disable-warning=ExperimentalWarning /opt/spendrr-relay/relay/relay.ts
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+MemoryMax=3G
+
+# Nothing but its own database is writable, no privileges, no other users' files.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/spendrr-relay
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

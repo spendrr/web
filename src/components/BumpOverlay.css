@@ -1,0 +1,382 @@
+/* Tap-to-pay sheet (BumpOverlay.tsx) — only what is specific to this flow.
+
+   The sheet shell, amount field, status mark, collapse, big amount and the
+   whole motion language moved to sheet/PaySheet.css (`sht-` prefix), which
+   the gift-link and payment-request sheets share. Anything left here is
+   something only tap-to-pay has: the two-phones hero, the emoji reels, the
+   Platím/Přijímám choice, the identity pill's emoji, the typing bubble and
+   the quiet (faint-tap) bubble.
+
+   Same rules as the shared file: real theme tokens only (src/index.css),
+   never guessed names with literal fallbacks. The ease/spring custom
+   properties come from .sht-backdrop, which every rule below is inside of —
+   except .bump-bubble, which has no sheet around it and declares its own. */
+
+.bump-reveal {
+  animation: bump-rise 0.46s var(--sht-ease) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes bump-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes bump-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bump-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* --- Pair hero: two phones meet and tap ------------------------------ */
+
+.bump-hero {
+  position: relative;
+  width: 132px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bump-hero-phone {
+  position: absolute;
+  top: 8px;
+  width: 28px;
+  height: 48px;
+  fill: var(--surface-2);
+  stroke: var(--text-h);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.bump-hero-phone--left {
+  left: calc(50% - 30px);
+  animation: bump-phone-left 0.5s var(--sht-ease) both;
+}
+
+.bump-hero-phone--right {
+  right: calc(50% - 30px);
+  animation: bump-phone-right 0.5s var(--sht-ease) both;
+}
+
+@keyframes bump-phone-left {
+  0% { transform: translateX(-34px) rotate(-10deg); opacity: 0; }
+  55% { transform: translateX(3px) rotate(4deg); opacity: 1; }
+  72% { transform: translateX(-2px) rotate(0deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+@keyframes bump-phone-right {
+  0% { transform: translateX(34px) rotate(10deg); opacity: 0; }
+  55% { transform: translateX(-3px) rotate(-4deg); opacity: 1; }
+  72% { transform: translateX(2px) rotate(0deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+.bump-hero-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  animation: bump-ripple 0.9s ease-out 0.26s both;
+}
+
+.bump-hero-ripple--late {
+  animation-delay: 0.4s;
+}
+
+@keyframes bump-ripple {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(5.5); opacity: 0; }
+}
+
+
+/* --- Emoji ------------------------------------------------------------ */
+
+.bump-emoji {
+  display: flex;
+  gap: 14px;
+  font-size: 44px;
+  line-height: 1;
+  padding: 4px 0;
+}
+
+/* Slot-machine reels (EmojiRow). A window one symbol tall, soft-faded top
+   and bottom, over a vertical strip that scrolls up to its last cell.
+   The spin curve overshoots slightly past the final symbol and settles
+   back, like a reel catching; motion blur only while it's moving fast. */
+.bump-reel {
+  --cell: 1.25em;
+  display: inline-block;
+  height: var(--cell);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+  animation: bump-fade-in 0.12s ease-out var(--d, 0ms) both;
+}
+
+.bump-reel-strip {
+  display: flex;
+  flex-direction: column;
+  animation:
+    bump-reel-spin var(--dur, 800ms) cubic-bezier(0.15, 0.6, 0.25, 1.12) var(--d, 0ms) both,
+    bump-reel-blur var(--dur, 800ms) linear var(--d, 0ms) both;
+}
+
+.bump-reel-cell {
+  display: block;
+  height: var(--cell);
+  line-height: var(--cell);
+  text-align: center;
+}
+
+@keyframes bump-reel-spin {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(var(--n) * var(--cell) * -1)); }
+}
+
+@keyframes bump-reel-blur {
+  0% { filter: blur(0); }
+  12%, 60% { filter: blur(1.6px); }
+  85%, 100% { filter: blur(0); }
+}
+
+@keyframes bump-pop {
+  from { opacity: 0; transform: scale(0.3) translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- Platím / Přijímám -------------------------------------------------- */
+
+.bump-choice {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.bump-choice-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 10px 16px;
+  margin: 0;
+  border-radius: 20px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-h);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s var(--sht-ease), background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bump-choice-btn:active {
+  transform: scale(0.95);
+}
+
+/* Waiting to rise in (see SettledReveal in BumpOverlay.tsx): laid out, so
+   the sheet keeps its height, but invisible and untouchable. */
+.bump-await-reveal {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Orange/outgoing matches the app's accent for a send amount elsewhere,
+   green/incoming matches --success for a received one. */
+.bump-choice-btn--pay {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.bump-choice-btn--receive {
+  border-color: var(--success);
+  background: var(--success-bg);
+}
+
+.bump-choice-glyph {
+  width: 38px;
+  height: 38px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bump-choice-btn--pay .bump-choice-glyph {
+  stroke: var(--accent);
+}
+
+.bump-choice-btn--receive .bump-choice-glyph {
+  stroke: var(--success);
+}
+
+/* --- Identity pill: the shared .sht-pill plus the pairing emoji -------- */
+
+.bump-pill-emoji {
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* --- Typing bubble ------------------------------------------------------ */
+
+.bump-typing {
+  display: inline-flex;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border);
+  animation: bump-pop 0.45s var(--sht-spring) both;
+}
+
+.bump-typing span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: bump-typing 1.2s ease-in-out infinite;
+}
+
+.bump-typing span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.bump-typing span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes bump-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* --- Quiet bubble ------------------------------------------------------- */
+/* A faint-tap pairing: a small pill floating above the home screen, no
+   backdrop, nothing blocked. Tap to open the full sheet, × to dismiss. */
+
+.bump-bubble {
+  /* No .sht-backdrop above this one — it floats over the home screen — so
+     it carries its own copy of the shared motion curves. */
+  --sht-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --sht-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + max(env(safe-area-inset-bottom), var(--kb, 0px)));
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-h);
+  border: var(--border-w) solid var(--border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transform: translateX(-50%);
+  animation: bump-bubble-in 0.5s var(--sht-spring) both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bump-bubble:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.bump-bubble.is-closing {
+  animation: bump-bubble-out 0.26s ease-in both;
+}
+
+@keyframes bump-bubble-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+@keyframes bump-bubble-out {
+  from { opacity: 1; transform: translateX(-50%); }
+  to { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.95); }
+}
+
+.bump-bubble-emoji {
+  font-size: 18px;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.bump-bubble-text {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bump-bubble .bump-bubble-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  box-shadow: none;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.bump-bubble-close svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* --- Reduced motion ----------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .bump-reveal,
+  .bump-reel,
+  .bump-typing,
+  .bump-bubble {
+    animation-name: bump-fade-in;
+    animation-duration: 0.2s;
+    animation-delay: 0s;
+    animation-timing-function: ease-out;
+  }
+
+  .bump-bubble.is-closing {
+    animation-name: bump-fade-out;
+  }
+
+  .bump-reel-strip {
+    animation: none;
+    transform: translateY(calc(var(--n) * var(--cell) * -1));
+  }
+
+  .bump-hero-phone,
+  .bump-hero-ripple,
+  .bump-typing span {
+    animation: none;
+  }
+
+  .bump-hero-ripple {
+    display: none;
+  }
+}

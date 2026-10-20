@@ -1,0 +1,78 @@
+/* The hub's own shell. Its three sections bring their own stylesheets
+   (ConverterPanel.css, BtcMapPanel.css, PosPanel.css). */
+
+.utility-hub-page {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.utility-hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+/* Only while the Převodník tab is active — see the swipe-to-close comment
+   above <UtilityHub>'s JSX for why. pan-y (not "none"): keeps native
+   vertical scrolling of the page working while leaving
+   horizontal touch movement to the JS pointerdown/pointerup handlers
+   instead of the browser eating it as a native pan (which would fire
+   pointercancel instead — same root cause Dashboard.css's
+   .lock-gesture-area documents for its own gesture). */
+.utility-hub-page--swipeable {
+  touch-action: pan-y;
+}
+
+.utility-hub-panel {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Pokladna's item editor: a card with a heading, form fields, an error line
+   and a full-width submit. These were the Bitrefill tab's .topup-widget,
+   .topup-widget-title, .voucher-phone-input, .voucher-error and
+   .topup-submit (that tab is archived in archive/bitrefill/). */
+.utility-hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+}
+
+.utility-hub-card-title {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.utility-hub-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 14px;
+}
+
+.utility-hub-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.utility-hub-submit {
+  width: 100%;
+}

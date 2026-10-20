@@ -1,0 +1,1038 @@
+.settings {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  text-align: left;
+}
+
+.settings-header {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-body.muted,
+.settings-body.error {
+  padding: 32px 0;
+  text-align: center;
+}
+
+/* Lead-in line on a section page whose rows need a sentence of context
+   before them (Nebezpečná zóna). Sits outside the card on the page
+   background, so it reads as page copy rather than as a row. */
+.settings-intro {
+  margin: 0 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.settings-group {
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+  overflow: hidden;
+}
+
+.settings-group > .settings-label {
+  padding: 14px 16px 8px;
+}
+
+.settings-group > .danger {
+  margin: 14px 16px 16px;
+  width: calc(100% - 32px);
+}
+
+.settings-group > .danger:not(:last-child) {
+  margin-bottom: 12px;
+}
+
+.settings-group > .danger + .danger {
+  margin-top: 4px;
+}
+
+.settings-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-h);
+  font-weight: 700;
+  word-break: break-all;
+  text-align: right;
+  max-width: 60%;
+}
+
+/* Same fix as Dashboard.css's .confirm-summary/.exit-progress-toast--column
+   .copy-value code: the general .info-row code rule above wraps at any
+   character and caps width at 60%, which breaks the short truncateMiddle()
+   txid in OnchainTxList across two lines for no reason — it easily fits on
+   one. */
+/* A value that links out (the CoinGecko attribution). */
+.info-row-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.info-row .copy-value code {
+  max-width: none;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+.settings-item {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 16px;
+  background: transparent;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  border-bottom: 2px solid var(--border-soft);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.settings-item:last-child {
+  border-bottom: none;
+}
+
+.settings-item:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-2);
+}
+
+.settings-item:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Nudged in off the row's 16px padding — the glyph's own right side bearing
+   made it sit visually tighter to the card edge than the labels on the left
+   do. Used to be v2-only (back when SettingsMenuV1's flat layout still
+   existed and V1's rows kept the unnudged spacing) — the segmented layout is
+   now the only one, in both V1 and beta, so the nudge applies unconditionally
+   too; a version-gated selector here would just make the chevron sit in two
+   different places depending on the beta toggle for no reason. */
+.chevron {
+  color: var(--text);
+  font-weight: 400;
+  margin-right: 3px;
+}
+
+/* Used only by the pre-beta flat menu (SettingsMenuV1) — the beta layout
+   uses the .settings-row family below instead. Delete together with it. */
+.theme-toggle-wrap {
+  padding: 0 16px 16px;
+}
+
+.settings-group--inline-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-group--inline-switch > .settings-label {
+  padding: 18px 0 18px 16px;
+}
+.settings-group--inline-switch > .theme-toggle-wrap {
+  padding: 18px 16px 18px 0;
+}
+
+.version-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 16px;
+}
+.version-switch-row > .settings-label {
+  padding: 0;
+}
+
+/* One labelled control inside a multi-control card. Cards used to be one
+   control each (five consecutive cards for Vzhled/Jazyk/Měna/Barevné
+   téma/Haptika, each with its own heading), which is a heading per setting
+   rather than a grouping of them — so the label moved down to the row and
+   the card heading now names the actual section. Divider matches
+   .settings-item's so nav rows and control rows can sit in the same card. */
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.settings-row-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* A switch row sits in the same list as the menu items (.settings-item,
+   14px): its label matches them, not the smaller label above a control. */
+.settings-row--inline .settings-row-label {
+  font-size: 14px;
+}
+
+/* Side-by-side variant for the compact on/off switches (Haptika, Automatické
+   uzamčení, beta), which are narrow enough to sit next to their label —
+   unlike the full-width segmented .mode-toggle controls above. */
+.settings-row--inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+/* Two-line rows: the signpost's section rows and "Zobrazit seed phrase".
+   No align-items override — .settings-item already centres, which puts the
+   chevron in the middle of the whole two-line block instead of hanging it
+   off the title line. */
+.settings-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+/* The Nebezpečná zóna row on the root signpost — the only row there that
+   leads somewhere destructive, so it says so before it is opened. */
+.settings-item--danger {
+  color: var(--danger);
+}
+
+/* Inside Nebezpečná zóna only the title carries the colour — the subtitle is
+   explanatory text, and colouring every one of them turned the page into a
+   solid block of red. */
+.settings-item--danger .settings-item-sub {
+  color: var(--text);
+}
+
+/* The signpost row is the exception: it is a warning about where the row
+   leads rather than a description of an action, so the whole row is red. */
+.settings-item--danger-all .settings-item-sub {
+  color: var(--danger);
+  opacity: 0.8;
+}
+
+.settings-item-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-warning {
+  padding: 14px 16px 16px;
+}
+
+.color-theme-toggle {
+  display: flex;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.color-swatch-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--pop-sm);
+  padding: 0;
+}
+
+.color-swatch-btn:hover {
+  transform: none;
+}
+
+.color-swatch-btn.active {
+  outline: 2px solid var(--text-h);
+  outline-offset: 2px;
+  animation: swatch-bounce 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes swatch-bounce {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .color-swatch-btn.active {
+    animation: none;
+  }
+}
+
+.color-swatch--orange {
+  background: #e89540;
+}
+
+.color-swatch--purple {
+  background: #6d5a9e;
+}
+
+.color-swatch--red {
+  background: #b2564f;
+}
+
+.color-swatch--blue {
+  background: #4a6fa1;
+}
+
+.color-swatch--teal {
+  background: #4f8f8a;
+}
+
+/* ---- "Poplatky v síti" widget (NetworkFeesWidget, Settings.tsx) ---- */
+.fee-tiers {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.fee-tier {
+  padding: 10px 8px 14px;
+  border-left: 2px solid var(--border-soft);
+  text-align: center;
+}
+.fee-tier:first-child {
+  border-left: none;
+}
+.fee-tier-label {
+  font-size: 14.55px;
+  font-weight: 700;
+  color: var(--text);
+}
+.fee-tier-label.reco {
+  color: var(--fee-medium);
+}
+.fee-tier-value {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 26.45px;
+  color: var(--text-h);
+  margin-top: 4px;
+}
+.fee-tier-value span {
+  font-family: var(--sans);
+  font-size: 13.9px;
+  font-weight: 700;
+  color: var(--text);
+  margin-left: 2px;
+}
+.fee-tier-eta {
+  font-size: 14.55px;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.fee-bar-wrap {
+  padding: 12px 16px 11px;
+  border-top: 2px solid var(--border-soft);
+}
+.fee-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+}
+.fee-bar span {
+  height: 100%;
+}
+
+/* v2 "Poplatky v síti": mempool.space-style isometric blocks. The strip is
+   dark in both themes (it reads as the mempool, not as app chrome); the card
+   around it and the footer use the app tokens. --mp-bs is the block's front
+   size, shrunk to fit four blocks on a narrow phone; --mp-d the depth. */
+.mp-strip {
+  --mp-bs: 58px;
+  --mp-d: 12px;
+  container-type: inline-size;
+  margin: 0 10px;
+  padding: 47px 16px 21px;
+  border-radius: 20px;
+  background: radial-gradient(120% 90% at 30% 0%, #1b1f36, #0f111c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+@supports (width: 1cqi) {
+  .mp-row {
+    /* four columns of (front + depth), four 6px flex gaps, the divider
+       (2px line + 12px margins) */
+    --mp-bs: min(70px, calc((100cqi - 4 * var(--mp-d) - 4 * 6px - 14px) / 4));
+  }
+}
+.mp-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.mp-col {
+  position: relative;
+  flex: none;
+}
+/* Centred over the top face (the whole block's width), which is what sits
+   right under it; translate so a label wider than the block (the height)
+   overflows evenly instead of only to the right. */
+.mp-label {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5aa9ff;
+  white-space: nowrap;
+}
+.mp-col.reco .mp-label {
+  color: #ffb04a;
+}
+.mp-col.mined .mp-label {
+  color: #9aa5c8;
+  font-family: var(--mono);
+}
+.mp-block {
+  position: relative;
+  width: calc(var(--mp-bs) + var(--mp-d));
+  height: calc(var(--mp-bs) + var(--mp-d));
+}
+/* soft elliptical shadow on the "floor" */
+.mp-block::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--mp-d) - 4px);
+  right: -6px;
+  bottom: -11px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent);
+  filter: blur(2px);
+}
+.mp-top,
+.mp-side,
+.mp-front {
+  position: absolute;
+}
+.mp-top {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: var(--mp-d);
+  background: linear-gradient(90deg, #2a2f47, #353b58);
+  clip-path: polygon(0 0, var(--mp-bs) 0, 100% 100%, var(--mp-d) 100%);
+}
+.mp-side {
+  left: 0;
+  top: 0;
+  width: var(--mp-d);
+  height: 100%;
+  background: linear-gradient(#1c2032, #141725);
+  clip-path: polygon(0 0, 100% var(--mp-d), 100% 100%, 0 var(--mp-bs));
+}
+.mp-front {
+  left: var(--mp-d);
+  top: var(--mp-d);
+  width: var(--mp-bs);
+  height: var(--mp-bs);
+  overflow: hidden;
+  border-radius: 2px;
+  background: linear-gradient(#2d3348 var(--mp-e), #9339f4 var(--mp-e), #105fb0 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: #fff;
+  text-align: center;
+  line-height: 1.15;
+}
+.mp-front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+.mp-col.reco .mp-front {
+  box-shadow:
+    0 0 0 2px #e89540,
+    0 0 16px rgba(232, 149, 64, 0.45);
+  overflow: visible;
+}
+.mp-col.reco .mp-front::after {
+  border-radius: inherit;
+}
+.mp-fee {
+  position: relative;
+  font-size: 17px;
+  font-weight: 500;
+}
+.mp-unit,
+.mp-eta {
+  position: relative;
+  /* scales down with the block on narrow phones */
+  font-size: min(10.5px, calc(var(--mp-bs) * 0.17));
+  opacity: 0.82;
+  white-space: nowrap;
+}
+.mp-col.mined .mp-eta {
+  font-size: min(11px, calc(var(--mp-bs) * 0.18));
+  opacity: 0.95;
+}
+.mp-divider {
+  flex: none;
+  align-self: stretch;
+  width: 0;
+  margin: 2px 7px 0 5px;
+  border-left: 2px dashed rgba(120, 135, 190, 0.4);
+}
+.mp-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 12px 16px 14px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.mp-foot-cost {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+/* Motion (v2 motion switch, off under prefers-reduced-motion via data-motion) */
+[data-motion="on"] .mp-block {
+  transition: transform 0.25s var(--ease-out, ease-out);
+}
+[data-motion="on"] .mp-block:hover {
+  transform: translateY(-3px);
+}
+[data-motion="on"] .mp-enter {
+  animation: mp-enter 0.7s var(--ease-out, ease-out) both;
+}
+[data-motion="on"] .mp-shift .mp-col:not(.mined) {
+  animation: mp-shift 0.6s var(--ease-out, ease-out) both;
+}
+@keyframes mp-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mp-shift {
+  from {
+    transform: translateX(-10px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.vtxo-card {
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--pop-sm);
+  overflow: hidden;
+}
+
+.vtxo-id {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text);
+  padding: 8px 16px 12px;
+  word-break: break-all;
+}
+
+/* Settings → VTXO mince → Automatická obnova: the engine's log. Rows reuse
+   .info-row; the list only needs a divider and room for long error text. */
+.engine-log {
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
+  border-top: var(--border-w) solid var(--border);
+}
+.engine-log-row {
+  border-bottom: var(--border-w) solid var(--border);
+  padding-bottom: 10px;
+}
+.engine-log-row p {
+  margin: 0 16px;
+}
+.engine-log-detail {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  word-break: break-all;
+}
+
+/* Automatická obnova: plan, in-progress batches, coin lists. Label/value
+   rows reuse .info-row; everything else is a compact list. */
+.engine-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 2px solid var(--border-soft);
+}
+.engine-section .info-row,
+.engine-batch .info-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+.engine-hint {
+  margin: -6px 0 0;
+  text-align: right;
+}
+.engine-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: var(--border-w) solid var(--border);
+  border-radius: 10px;
+}
+.engine-tag {
+  align-self: flex-start;
+  font-size: 11px;
+}
+.engine-coinlist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.engine-coinlist-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, var(--text));
+  opacity: 0.8;
+}
+.engine-coins {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.engine-coin p,
+.engine-coin .small {
+  margin: 0;
+}
+.engine-coin-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.engine-totals {
+  border-top: var(--border-w) dashed var(--border);
+  padding-top: 4px;
+}
+.engine-log-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px 2px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+.engine-log-head:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.engine-log-head:hover:not(:disabled) {
+  transform: none;
+}
+.engine-log-row .engine-coinlist {
+  margin: 4px 16px 0;
+}
+
+.settings-subhead {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.gift-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gift-head .settings-subhead {
+  margin: 0;
+}
+.gift-head button {
+  margin: 0;
+}
+/* Status is plain text, colour only where it means something. No pills or
+   badges: they were tried and dropped app-wide. */
+.gift-status {
+  font-weight: 600;
+  text-align: right;
+  color: var(--text-h);
+}
+.gift-status--claimed {
+  color: var(--success);
+}
+.gift-status--creating {
+  color: var(--danger);
+}
+.gift-status--reclaimed,
+.gift-status--unverified,
+.gift-status--likely-claimed {
+  color: var(--text);
+}
+.gift-row-actions {
+  display: flex;
+  gap: 10px;
+  /* Match .info-row's 16px side inset and give it equal top/bottom room so
+     the buttons sit centred in the strip, not pinned to the edge. */
+  padding: 12px 16px;
+}
+.gift-row-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.gift-done {
+  margin-top: 4px;
+}
+.gift-done > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+  padding: 8px 0 10px;
+}
+
+/* Automatická obnova in a sheet (Detail, Deník, Obnovit teď): the sheet's
+   stack is centred, these lists read left to right. */
+.engine-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+.engine-detail .info-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+.engine-detail .engine-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.engine-detail.engine-log {
+  max-height: none;
+  border-top: none;
+  gap: 0;
+}
+.engine-detail .engine-log-head,
+.engine-detail .engine-log-row p,
+.engine-detail .engine-log-row .engine-coinlist {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+.engine-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.engine-wide {
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* The card's own rows line up with its header, not indented twice. */
+.engine-card-body {
+  gap: 0;
+  padding: 0 16px 16px;
+}
+.engine-card-body > .info-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Beta coin list (VTXO mince): one line per coin, tap for the id. */
+.coin-list {
+  display: flex;
+  flex-direction: column;
+}
+.coin-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-top: 2px solid var(--border-soft);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+/* The card's header row already draws the line above the first coin. */
+.coin-row:first-child {
+  border-top: none;
+}
+.coin-row:hover:not(:disabled) {
+  transform: none;
+}
+.coin-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.coin-row-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.coin-row-detail .vtxo-id {
+  padding: 0;
+}
+.engine-card-body > .info-row:has(+ .engine-actions, + .engine-wide) {
+  border-bottom: none;
+}
+/* Inside a batch box the box's own edge closes the last row. */
+.engine-batch .info-row:last-child,
+.engine-totals .info-row:last-child {
+  border-bottom: none;
+}
+
+/* Detail sheet: section heads, one line of facts, number tiles. */
+.engine-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.engine-head strong {
+  font-size: 15px;
+}
+.engine-facts {
+  margin: -4px 0 0;
+}
+.engine-batch {
+  gap: 12px;
+  padding: 12px;
+  border-color: var(--border-soft);
+  border-width: 2px;
+}
+.engine-batch-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.engine-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.engine-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.engine-tile .small {
+  margin: 0;
+}
+.engine-link,
+.engine-toggle {
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+}
+.engine-link {
+  align-self: flex-end;
+  font-size: 13px;
+  text-decoration: underline;
+}
+.engine-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-top: 4px;
+}
+.engine-link:hover:not(:disabled),
+.engine-toggle:hover:not(:disabled) {
+  transform: none;
+}
+.engine-detail .engine-section + .engine-section {
+  margin-top: 8px;
+}
+
+/* Flat text buttons (log rows, "Všechny mince", links, coin rows): none of the
+   global button's pop shadow, on hover, press or disabled. */
+.engine-log-head,
+.engine-toggle,
+.engine-link,
+.coin-row {
+  box-shadow: none;
+}
+.engine-log-head:hover:not(:disabled),
+.engine-log-head:active:not(:disabled),
+.engine-log-head:disabled,
+.engine-toggle:hover:not(:disabled),
+.engine-toggle:active:not(:disabled),
+.engine-link:hover:not(:disabled),
+.engine-link:active:not(:disabled),
+.coin-row:hover:not(:disabled),
+.coin-row:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.engine-detail.engine-log .engine-log-row {
+  border-bottom: 2px solid var(--border-soft);
+  padding-bottom: 10px;
+}
+.engine-detail.engine-log .engine-log-row:last-child {
+  border-bottom: none;
+}
+.engine-detail.engine-log .engine-log-head {
+  padding-top: 10px;
+}
+/* The sheet's last buttons sit closer than its 14px stack gap. */
+.engine-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.engine-sheet-actions .sht-wide {
+  margin: 0;
+}
+.engine-more {
+  align-self: center;
+  margin-top: 10px;
+}
+.engine-log-head,
+.engine-log-head code {
+  font-size: 13px;
+}
+.engine-more.engine-link {
+  align-self: center;
+}
+
+/* Detail sheet colours (2026-09-28 polish): the batch box a mid-tone
+   outline, tiles a flat warm fill. */
+.engine-detail .engine-batch {
+  padding: 14px;
+  border: 2px solid color-mix(in srgb, var(--border) 35%, var(--surface));
+  border-radius: 14px;
+}
+.engine-detail .engine-tile {
+  border: none;
+  background: color-mix(in srgb, var(--border-soft) 50%, var(--surface));
+}
+
+/* A leaf screen still loading: the app's spinner, centred in the space the
+   content will take, instead of a line of text. */
+.settings-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 96px 0;
+}
+
+.settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* "Podpora vývoje": a small accent heart after the label. */
+.info-row-heart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-row-heart svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--accent);
+}

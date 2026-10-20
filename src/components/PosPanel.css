@@ -1,0 +1,1055 @@
+/* Point of Sale (PosPanel.tsx). The register is one screen tall: the page
+   gets a definite height, the panel takes what the header and tabs leave,
+   and only the middle (.pos-body) scrolls, so "Účtovat" is always on screen
+   however long the price list gets. min-height keeps a very short viewport
+   (landscape phone) usable: there the overlay scrolls instead. Doubled
+   class: UtilityHub.css loads after this file and its own .utility-hub-page
+   padding would otherwise win. */
+.utility-hub-page.utility-hub-page--pos {
+  height: 100dvh;
+  min-height: 520px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  gap: 14px;
+}
+
+/* The tighter gap above must not reach the header-to-tabs spacing: every
+   other tab keeps UtilityHub.css's 20px there, so the tabs jumped 6px (10px
+   on a short screen) when switching to Pokladna. Topping it back up here
+   keeps the tabs still and saves the space only below them. */
+.utility-hub-page--pos > .mode-toggle {
+  margin-top: 6px;
+}
+
+.pos {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Total: the one number the invoice will be for ---- */
+
+/* The one number that matters on this screen, so it gets air: the price
+   list / keypad below scroll or shrink to pay for it. */
+.pos-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 0 18px;
+  text-align: center;
+}
+
+.pos-total-amount {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.pos-total-sats {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* A quiet text link under the total, not another bordered bar: the total
+   is the only thing on this screen that should shout. */
+.pos-receipt-toggle {
+  margin-top: 2px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.pos-receipt-toggle:hover:not(:disabled),
+.pos-receipt-toggle:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.pos-receipt-toggle-action {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Smaller than the page-level tab switch above it (same .mode-toggle, so
+   the same sliding thumb): a view switch inside the till, not navigation.
+   Padding and gap stay at .mode-toggle's 4px, which the thumb's width and
+   offset maths (design-v2.css) assume. Doubled class to beat Dashboard.css's
+   width: 100%. */
+.mode-toggle.pos-mode {
+  width: 196px;
+  align-self: center;
+  margin-bottom: 0;
+  border-radius: 12px;
+  border-width: 2px;
+}
+
+.mode-toggle.pos-mode button {
+  padding: 5px 8px;
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+
+.mode-toggle.pos-mode::before {
+  border-radius: 8px;
+}
+
+/* Square icon button in UtilityHub's header, same height as the "Zpět do
+   peněženky" button next to it. */
+.pos-edit-btn.pos-edit-btn {
+  align-self: stretch;
+  aspect-ratio: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-edit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- Middle: price list / keypad / receipt, one at a time ---- */
+
+.pos-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pos-body--catalog,
+.pos-body--receipt,
+.pos-body--keypad {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pos-empty {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.pos-empty p {
+  margin: 0;
+}
+
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  /* The quantity badge sits at top:-8px/right:-8px, outside its tile, and
+     the tiles keep the app's generic button hover lift / press shift, so
+     the scroll box needs room on those sides or it clips them. */
+  padding: 10px 10px 4px 2px;
+}
+
+/* Deliberately no :hover/:active override: the tiles keep App.css's
+   generic button lift on hover and press-in on tap, which is the feedback
+   the till has always had when ringing something up. */
+.pos-tile {
+  position: relative;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--text-h);
+  border: 2.5px solid var(--border);
+  border-radius: 14px;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.pos-tile--active {
+  border-color: var(--accent);
+}
+
+.pos-tile-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.pos-tile-price {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* Display only: taking a piece off happens on the receipt, with a real
+   button (this used to be a tap target nested inside the tile's button). */
+.pos-tile-qty {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border);
+}
+
+.pos-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 10px;
+}
+
+.pos-entry-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-entry-currency {
+  font-size: 18px;
+  color: var(--text-dim);
+}
+
+.pos-entry-add {
+  flex: none;
+}
+
+.pos-keypad {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* Rows share the room left over, but never below a usable thumb target
+     nor into slabs on a tall phone. */
+  grid-template-rows: repeat(4, minmax(40px, 68px));
+  align-content: end;
+  gap: 8px;
+}
+
+.pos-key {
+  padding: 0;
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--text-h);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease;
+}
+
+/* The generic button:hover lift sticks on touch screens after a tap, which
+   left the last pressed key looking raised. */
+.pos-key:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.pos-key:active:not(:disabled) {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.pos-key:disabled {
+  box-shadow: none;
+}
+
+.pos-key-fn {
+  color: var(--accent);
+}
+
+.pos-key svg {
+  width: 27px;
+  height: 27px;
+}
+
+.pos-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-receipt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pos-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 14px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+}
+
+.pos-line-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pos-line-name {
+  font-weight: 700;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.pos-line-amount {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.pos-stepper {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pos-stepper span {
+  min-width: 26px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-stepper button,
+.pos-line-remove {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  flex: none;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-h);
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-stepper button:hover:not(:disabled),
+.pos-line-remove:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.pos-clear {
+  align-self: center;
+}
+
+.pos-charge {
+  width: 100%;
+  flex: none;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Small phones (iPhone SE class, 667px): the keypad needs every pixel the
+   total can give up. */
+@media (max-height: 720px) {
+  .utility-hub-page.utility-hub-page--pos {
+    gap: 10px;
+  }
+  .utility-hub-page--pos > .mode-toggle {
+    margin-top: 10px;
+  }
+  .pos {
+    gap: 8px;
+  }
+  .pos-total {
+    padding: 10px 0 8px;
+  }
+  .pos-total-amount {
+    font-size: 38px;
+  }
+  .pos-entry {
+    padding: 0 2px 6px;
+  }
+  .pos-entry-amount {
+    font-size: 24px;
+  }
+  .pos-keypad {
+    gap: 6px;
+  }
+  .pos-charge {
+    padding: 13px 20px;
+  }
+}
+
+/* ---- Checkout: what the customer sees ---- */
+
+.pos-checkout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.pos-checkout-amount {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-checkout-sats {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.pos-checkout-summary {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+.pos-qr-btn {
+  margin: 8px 0 4px;
+  padding: 12px;
+  width: min(304px, 82vw);
+  background: #fff;
+  border: var(--border-w) solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--pop-sm);
+  line-height: 0;
+}
+
+.pos-qr-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: var(--pop-sm);
+}
+
+.pos-qr-btn svg {
+  width: 100%;
+  height: auto;
+}
+
+.pos-waiting {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.pos-checkout > button.small {
+  margin-top: 6px;
+}
+
+.pos-checkout--paid .pos-charge {
+  margin-top: 24px;
+}
+
+.pos-paid-mark {
+  width: 104px;
+  height: 104px;
+  border-radius: 999px;
+  background: var(--success);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pos-paid-pop 0.42s cubic-bezier(0.16, 1.4, 0.3, 1);
+}
+
+.pos-paid-mark svg {
+  width: 58px;
+  height: 58px;
+}
+
+.pos-paid-title {
+  margin-top: 8px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--success);
+}
+
+@keyframes pos-paid-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pos-clock {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: var(--accent);
+}
+
+/* Two independent speeds, slower than a real clock's, so the face reads as
+   idle waiting rather than a busy spinner. Rotates around the face's exact
+   center; transform-box is pinned because the default for an SVG child
+   varies by browser and would spin the hand around its own box. */
+.pos-clock-hand {
+  transform-box: view-box;
+  transform-origin: 12px 13px;
+  animation: pos-clock-spin linear infinite;
+}
+
+.pos-clock-hand--minute {
+  animation-duration: 6s;
+}
+
+.pos-clock-hand--hour {
+  animation-duration: 13s;
+}
+
+@keyframes pos-clock-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-clock-hand,
+  .pos-paid-mark {
+    animation: none;
+  }
+}
+
+/* ---- Price list editor ---- */
+
+.pos-manage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the buttons' offset shadows, which the scroll box would clip. */
+  padding: 0 3px 3px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.pos-manage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pos-manage-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.pos-manage-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pos-manage-actions > button {
+  flex: 1;
+}
+
+.pos-manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pos-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 6px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+}
+
+.pos-manage-row--editing {
+  border-color: var(--accent);
+}
+
+.pos-manage-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: left;
+  color: inherit;
+}
+
+.pos-manage-row-text:hover:not(:disabled),
+.pos-manage-row-text:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.pos-manage-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.pos-manage-price {
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pos-manage-delete {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-h);
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-manage-delete:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---- Wide: landscape tablet, desktop (usePosWideLayout) ----
+   Two columns like a shop's till: what you ring up on the left, the
+   receipt, total and charge button always in view on the right. Classes,
+   not a media query, so the CSS can't disagree with the JS about which
+   layout is showing. Doubled classes where UtilityHub.css (loaded later)
+   or Dashboard.css set the same property. */
+
+.utility-hub-page.utility-hub-page--pos-wide {
+  max-width: 1440px;
+  min-height: 560px;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+/* One row: back, the page tabs centred on the page, the price list pencil.
+   The tabs stay phone-sized: a pill stretched over the screen reads as a
+   progress bar, not three tabs. */
+.utility-hub-header.utility-hub-header--tabs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+
+.utility-hub-header--tabs > :first-child {
+  justify-self: start;
+}
+
+.utility-hub-header--tabs > .mode-toggle {
+  width: 400px;
+  margin: 0;
+}
+
+.utility-hub-header--tabs > :last-child {
+  justify-self: end;
+}
+
+.pos.pos--wide {
+  flex-direction: row;
+  gap: 28px;
+}
+
+.pos-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Price list / keypad switch on the left, the keyboard hint on the right,
+   one row above the content they are about. */
+.pos-main-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pos--wide .mode-toggle.pos-mode {
+  width: 240px;
+  align-self: auto;
+}
+
+.pos--wide .pos-grid {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  align-content: start;
+  gap: 12px;
+}
+
+.pos--wide .pos-tile {
+  min-height: 100px;
+  padding: 16px;
+  justify-content: space-between;
+  border-radius: 16px;
+}
+
+.pos--wide .pos-tile-name {
+  font-size: 16px;
+}
+
+.pos--wide .pos-tile-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+  opacity: 0.75;
+}
+
+/* Amount and keys together in the middle, not the phone's keys-at-the-
+   bottom-for-the-thumb. */
+.pos--wide .pos-body--keypad {
+  width: 100%;
+  max-width: 460px;
+  align-self: center;
+  justify-content: center;
+}
+
+.pos--wide .pos-keypad {
+  flex: none;
+}
+
+.pos--wide .pos-entry-amount {
+  font-size: 36px;
+}
+
+.pos--wide .pos-entry-currency {
+  font-size: 22px;
+}
+
+.pos--wide .pos-keypad {
+  grid-template-rows: repeat(4, minmax(48px, 80px));
+  gap: 10px;
+}
+
+.pos--wide .pos-key {
+  font-size: 26px;
+}
+
+/* Only where there is a real keyboard to type on. */
+.pos-kbd-hint {
+  display: none;
+  margin: 0;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pos-kbd-hint {
+    display: block;
+  }
+}
+
+.pos-side {
+  flex: none;
+  width: clamp(340px, 36%, 420px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 20px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--pop-sm);
+}
+
+.pos-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+
+.pos-side-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.pos-side-count {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-side-lines {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pos-side-empty {
+  margin: auto 0;
+  padding: 0 12px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* Receipt lines, not cards: dashed rules between them on the panel's own
+   surface. */
+.pos-side .pos-receipt-list {
+  gap: 0;
+}
+
+.pos-side .pos-line {
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 0;
+}
+
+.pos-side .pos-line {
+  gap: 10px;
+}
+
+/* One line per item name: the phone receipt's break-anywhere would split
+   "Cappuccino" in two in a 340px panel. */
+.pos-side .pos-line-name {
+  overflow-wrap: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-side .pos-stepper button,
+.pos-side .pos-line-remove {
+  width: 34px;
+  height: 34px;
+}
+
+.pos-side .pos-stepper span {
+  min-width: 22px;
+}
+
+.pos-line-total {
+  flex: none;
+  min-width: 64px;
+  text-align: right;
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The amount still being typed: counted in the total, not on the receipt yet. */
+.pos-side .pos-line--entry {
+  opacity: 0.6;
+  min-height: 56px;
+}
+
+.pos-side .pos-line--entry .pos-line-name {
+  font-style: italic;
+}
+
+.pos-total.pos-total--side {
+  padding: 12px 0 2px;
+  align-items: flex-end;
+  text-align: right;
+  border-top: var(--border-w) solid var(--border);
+}
+
+.pos-total-row {
+  align-self: stretch;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pos-total-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.pos-total--side .pos-total-amount {
+  font-size: 40px;
+}
+
+/* Customer-facing: the amount on the left, the QR as big as the screen
+   allows on the right. */
+.pos-checkout.pos-checkout--wide {
+  flex-direction: row;
+  gap: clamp(32px, 6vw, 96px);
+}
+
+.pos-checkout-info {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+}
+
+.pos-checkout-lead {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pos-checkout--wide .pos-checkout-amount {
+  font-size: 64px;
+}
+
+.pos-checkout--wide .pos-checkout-sats {
+  font-size: 20px;
+}
+
+.pos-checkout--wide .pos-checkout-summary {
+  font-size: 15px;
+}
+
+.pos-checkout--wide .pos-waiting {
+  margin-top: 16px;
+  font-size: 16px;
+}
+
+.pos-checkout--wide .pos-qr-btn {
+  flex: none;
+  width: min(460px, 64vh);
+  margin: 0;
+  padding: 18px;
+}
+
+.pos-checkout--paid.pos-checkout--wide {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pos-checkout--paid.pos-checkout--wide .pos-paid-mark {
+  width: 140px;
+  height: 140px;
+}
+
+.pos-checkout--paid.pos-checkout--wide .pos-paid-mark svg {
+  width: 78px;
+  height: 78px;
+}
+
+.pos-checkout--paid.pos-checkout--wide .pos-paid-title {
+  font-size: 28px;
+}
+
+.pos-checkout--paid.pos-checkout--wide .pos-charge {
+  max-width: 380px;
+}
+
+/* Price list editor: the form stays put on the left, the items fill the
+   rest. */
+.pos-manage.pos-manage--wide {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  column-gap: 28px;
+  row-gap: 16px;
+}
+
+.pos-manage--wide .pos-manage-header {
+  grid-column: 1 / -1;
+}
+
+.pos-manage--wide .pos-manage-form {
+  grid-column: 1;
+  grid-row: 2;
+  position: sticky;
+  top: 0;
+}
+
+.pos-manage--wide > .pos-manage-list,
+.pos-manage--wide > .muted {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+}
+
+.pos-manage--wide .pos-manage-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}

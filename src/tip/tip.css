@@ -1,0 +1,683 @@
+/* Standalone tip page (TipPage.tsx). Same language as the landing page and the
+   app: heavy type, 2.5px ink outlines with a hard offset shadow, one accent.
+   Theme tokens come from src/index.css. */
+
+:root {
+  --tip-accent-2: #7c3aed;
+  --tip-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tip-spring: cubic-bezier(0.3, 1.35, 0.5, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tip-accent-2: #a78bfa;
+  }
+}
+:root[data-theme="dark"] {
+  --tip-accent-2: #a78bfa;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.tip {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 0 max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+}
+
+.tip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: max(22px, env(safe-area-inset-top)) 0 22px;
+}
+
+.tip-brand {
+  display: inline-block;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  text-decoration: none;
+  transform: rotate(-3deg);
+}
+
+.tip-r {
+  display: inline-block;
+  color: var(--tip-accent-2);
+  font-style: italic;
+}
+.tip-r1 {
+  transform: rotate(-4deg);
+}
+.tip-r2 {
+  transform: rotate(9deg);
+}
+
+/* ---------- layout ---------- */
+
+.tip-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 24px;
+}
+
+.tip-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 400px;
+  animation: tip-in 0.6s var(--tip-out) both;
+}
+
+.tip-foot {
+  align-self: center;
+  max-width: 380px;
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  text-wrap: pretty;
+  color: var(--text-dim, var(--text));
+}
+
+/* ---------- who ---------- */
+
+.tip-to {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+/* On the invoice the whole screen is centered, so the recipient stacks too. */
+.tip-to.is-center {
+  flex-direction: column;
+  align-self: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.tip-avatar {
+  display: block;
+  flex: none;
+  line-height: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  box-shadow: 1.5px 1.5px 0 var(--border);
+  overflow: hidden;
+}
+
+/* The heart for /donate: no tile, just the shape, drawn like the other controls
+   (thin ink outline, hard offset shadow), tilted a little like the wordmark. */
+.tip-avatar--heart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 56px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  overflow: visible;
+  transform: rotate(-6deg);
+}
+
+.tip-avatar--heart svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--accent);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(2px 2px 0 var(--border));
+}
+
+.tip-to-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tip-name {
+  margin: 0;
+  font-size: clamp(22px, 6.4vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.tip-domain {
+  color: var(--text);
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.tip-note {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ---------- amount ---------- */
+
+.tip-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.tip-amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: -6px;
+  max-width: 100%;
+  margin: 0;
+  line-height: 0.95;
+}
+
+.tip-amount-field,
+.tip-amount-input,
+.tip-amount-ghost {
+  font: inherit;
+  font-size: clamp(56px, 17vw, 88px);
+  font-weight: 800;
+  /* Tight enough to read as one number, loose enough that 5555 does not fuse. */
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--text-h);
+}
+
+/* The input is stretched over a hidden copy of its own text, so the field is
+   exactly as wide as the number (field-sizing is not in Safari or Firefox). */
+.tip-amount-field {
+  display: inline-grid;
+  max-width: 70vw;
+  padding-bottom: 6px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.tip-amount-field:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+.tip-amount-ghost {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  white-space: pre;
+  min-width: 0.6em;
+}
+
+.tip-amount-input {
+  grid-area: 1 / 1;
+  /* No width of its own (an input's default is ~20 characters): the hidden
+     copy sets the column, the input just fills it. */
+  width: 0;
+  min-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  caret-color: var(--accent);
+  text-align: left;
+}
+
+.tip-amount-input::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tip-amount-unit {
+  font-size: clamp(20px, 5.4vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.tip-sub {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tip-error {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* ---------- controls ---------- */
+
+.tip-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tip-chip,
+.tip-pill {
+  border: 1.5px solid var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.14s var(--tip-spring),
+    box-shadow 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.tip-chip {
+  min-width: 68px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+
+.tip-chip.is-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tip-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+
+.tip-pill--small {
+  padding: 8px 18px;
+  font-size: 15px;
+}
+
+.tip-pill--primary {
+  padding: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tip-pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  box-shadow: 1.5px 1.5px 0 var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+}
+
+.tip-pill-icon svg {
+  width: 21px;
+  height: 21px;
+  transition: transform 0.3s var(--tip-spring);
+}
+
+.tip-pill-label {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.tip-cta {
+  width: 100%;
+  margin-top: 22px;
+  font-size: 18px;
+}
+
+/* Icon on the left, an equal spacer on the right: the label sits in the middle of the button. */
+.tip-pill--primary {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+}
+
+.tip-pill--primary::after {
+  content: "";
+}
+
+@media (hover: hover) {
+  .tip-chip:hover:not(:disabled),
+  .tip-pill:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--border);
+  }
+  .tip-pill:hover:not(:disabled) .tip-pill-icon svg {
+    transform: translateX(3px);
+  }
+}
+
+.tip-chip:active:not(:disabled),
+.tip-pill:active:not(:disabled) {
+  transform: translate(2px, 2px) scale(0.98);
+  box-shadow: 0 0 0 var(--border);
+}
+
+.tip-chip:disabled,
+.tip-pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Units: plain words, the active one underlined, like the landing page's text link. */
+.tip-units {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.tip-unit,
+.tip-textlink {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tip-unit {
+  padding: 8px 10px 8px 0;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+.tip-unit.is-on {
+  color: var(--text-h);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.tip-textlink {
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+}
+
+@media (hover: hover) {
+  .tip-unit:hover,
+  .tip-textlink:hover {
+    color: var(--accent);
+  }
+}
+
+.tip-amount-input:focus-visible {
+  outline: 0;
+}
+
+.tip-top .tip-pill--small,
+.tip-top .tip-pill--small:hover {
+  text-decoration: none;
+}
+
+:where(.tip) :focus-visible {
+  outline: 3px solid var(--tip-accent-2);
+  outline-offset: 4px;
+}
+
+.tip .tip-amount-input:focus-visible {
+  outline: 0;
+}
+
+/* ---------- invoice ---------- */
+
+.tip-invoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  width: 100%;
+  animation: tip-in 0.5s var(--tip-out) both;
+}
+
+.tip-invoice-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-h);
+}
+
+.tip-qr {
+  line-height: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1.5px solid var(--border);
+  /* A scanner needs dark-on-light whatever the theme. */
+  background: white;
+  animation: tip-land 0.5s var(--tip-spring) both;
+}
+
+.tip-qr svg {
+  width: min(256px, 68vw);
+  height: auto;
+}
+
+.tip-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.tip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.14s var(--tip-spring),
+    box-shadow 0.14s ease;
+}
+
+.tip-btn--accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+@media (hover: hover) {
+  .tip-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--border);
+  }
+}
+
+.tip-btn:active {
+  transform: translate(2px, 2px) scale(0.98);
+  box-shadow: 0 0 0 var(--border);
+}
+
+.tip-invoice-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.tip-top-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Back to the amount, in the header so the invoice needs no row for it. */
+.tip-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  box-shadow: 2px 2px 0 var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.14s var(--tip-spring),
+    box-shadow 0.14s ease;
+  animation: tip-land 0.4s var(--tip-spring) both;
+}
+
+.tip-back svg {
+  width: 21px;
+  height: 21px;
+  transform: scaleX(-1);
+}
+
+.tip-back:active {
+  transform: translate(2px, 2px) scale(0.98);
+  box-shadow: 0 0 0 var(--border);
+}
+
+.tip-wait {
+  margin-top: -4px;
+}
+
+/* Three dots that hand a light along: the page is watching for the payment. */
+.tip-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.tip-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: tip-dot 1.2s ease-in-out infinite;
+}
+
+.tip-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.tip-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes tip-dot {
+  40% {
+    opacity: 1;
+  }
+}
+
+.tip-paid {
+  margin: 0;
+  font-size: clamp(56px, 18vw, 92px);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  color: var(--text-h);
+  animation: tip-land 0.6s var(--tip-spring) both;
+}
+
+.tip-paid-dot {
+  color: var(--accent);
+}
+
+/* ---------- motion ---------- */
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes tip-land {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes tip-pop {
+  from {
+    transform: scale(0.96);
+    transform-origin: left center;
+  }
+}
+
+.tip-amount.is-pop {
+  animation: tip-pop 0.4s var(--tip-spring) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

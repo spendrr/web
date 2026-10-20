@@ -1,0 +1,261 @@
+/* The Utility hub's Převodník tab (ConverterPanel.tsx): the typed amount on
+   top, its conversion below, a round swap button on the hairline between
+   them. The same look as the converter sheet it replaced, on the hub's page
+   instead: the pair sits on a card like the hub's other sections. */
+.cvt-panel {
+  --cvt-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --cvt-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  text-align: center;
+}
+
+@keyframes cvt-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cvt-pair {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+}
+
+.cvt-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 96px;
+  justify-content: center;
+}
+
+.cvt-unit {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* The big typed number: just digits, none of the app-wide input box. Scoped
+   under .cvt-panel so it outranks App.css's `input:focus` pop shadow. */
+.cvt-panel .cvt-input,
+.cvt-panel .cvt-input:focus {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  caret-color: var(--accent);
+  transition: font-size 0.2s var(--cvt-ease);
+}
+
+.cvt-input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.45;
+}
+
+.cvt-input,
+.cvt-output {
+  line-height: 1.1;
+}
+
+/* The amount is selected after a swap (so typing replaces it);
+   the app-wide solid accent selection made that a loud orange slab. */
+.cvt-input::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text-h);
+}
+
+.cvt-output {
+  display: block;
+  width: 100%;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: font-size 0.2s var(--cvt-ease);
+}
+
+/* The result side is a button (tap to swap) that should still read as
+   plain text: none of the app-wide button box, only a slight press. */
+.cvt-panel .cvt-side-tap {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  font-weight: inherit;
+  transition: transform 0.16s var(--cvt-ease);
+}
+
+.cvt-panel .cvt-side-tap:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.cvt-panel .cvt-side-tap:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+.cvt-panel .cvt-side-tap:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.cvt-divider {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.cvt-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: var(--border-w) dashed var(--border-soft);
+}
+
+.cvt-panel .cvt-swap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: var(--border-w) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--pop-sm);
+  cursor: pointer;
+  transition: transform 0.16s var(--cvt-ease), box-shadow 0.16s var(--cvt-ease);
+}
+
+.cvt-panel .cvt-swap:hover:not(:disabled) {
+  transform: none;
+  box-shadow: var(--pop-sm);
+}
+
+.cvt-panel .cvt-swap:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.cvt-panel .cvt-swap:disabled {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.cvt-swap svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.45s var(--cvt-spring);
+}
+
+.cvt-rows {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.cvt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  animation: cvt-rise 0.35s var(--cvt-ease) var(--d, 0s) both;
+}
+
+.cvt-row + .cvt-row {
+  border-top: 1px solid var(--border-soft);
+}
+
+.cvt-row-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.cvt-row-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.cvt-rows-skeleton {
+  display: block;
+  width: 100%;
+  height: 128px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-soft) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-pulse 1.4s ease infinite;
+}
+
+.cvt-source {
+  margin: -4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.cvt-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cvt-row {
+    animation: none;
+  }
+
+  .cvt-swap svg {
+    transition: none;
+  }
+}

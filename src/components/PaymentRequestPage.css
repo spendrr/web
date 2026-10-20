@@ -1,0 +1,139 @@
+/* The paying side of a payment request (PaymentRequestPage.tsx). Everything
+   structural comes from sheet/PaySheet.css; this is only the recipient row,
+   the Lightning fallback block and the note. */
+
+/* Who gets paid: the address's avatar (a visual checksum) and its ends. */
+.prq-recipient {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+}
+
+.prq-recipient-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.prq-recipient-label,
+.prq-note-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.prq-recipient-address {
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* The note is the requester's text, not the app's: labelled as such. */
+.prq-note-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 300px;
+}
+
+.prq-note {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  font-style: italic;
+  color: var(--text);
+  max-width: 300px;
+}
+
+/* Set apart from the Spendrr path above it: this is the "you don't have
+   this app" route, and it should read as a second, self-contained option
+   rather than more of the same screen. */
+.prq-ln {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 16px 14px 14px;
+  border-radius: 20px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+}
+
+.prq-ln-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.prq-ln-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.prq-ln-expired {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.prq-ln-qr {
+  display: block;
+  line-height: 0;
+  padding: 14px;
+  border-radius: 16px;
+  /* A scanner needs dark-on-light regardless of the app's theme, so this
+     tile brings its own white rather than using the surface token. */
+  background: white;
+  border: 2.5px solid transparent;
+  box-shadow: 2px 2px 0 #8a8a8a;
+}
+
+.prq-ln-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.prq-ln-actions > * {
+  flex: 1;
+  margin: 0;
+}
+
+/* An <a>, not a <button>: the tap has to be a real navigation for the OS to
+   hand the invoice off to a Lightning wallet, which a <button> plus a JS
+   location assignment does less reliably on iOS. App.css styles buttons by
+   element name, so the whole look is restated here rather than inherited. */
+.prq-ln-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--pop-sm);
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.prq-ln-open:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--pop);
+}
+
+.prq-ln-open:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--border);
+}

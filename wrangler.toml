@@ -1,0 +1,372 @@
+# Reference configuration. Namespace ids are placeholders: create your own
+# (wrangler kv namespace create) and put them here. Secrets are never in the repo.
+name = "btc-wallet"
+main = "worker/index.ts"
+compatibility_date = "2026-08-29"
+# A mainnet wallet served on a second, unbranded origin
+# (btc-wallet.<account>.workers.dev) is a phishing/confusion risk — it's a
+# fully functional copy that passes its own same-origin check (checkSameOrigin
+# compares against the request's own origin, not a hardcoded allowlist), with
+# separate localStorage/IndexedDB (so a separate vault) and none of the
+# address-bar signal users are taught to check for (spendrr.app). This app has never intentionally used the
+# workers.dev URL — the custom domains below ([[routes]]) are the only
+# intended entry points.
+workers_dev = false
+preview_urls = false
+
+[observability]
+enabled = true
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# Otherwise Cloudflare serves matching paths as static assets directly and
+# the Worker's fetch() below (manifest.json dark/light branching, the
+# /api/price/* CoinGecko proxy, /api/push/* subscribe/unsubscribe) never
+# runs — the SPA fallback below means every unmatched path 200s with
+# index.html instead of ever reaching the Worker.
+# "/@*" and "/%40*" are the profile links (spendrr.app/@name): the Worker adds
+# link-preview tags to the app's HTML for them. Both spellings, because
+# Cloudflare's asset layer would otherwise redirect one to the other.
+# "/.well-known/lnurlp/*" is the Lightning-address payRequest a sender's
+# wallet fetches first (docs/ln-address-plan.md) — LUD-16 fixes that path.
+# "/.well-known/nostr.json" is NIP-05 for the same names (money chat, beta).
+# "/tip/*" and "/donate" are the standalone tip page: the Worker serves the
+# static /tip page (dist/tip.html) for them, the page reads the name from the URL.
+# "/learn" (exact path only) picks the landing page's language from
+# Accept-Language, see worker/learnLang.ts; "/learn/en" stays a plain asset.
+run_worker_first = ["/manifest.json", "/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/learn", "/tip/*", "/donate", "/donate/", "/app/*"]
+
+# Per-source-IP cap on the /api/price/* CoinGecko proxy (see worker/index.ts)
+# so one abusive client can't exhaust the shared Demo API key's quota for
+# everyone else using the wallet.
+[[unsafe.bindings]]
+name = "PRICE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+# Push subscribe / height / unsubscribe, per source. Own bucket (was
+# PRICE_RATE_LIMITER's 20 a minute shared with price traffic): a carrier NAT
+# puts many phones behind one address, and a 429 on a subscribe silently
+# costs that phone its payment notifications. Generous on purpose: every
+# subscribe first has to pass a live mailbox-authorization check against the
+# Ark server, and the daily new-pair cap plus the per-shard ceiling bound what
+# rotating addresses could register.
+[[unsafe.bindings]]
+name = "PUSH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1014"
+simple = { limit = 60, period = 60 }
+
+# Money chat push (worker/chatPush.ts). Per source: a phone sending messages
+# to many contacts. Per slot (one conversation): at most a few pushes a minute
+# whatever the sender does, so a contact holding a token cannot flood anyone.
+[[unsafe.bindings]]
+name = "CHAT_POKE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1015"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "CHAT_POKE_SLOT_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1016"
+simple = { limit = 3, period = 60 }
+
+# Reverse lookup only now (endpoint -> mailboxId) — the actual push
+# subscription records moved into per-mailbox MailboxWatcher Durable Object
+# storage (see worker/mailboxWatcher.ts and ARCHITECTURE.md's push notifications
+# section). Still needed because the client only knows its own push endpoint
+# at disable time, never the mailboxId.
+[[kv_namespaces]]
+binding = "PUSH_SUBSCRIPTIONS"
+id = "00000000000000000000000000000000"
+
+# One Durable Object per subscribed mailbox, each with its own self-scheduling
+# alarm (see worker/mailboxWatcher.ts) — replaces the old global per-minute
+# cron that walked every subscriber out of one shared KV index. That model
+# shared ONE Cloudflare per-invocation subrequest budget across every
+# subscriber (each one costs at least one external mailbox-read call every
+# tick), capping the whole app at roughly 40 push subscribers on the free
+# plan regardless of overall traffic. Every mailbox now gets its own separate
+# invocation and its own separate subrequest budget instead.
+# SQLite-backed (new_sqlite_classes, not new_classes) specifically because
+# that storage backend is available on the Workers Free plan — see
+# https://developers.cloudflare.com/changelog/post/2025-04-07-durable-objects-free-tier/
+[[durable_objects.bindings]]
+name = "MAILBOX_WATCHER"
+class_name = "MailboxWatcher"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MailboxWatcher"]
+
+# Tap-to-pay pairing (see worker/bump.ts): one single global instance
+# (idFromName("global") in worker/index.ts), not sharded like MailboxWatcher.
+# The class keeps its original BumpLab name (renaming needs a migration).
+# SQLite-backed for the same free-plan reason as above; durable storage holds
+# only pairs whose direction was chosen, so a payment survives a restart.
+[[durable_objects.bindings]]
+name = "BUMP_LAB"
+class_name = "BumpLab"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["BumpLab"]
+
+# @handle registry (see worker/names.ts): one global Durable Object holding
+# name -> Ark address, so a name can never be claimed twice. SQLite-backed like
+# the others (free-plan compatible).
+[[durable_objects.bindings]]
+name = "NAME_REGISTRY"
+class_name = "NameRegistry"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["NameRegistry"]
+
+# Public name lookups (GET /api/names/<name>): what a sender resolves before
+# paying, so it must be generous, but it is a Durable Object request each.
+[[unsafe.bindings]]
+name = "NAME_LOOKUP_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1010"
+simple = { limit = 120, period = 60 }
+
+# Name lookups that the edge cache (worker/nameLookupCache.ts) could not answer,
+# i.e. the ones that cost a Durable Object request. The Free plan allows 100,000
+# Durable Object requests a DAY for the whole account (push alarms, name writes
+# and lookups share it), so this is tighter than NAME_LOOKUP_RATE_LIMITER above,
+# which still counts every request. NOT tighter than typing needs: the send
+# field looks a name up on every 150 ms pause and each prefix ("pav", "pave",
+# "pavel") is a distinct name, hence a miss, so one handle typed at normal speed
+# is ~8 misses. 60 a minute leaves room for several handles a minute; repeats
+# are cache hits and cost nothing here.
+[[unsafe.bindings]]
+name = "NAME_MISS_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1013"
+simple = { limit = 60, period = 60 }
+
+# Name writes (set / release / mine). Each one costs a call to the Ark server
+# to verify the mailbox, so this is tight; a person changes a name a few times
+# a month.
+[[unsafe.bindings]]
+name = "NAME_WRITE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1011"
+simple = { limit = 20, period = 60 }
+
+# Lightning address (docs/ln-address-plan.md, beta): one global Durable
+# Object tracking every open/settled/expired invoice, so the per-name/global
+# open-invoice caps in worker/lnLedger.ts can't race. SQLite-backed like the
+# others (free-plan compatible).
+[[durable_objects.bindings]]
+name = "LN_LEDGER"
+class_name = "LnLedger"
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["LnLedger"]
+
+# GET .well-known/lnurlp/<name> and the invoice callback — what a sender's
+# wallet calls, so generous like NAME_LOOKUP_RATE_LIMITER; the callback also
+# costs a real call to the service node, hence its own bucket rather than
+# sharing one with plain name lookups.
+[[unsafe.bindings]]
+name = "LNURL_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1012"
+simple = { limit = 60, period = 60 }
+
+# Caps for the BumpOverlay (see worker/bump.ts and
+# worker/index.ts's handleBumpSync/handleBumpForward). Split in two:
+# BUMP_RATE_LIMITER guards the real "action" (a
+# physical tap); BUMP_POLL_RATE_LIMITER covers clock-sync pings plus
+# /status polling, which legitimately fires many times per single pairing
+# attempt. Raised 2026-09-19 after live passive-listening use hit both:
+# a single successful pairing's own legitimate polling (sync + the ~5s
+# pollUntilPaired loop + the ~30s post-emoji choosing-phase poll) already
+# adds up to ~100+ requests, and a real session normally involves a few
+# retries on top of that — the previous limits left almost no headroom
+# even before BumpOverlay.tsx's restart()-leak bug (fixed same day, see
+# its own comment) made a false-positive storm multiply that further.
+# Raised again 60->120 for silent-until-paired: every tap candidate (hard
+# or soft) is now its own /tap request, held open instead of polled, so
+# /tap carries more and /status far less. The client caps itself well under
+# this (soft candidates >=1.5s apart, max 4 in flight, 30s backoff on 429);
+# the headroom is for two phones sharing one IP on the same wifi.
+[[unsafe.bindings]]
+name = "BUMP_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 120, period = 60 }
+
+# Lowered 900 -> 300 on 2026-09-30 (hardening before the web rollout): every
+# /status is a request on the one global BumpLab object, and the Free plan's
+# 100,000 Durable Object requests a day are shared by the WHOLE account (push,
+# names, Lightning). At 900 a minute one address could spend that budget in
+# under two hours. The phone's own worst case is far below 300: a clock sync
+# of 2 to 5 requests every 10 minutes while visible, and one long-poll of up to
+# 8 s per pairing. The motion-driven warm-up ping goes to a static file
+# (src/lib/bump/bump.ts's WARM_UP_URL) and never reaches the Worker.
+[[unsafe.bindings]]
+name = "BUMP_POLL_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1009"
+simple = { limit = 300, period = 60 }
+
+# Tap-to-pay sensor recordings (Settings → Záznamník ťuknutí, see
+# src/lib/bump/bumpRecorder.ts and worker/index.ts's handleBumpLabUpload): raw
+# motion data for tuning the detector, nothing wallet-related. Uploads only
+# while BUMP_LAB_RECORDING is "1"; flip it to "0" once enough is collected.
+# Reads need the BUMP_LAB_TOKEN secret (scripts/bump-lab-pull.mjs).
+# Setup (one-time): `npx wrangler r2 bucket create btc-wallet-bump-lab`
+[[r2_buckets]]
+binding = "BUMP_LAB_RECORDINGS"
+bucket_name = "btc-wallet-bump-lab"
+
+[vars]
+BUMP_LAB_RECORDING = "0"
+
+# Reserved names ("spendrr", "support", ...) that ONE specific mailbox may
+# register, as JSON: {"spendrr": "<66 hex mailbox id>"}. Mailbox ids are public
+# (they are not secrets), so this belongs in the repo. Empty means nobody.
+# Moderation of names uses a secret, not a var:
+#   npx wrangler secret put NAMES_ADMIN_TOKEN   (then scripts/names-admin.mjs)
+RESERVED_NAME_OWNERS = "{}"
+
+# Lightning address (docs/ln-address-plan.md, beta): the Cloudflare Tunnel
+# hostname in front of the service node's Caddy allowlist. Not a secret —
+# Cloudflare Access and barkd's own bearer token are what actually gate it,
+# both set as secrets:
+#   npx wrangler secret put CF_ACCESS_CLIENT_ID
+#   npx wrangler secret put CF_ACCESS_CLIENT_SECRET
+#   npx wrangler secret put BARKD_TOKEN
+# Until those are set, every Lightning-address route degrades to "Dočasně
+# nedostupné" rather than throwing (see worker/index.ts's callBarkd).
+BARKD_URL = "https://ln-node.example.com"
+# Payment push relay (worker/pushRelay.ts, relay/README.md): its tunnel
+# hostname. Inert until PUSH_RELAY_TOKEN and PUSH_RELAY_HOOK_SECRET are set.
+PUSH_RELAY_URL = "https://push-relay.spendrr.app"
+
+# Cap on /api/backup/* writes (see worker/index.ts's backup handlers) —
+# distinct namespace_id from PRICE_RATE_LIMITER above. Checked twice per
+# request: once keyed by the caller-chosen lookupKey (bounds one wallet
+# re-uploading) and once keyed by `ip:<CF-Connecting-IP>` (the real limit,
+# since lookupKey rotation would otherwise bypass the per-key bucket). Tuned
+# tighter than the price proxy since a backup payload is a full IndexedDB
+# dump, not a small JSON quote — the client already debounces uploads
+# client-side, so a legitimate wallet should never come close to this.
+[[unsafe.bindings]]
+name = "BACKUP_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 6, period = 60 }
+
+# Cap on /api/backup/* reads (fetch, fetch-tmp, meta), keyed by source IP only.
+# Deliberately a separate namespace_id from BACKUP_RATE_LIMITER above and much
+# more generous: an upload cycle already spends two slots on the write bucket
+# and a read that shared it would start 429-ing legitimate uploads, while a
+# 429 on a restore fetch makes the client latch a restore failure and stop
+# backing up (see handleBackupFetch's comment). What this bounds is R2 egress
+# — each response is a full encrypted wallet dump — not correctness, so the
+# limit only has to sit above what one device plausibly does in a minute
+# (roughly one fetch per open plus one meta+fetch-tmp per upload).
+[[unsafe.bindings]]
+name = "BACKUP_READ_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 30, period = 60 }
+
+# Encrypted full-state backups (see worker/index.ts's /api/backup/* and
+# ARCHITECTURE.md's backup section) — one object per wallet, keyed by a public
+# lookup key derived from the mnemonic (never the mnemonic or plaintext
+# balance/history itself). R2, not KV: blobs are full IndexedDB dumps
+# (potentially several MB), and R2 has no egress fee and no KV-style
+# small-value assumption.
+# Setup (one-time, not run automatically): `npx wrangler r2 bucket create btc-wallet-backups`
+[[r2_buckets]]
+binding = "WALLET_BACKUPS"
+bucket_name = "btc-wallet-backups"
+
+# Public price copy (worker/priceCache.ts's publishPublicPrice, read by
+# src/lib/price.ts from https://data.spendrr.app/price.json, the one
+# cross-origin URL public/fetch-guard.js allows). Its OWN bucket: a public
+# bucket's domain serves everything in it, so never the backups one.
+# The bucket must exist before this deploys (a binding to a missing bucket fails
+# the deploy). Setup, done once by hand in the Cloudflare account:
+#   1. npx wrangler r2 bucket create spendrr-public-data
+#   2. Dashboard: R2 > spendrr-public-data > Settings > Custom Domains: data.spendrr.app
+#   3. Same page, CORS policy:
+#      [{"AllowedOrigins":["https://spendrr.app"],"AllowedMethods":["GET"],"MaxAgeSeconds":3600}]
+#   4. Optional: a Cache Rule on data.spendrr.app (Eligible for cache, respect
+#      origin TTL): .json is not cached by default, so without it every read is
+#      an R2 read (free up to 10 M a month).
+#   5. Deploy.
+#   6. Check: curl -sI -H 'Origin: https://spendrr.app' https://data.spendrr.app/price.json
+#      shows 200, content-type application/json and access-control-allow-origin (the
+#      cron writes the file within a few minutes of the deploy).
+[[r2_buckets]]
+binding = "PRICE_PUBLIC"
+bucket_name = "spendrr-public-data"
+
+# The Android app's update channel (worker/appRelease.ts): update.json and the APKs,
+# put there by hand after a release (spendrr-android-kotlin's tools/publish-update.mjs
+# prints the commands). A PRIVATE bucket, served only through the Worker: never the
+# backups one, and never one that someone else can write to. Commented out until it
+# exists (a binding to a missing bucket fails the deploy): `npx wrangler r2 bucket
+# create spendrr-app-releases`, then uncomment. Until then /app/* answers 404.
+[[r2_buckets]]
+binding = "APP_RELEASES"
+bucket_name = "spendrr-app-releases"
+
+# Cap on /api/btcmap/elements (see worker/btcmap.ts) — a client only calls
+# this a handful of times per map pan/zoom, not per pin/tile, so this can
+# stay well below PRICE_RATE_LIMITER's budget.
+[[unsafe.bindings]]
+name = "BTCMAP_ELEMENTS_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 60, period = 60 }
+
+# Periodic cache of btcmap.org's merchant dataset (see worker/btcmap.ts) —
+# refreshed by the per-minute cron, read by /api/btcmap/elements. One-time
+# manual setup, not run automatically: `npx wrangler kv namespace create
+# BTCMAP_ELEMENTS`, then replace the placeholder id below with the real one
+# it prints. Until that's done, env.BTCMAP_ELEMENTS is undefined and
+# handleBtcMapElements degrades to a 503 rather than throwing.
+[[kv_namespaces]]
+binding = "BTCMAP_ELEMENTS"
+id = "00000000000000000000000000000000"
+
+# Cap on /api/btcmap/tile/* (see worker/btcmap.ts) — far more generous than
+# BTCMAP_ELEMENTS_RATE_LIMITER since a single screenful of map tiles is a few
+# dozen requests, not a handful. Cloudflare's edge cache absorbs most repeat
+# requests before they ever count against this anyway.
+[[unsafe.bindings]]
+name = "BTCMAP_TILE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 600, period = 60 }
+
+# BTCMAP_TILES_API_KEY (a MapTiler free-tier key) is a secret, not a binding
+# here — one-time manual setup, not run automatically:
+# `npx wrangler secret put BTCMAP_TILES_API_KEY`. Until that's done,
+# handleBtcMapTile degrades to a 503 rather than throwing.
+
+# No longer drives mailbox checking (each MailboxWatcher Durable Object
+# schedules its own alarm independently) — this trigger now only pings the
+# HEALTHCHECK_PING_URL dead-man's-switch every minute, proving the base
+# Worker/cron machinery itself is still alive.
+[triggers]
+crons = ["* * * * *"]
+
+[[routes]]
+pattern = "spendrr.app"
+custom_domain = true
+
+# The previous domain was removed on 2026-09-20. Its data was origin-scoped, so
+# anyone still on it would see an empty wallet: restore from the seed instead.

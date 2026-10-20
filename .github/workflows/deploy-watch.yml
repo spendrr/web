@@ -1,0 +1,77 @@
+# Hourly: is spendrr.app serving exactly the build of a published release?
+# Reads the deployed version from /build-info.json, builds the matching tag of
+# this repository and compares every served file byte for byte, see
+# scripts/verify-deploy.mjs and VERIFY.md. A failed run is the alert: GitHub
+# emails it. It also fails when the deployed build came from a tree with
+# uncommitted changes, or when its release tag was never published, since then
+# nothing here can vouch for it.
+#
+# Scheduled workflows only run from the default branch.
+name: Deploy watch
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-watch
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Which release is deployed
+        id: deployed
+        run: |
+          info=$(curl -fsS "https://spendrr.app/build-info.json?t=$(date +%s)")
+          echo "$info"
+          if [ "$(echo "$info" | jq -r .dirty)" != "false" ]; then
+            echo "::error::Deployed build was made from uncommitted changes, nothing can reproduce it."
+            exit 1
+          fi
+          echo "commit=$(echo "$info" | jq -r .commit)" >> "$GITHUB_OUTPUT"
+          echo "tag=v$(echo "$info" | jq -r .version)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check out the deployed release
+        run: |
+          t="${{ steps.deployed.outputs.tag }}"
+          if ! git rev-parse -q --verify "refs/tags/$t" >/dev/null; then
+            echo "::error::Deployed release $t is not published in this repository."
+            exit 1
+          fi
+          git checkout --quiet "$t"
+          if [ "$(jq -r .commit build-meta.json)" != "${{ steps.deployed.outputs.commit }}" ]; then
+            echo "::error::Tag $t was built from a different source commit than the one deployed."
+            exit 1
+          fi
+
+      # The build of a given release never changes, so it is made once per deploy.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        with:
+          path: manifest.json
+          key: deploy-manifest-${{ steps.deployed.outputs.commit }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: ${{ steps.cache.outputs.cache-hit != 'true' && 'npm' || '' }}
+
+      - name: Build the deployed release
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          npm ci
+          npm run build
+          node scripts/verify-deploy.mjs manifest dist "${{ steps.deployed.outputs.commit }}" > manifest.json
+
+      - name: Compare with what spendrr.app serves
+        run: node scripts/verify-deploy.mjs verify manifest.json

@@ -1,0 +1,256 @@
+/* Motion design (beta, 2026-09-25). Everything here is scoped to
+   [data-motion="on"] on <html> (src/lib/ui/motion.ts: v2 beta + its own switch in
+   Settings + no prefers-reduced-motion) or to the data-nav-* / data-scan-lock
+   attributes withViewTransition() sets for the length of one View Transition,
+   which it only ever starts under the same conditions. With the switch off
+   none of this matches and the app moves exactly as V1. */
+
+/* ---- 1. Screen changes (Dashboard navigate()) ----
+   The page slides in the direction of travel; the header stays put; the
+   balance card collapses away on the way into Receive and back on return;
+   and the element that was tapped grows into the one it opens (nav-morph).
+   History ("Zobrazit vše" and back) has no transition: tried, dropped. */
+
+:root[data-nav-dir] .dashboard-header {
+  view-transition-name: dash-header;
+}
+
+:root[data-nav-dir] .balance-card {
+  view-transition-name: dash-balance;
+}
+
+:root[data-nav-morph="send"] .big-action-btn--send,
+:root[data-nav-morph="send"] .subview .destination-row input,
+:root[data-nav-morph="receive"] .big-action-btn--receive,
+:root[data-nav-morph="receive"] .subview .qr-wrap {
+  view-transition-name: nav-morph;
+}
+
+:root[data-nav-dir]::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-morph);
+}
+
+:root[data-nav-dir="forward"]::view-transition-old(root) {
+  animation: 170ms var(--ease-in) both motion-out-left;
+}
+:root[data-nav-dir="forward"]::view-transition-new(root) {
+  animation: 340ms var(--ease-out) 60ms both motion-in-right;
+}
+:root[data-nav-dir="back"]::view-transition-old(root) {
+  animation: 170ms var(--ease-in) both motion-out-right;
+}
+:root[data-nav-dir="back"]::view-transition-new(root) {
+  animation: 340ms var(--ease-out) 60ms both motion-in-left;
+}
+
+/* The two snapshots keep their own size (object-fit: none), so neither gets
+   stretched, and are clipped to the morphing box. The box itself is drawn
+   (withViewTransition animates the group's fill, outline, radius and hard
+   shadow from the tapped element's to the target's, see skinOf in motion.ts),
+   so the outline and the shadow travel with the shape instead of being cut
+   off inside a snapshot. With a skin the snapshots only fade at the two
+   ends, where they match it; without one they crossfade. */
+:root[data-nav-dir]::view-transition-group(nav-morph) {
+  animation-duration: 460ms;
+}
+:root[data-nav-dir]::view-transition-image-pair(nav-morph),
+:root[data-scan-lock]::view-transition-image-pair(scan-lock) {
+  overflow: clip;
+  border-radius: inherit;
+}
+:root[data-nav-dir]::view-transition-old(nav-morph),
+:root[data-nav-dir]::view-transition-new(nav-morph),
+:root[data-scan-lock]::view-transition-old(scan-lock),
+:root[data-scan-lock]::view-transition-new(scan-lock) {
+  width: 100%;
+  height: 100%;
+  object-fit: none;
+}
+:root[data-nav-dir]::view-transition-old(nav-morph) {
+  animation: 160ms ease both motion-fade-out;
+}
+:root[data-nav-dir]::view-transition-new(nav-morph) {
+  animation: 280ms ease 140ms both motion-fade-in;
+}
+:root[data-morph-skin]::view-transition-old(nav-morph),
+:root[data-morph-skin]::view-transition-old(scan-lock) {
+  animation: 110ms ease both motion-fade-out;
+}
+:root[data-morph-skin]::view-transition-new(nav-morph),
+:root[data-morph-skin]::view-transition-new(scan-lock) {
+  animation: 180ms ease 290ms both motion-fade-in;
+}
+
+/* Receive has no balance card: it collapses out and comes back. */
+:root[data-nav-dir]::view-transition-old(dash-balance):only-child {
+  animation: 220ms var(--ease-in) both motion-balance-out;
+}
+:root[data-nav-dir]::view-transition-new(dash-balance):only-child {
+  animation: 320ms var(--ease-out) 60ms both motion-balance-in;
+}
+
+@keyframes motion-out-left {
+  to { opacity: 0; transform: translateX(-18px); }
+}
+@keyframes motion-out-right {
+  to { opacity: 0; transform: translateX(18px); }
+}
+@keyframes motion-in-right {
+  from { opacity: 0; transform: translateX(18px); }
+}
+@keyframes motion-in-left {
+  from { opacity: 0; transform: translateX(-18px); }
+}
+@keyframes motion-fade-out {
+  to { opacity: 0; }
+}
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+}
+@keyframes motion-balance-out {
+  to { opacity: 0; transform: translateY(-8px) scale(0.92); }
+}
+@keyframes motion-balance-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.92); }
+}
+
+/* The island toast (a fixed element portalled into <body>) would otherwise be
+   part of the page snapshot and slide, fade and reappear with it, with its
+   own entrance playing hidden underneath. That hit exactly the moments that
+   show one and then change screen: a send going home, a receipt on the
+   Receive screen. Its own layer keeps it still: the live new image is shown
+   as is (its CSS animation keeps running), the old one is dropped unless the
+   toast is gone in the new state, where it fades out. Only one of the three
+   island render sites in Dashboard is ever mounted at a time. */
+:root:is([data-nav-dir], [data-scan-lock]) .toast-island-wrap {
+  view-transition-name: toast-island;
+}
+:root:is([data-nav-dir], [data-scan-lock])::view-transition-group(toast-island),
+:root:is([data-nav-dir], [data-scan-lock])::view-transition-new(toast-island) {
+  animation: none;
+}
+:root:is([data-nav-dir], [data-scan-lock])::view-transition-old(toast-island) {
+  animation: none;
+  opacity: 0;
+}
+:root:is([data-nav-dir], [data-scan-lock])::view-transition-old(toast-island):only-child {
+  opacity: 1;
+  animation: 150ms ease both motion-fade-out;
+}
+
+/* ---- 2. Confirm button fills over its arm delay ----
+   SendPanel sets --arm-ms to the same delay that keeps it disabled, so the
+   fill ends exactly when the button starts working. Until then it reads as
+   "getting ready", not as the greyed-out disabled state. */
+
+:root[data-motion="on"] .confirm-arm {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+:root[data-motion="on"] .confirm-arm:not(.armed) {
+  opacity: 1;
+  cursor: default;
+  background: color-mix(in srgb, var(--accent) 42%, var(--surface));
+}
+:root[data-motion="on"] .confirm-arm::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--accent);
+  transform-origin: left center;
+}
+:root[data-motion="on"] .confirm-arm:not(.armed)::before {
+  animation: motion-arm-fill var(--arm-ms, 350ms) linear both;
+}
+:root[data-motion="on"] .confirm-arm.armed:not(.sending) {
+  animation: motion-arm-ready 340ms ease-out;
+}
+@keyframes motion-arm-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes motion-arm-ready {
+  35% { transform: scale(1.03); }
+}
+
+/* ---- 3. Sending: a sheen runs across the button while the call is out ---- */
+
+:root[data-motion="on"] :is(.confirm-arm, .send-submit).sending {
+  opacity: 1;
+  cursor: progress;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+:root[data-motion="on"] :is(.confirm-arm, .send-submit).sending::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent 0%, rgb(255 255 255 / 0.38) 50%, transparent 100%);
+  pointer-events: none;
+  animation: motion-sheen 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes motion-sheen {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(240%); }
+}
+
+/* ---- 4. A payment lands on the Receive screen: the QR dissolves ---- */
+
+:root[data-motion="on"] .subview--dissolving .qr-wrap {
+  animation: motion-qr-dissolve 420ms var(--ease-in) forwards;
+}
+@keyframes motion-qr-dissolve {
+  to { opacity: 0; transform: scale(0.84); filter: blur(8px); }
+}
+
+/* ---- 5. Scanner: the brackets lock onto the code ---- */
+
+.qr-lock {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: center;
+}
+.qr-lock-c {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 4px solid var(--accent);
+}
+.qr-lock-c.tl { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 14px; }
+.qr-lock-c.tr { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 14px; }
+.qr-lock-c.bl { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 14px; }
+.qr-lock-c.br { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 14px; }
+.qr-lock-flash {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: #ffffff;
+  opacity: 0;
+}
+
+/* The lock frame flies into the destination field it just filled. */
+:root[data-scan-lock] .qr-lock:not([hidden]),
+:root[data-scan-lock] .destination-row input.just-scanned {
+  view-transition-name: scan-lock;
+}
+:root[data-scan-lock]::view-transition-group(scan-lock) {
+  animation-duration: 480ms;
+  animation-timing-function: var(--ease-morph);
+}
+
+/* ---- 7. Activity rows come in one after another ---- */
+
+:root[data-motion="on"] .history-list--stagger .history-item {
+  animation: motion-row-in 360ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 40ms);
+}
+@keyframes motion-row-in {
+  from { opacity: 0; transform: translateY(10px); }
+}

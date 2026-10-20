@@ -1,0 +1,198 @@
+/* The gift-claim screen's one piece of its own (GiftClaimModal.tsx) — the
+   box that opens when the claim actually lands. Everything else on that
+   screen is the shared sheet (sheet/PaySheet.css). */
+
+.gft-box {
+  position: relative;
+  width: 110px;
+  /* Taller than the box itself, with the svg sitting at the bottom: the
+     headroom is where the lid goes when it pops. Without it the lid flies
+     out of the sheet's own clipping box and gets cut in half. */
+  height: 132px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.gft-box-svg {
+  width: 110px;
+  height: 105px;
+  overflow: visible;
+}
+
+/* Closed: a slow breath, so the screen isn't static while the claim runs. */
+.gft-box:not(.is-open) .gft-box-svg {
+  animation: gft-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes gft-breathe {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  40% { transform: scale(1.035) rotate(-1.4deg); }
+  70% { transform: scale(1.01) rotate(1deg); }
+}
+
+.gft-body {
+  fill: var(--accent-bg);
+  stroke: var(--border);
+  stroke-width: 3;
+}
+
+.gft-lid-plate {
+  fill: var(--surface-2);
+  stroke: var(--border);
+  stroke-width: 3;
+}
+
+.gft-ribbon-v,
+.gft-ribbon-h {
+  fill: var(--accent);
+}
+
+.gft-bow {
+  fill: var(--accent);
+  stroke: var(--border);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.gft-lid {
+  transform-origin: 44px 30px;
+  transition: transform 0.62s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* Open: the lid pops up, tilts and drifts off to the side while the body
+   settles back down — one motion, not a bounce loop. */
+.gft-box.is-open .gft-lid {
+  transform: translate(14px, -34px) rotate(17deg);
+}
+
+.gft-box.is-open .gft-box-svg {
+  animation: gft-pop 0.62s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+@keyframes gft-pop {
+  0% { transform: scale(1); }
+  28% { transform: scale(0.93, 1.06); }
+  60% { transform: scale(1.05, 0.96); }
+  100% { transform: scale(1); }
+}
+
+/* A warm bloom out of the open box, once. */
+.gft-glow {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  width: 62px;
+  height: 62px;
+  margin: -31px 0 0 -31px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 68%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gft-box.is-open .gft-glow {
+  animation: gft-glow 1.1s ease-out 0.1s both;
+}
+
+@keyframes gft-glow {
+  0% { opacity: 0; transform: scale(0.4); }
+  35% { opacity: 0.55; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+
+/* Sparkles: each one is placed and delayed from inline custom properties
+   (randomised per mount in the component), so no two opens look identical. */
+.gft-sparkle {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  width: var(--s, 6px);
+  height: var(--s, 6px);
+  margin: calc(var(--s, 6px) / -2) 0 0 calc(var(--s, 6px) / -2);
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gft-box.is-open .gft-sparkle {
+  animation: gft-sparkle 0.95s cubic-bezier(0.2, 0.8, 0.3, 1) var(--d, 0ms) both;
+}
+
+@keyframes gft-sparkle {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  25% { opacity: 1; transform: translate(calc(var(--x) * 0.45), calc(var(--y) * 0.75)) scale(1.15); }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 26px)) scale(0.5); }
+}
+
+/* Deliberately not the app's usual uppercase + wide-tracking label
+   treatment — on a screen whose whole job is "someone sent you a present"
+   that reads like a system notice. Unbounded (self-hosted, see fonts.css)
+   in sentence case is the warmest face this app already ships. */
+.gft-kicker {
+  margin: -4px 0 0;
+  font-family: "Unbounded", var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  color: var(--accent);
+}
+
+/* The sender's message, as a note pinned to the gift. */
+.gft-note {
+  position: relative;
+  width: 100%;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+}
+
+.gft-note-label {
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: "Unbounded", var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.gft-note-body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.gft-progress {
+  margin: 0;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gft-box:not(.is-open) .gft-box-svg,
+  .gft-box.is-open .gft-box-svg,
+  .gft-box.is-open .gft-glow {
+    animation: none;
+  }
+
+  .gft-box.is-open .gft-sparkle {
+    animation: none;
+    opacity: 0;
+  }
+
+  .gft-lid {
+    transition-duration: 0.2s;
+    transition-timing-function: ease-out;
+  }
+}

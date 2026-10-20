@@ -1,0 +1,109 @@
+/* pointer-events: none — this used to accept clicks anywhere on screen as
+   "tap outside to dismiss", which silently ate the very gesture some
+   coachmarks exist to teach: the utility-swipe hint points at
+   .lock-gesture-area, and a real swipe starting anywhere on screen hit this
+   full-viewport, z-index:500 backdrop first, never reaching the element
+   underneath — confirmed live, a swipe over the highlighted area just
+   dismissed the hint instead of opening the Utility hub, on exactly the
+   first attempt a new user would make. Dismiss is now the bubble's own
+   button only (that one re-enables pointer-events on itself below), which
+   costs one extra tap but never swallows an in-progress gesture on the
+   thing being highlighted. */
+.coachmark-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+}
+
+.coachmark-highlight {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    top 0.25s ease,
+    left 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.coachmark-highlight.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Pulsing ring — a separate absolutely-positioned layer instead of animating
+   the highlight's own box-shadow (whose 9999px spread covers the whole
+   viewport, so animating it would repaint the entire screen every frame).
+   Only starts once the entrance transition has actually kicked in, so it
+   doesn't flash mid pop-in. */
+.coachmark-highlight::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid var(--accent);
+  opacity: 0;
+}
+
+.coachmark-highlight.is-visible::after {
+  animation: coachmark-pulse 1.8s ease-out infinite;
+}
+
+@keyframes coachmark-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+.coachmark-bubble {
+  position: fixed;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--pop);
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: 240px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: default;
+  z-index: 501;
+  /* Its own parent (.coachmark-overlay) is pointer-events: none — re-enable
+     here so the bubble and its dismiss button stay clickable. */
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.coachmark-bubble.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.coachmark-bubble p {
+  font-size: 14px;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.coachmark-bubble button {
+  align-self: flex-end;
+  padding: 6px 14px;
+  font-size: 13px;
+}

@@ -1,0 +1,148 @@
+/* Self-hosted webfonts.
+ *
+ * These used to come from fonts.googleapis.com + fonts.gstatic.com. Two
+ * reasons they don't any more, neither of them the (very theoretical) CSS
+ * side-channel argument:
+ *
+ *  1. It took a third party off the critical rendering path. Loading the
+ *     stylesheet from one host, which then resolves a second host for the
+ *     font files, is two extra DNS+TLS handshakes before any text can
+ *     render in its real face — on a bad mobile connection that is the
+ *     difference between a slow first paint and a stalled one, on top of
+ *     the ~7.7MB WASM bundle this app already has to fetch. Served from our
+ *     own origin they reuse the connection that's already open.
+ *  2. It leaked the user's IP, timing and User-Agent to Google on every
+ *     cold load of a Bitcoin wallet. That's a small but entirely avoidable
+ *     disclosure of "this address opened their wallet at this time".
+ *
+ * Removing them also let the CSP drop `style-src https://fonts.googleapis
+ * .com` and `font-src https://fonts.gstatic.com` down to 'self' (see
+ * public/_headers) — the only two remaining third-party origins in the
+ * whole policy besides the deliberately broad `connect-src https:`.
+ *
+ * The files in public/fonts/ are Google's own woff2 subsets, downloaded
+ * unmodified (both families are SIL Open Font License 1.1, which permits
+ * this). Only the `latin` and `latin-ext` subsets are shipped — latin-ext
+ * is what carries the Czech diacritics (ě š č ř ž ý á í é ů), and the app's
+ * UI is Czech and English only, so Google's `vietnamese` subset is dropped.
+ * The unicode-range values are copied verbatim from Google's own CSS so the
+ * browser still downloads latin-ext only for pages that actually need it.
+ *
+ * The @font-face structure below mirrors what Google served, deliberately,
+ * rather than being "tidied up": Space Grotesk is a variable font whose
+ * wght axis stops at 700, and Google declared the same file twice, at
+ * font-weight 500 and 700. Several rules in this app ask for
+ * `font-weight: 800` (see .wordmark, h1), which Google's API silently
+ * refuses to emit a face for. Keeping the two discrete declarations means
+ * an 800 request resolves exactly the way it does today — to the 700 face —
+ * instead of to a clamped variable instance, which is a different code path
+ * in the font-matching algorithm and could render subtly differently.
+ *
+ * To update a family: fetch the css2 URL with a browser User-Agent (a
+ * non-browser UA gets ttf, not woff2), re-download the woff2 files it
+ * points at, and re-copy the unicode-ranges. There is no build step and no
+ * npm dependency for this on purpose.
+ */
+
+/* Space Grotesk — variable file, declared at the two weights this app uses.
+   Both @font-face rules point at the same file by design; see above. */
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Space Mono — static instances, one file per weight per subset. */
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/space-mono-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/space-mono-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-mono-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-mono-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Unbounded — variable display face (wght 200–900), used only on the
+   gift-link screens: the claim screen's "Dostal jsi dárek" kicker and its
+   message label (GiftReveal.css), plus GiftPasswordModal's primary button.
+   Declared once per subset. Google's own woff2 (v12), latin + latin-ext
+   only — same subset policy and "fetch css2 with a browser UA" process as
+   the note at the top of this file (Unbounded is also SIL OFL 1.1). Every
+   use lists Space Grotesk as the fallback in the stack. */
+@font-face {
+  font-family: "Unbounded";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/fonts/unbounded-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Unbounded";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/fonts/unbounded-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

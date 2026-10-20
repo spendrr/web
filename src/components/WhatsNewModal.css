@@ -1,0 +1,53 @@
+/* "Nová verze" sheet (WhatsNewModal.tsx, v2). Rides on the shared sheet
+   (sheet/PaySheet.css); theme tokens only (src/index.css). */
+
+.wns-icon {
+  display: block;
+  margin-bottom: 4px;
+  border-radius: 22.5%;
+  /* The hairline keeps the icon's dark tile apart from the dark theme's sheet. */
+  box-shadow: 0 0 0 1.5px var(--border-soft), 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.wns-eyebrow {
+  margin: -2px 0 -6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.sht-title.wns-title {
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.wns-items {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.wns-items li {
+  padding: 14px 0;
+  font-size: 17px;
+  line-height: 1.42;
+  color: var(--text-h);
+}
+
+.wns-items li + li {
+  border-top: 2px solid var(--border-soft);
+}
+
+.wns-beta {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.sht-wide.wns-ok {
+  margin-top: 0;
+}

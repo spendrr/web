@@ -1,0 +1,970 @@
+/* Was the full "v2" design refinement, compared live against the old look
+ * via a Settings toggle (src/lib/ui/designVersion.ts). The border/shadow
+ * refinement, the sliding mode-toggle thumb, the header's flat button
+ * cluster, the boolean switch (Haptika/Oznámení/Zatřesení), the history
+ * list's "chunky card" and its "G" icons, and the sentence-case
+ * "Nedávná aktivita" heading all won that comparison and are now just how
+ * the app looks, unconditionally. The toggle in Settings
+ * (DesignVersionToggle) still gates the beta channel (see designVersion.ts).
+ *
+ * Several rules below dropped the [data-design-version="v2"] attribute when
+ * they shipped, which cost a rung of specificity that the plain rules in
+ * Dashboard.css, loaded after this file, would otherwise win with: see the
+ * `.history-list` and `.unit-toggle.unit-toggle` notes further down. The
+ * Přijmout/Odeslat/scan row lives in Dashboard.css.
+ */
+
+/* The segmented toggle's base look, shared by every .mode-toggle in the app
+   (Settings, the receive panel, the money chat's pay sheet). It lives here,
+   loaded with the app, not in the lazily loaded Settings.css: a toggle shown
+   before Settings was ever opened would otherwise come out unstyled. */
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+}
+
+.mode-toggle button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  border: none;
+  box-shadow: none;
+  border-radius: 10px;
+  padding: 9px;
+  font-size: 13px;
+}
+
+.mode-toggle button:hover:not(.active) {
+  transform: none;
+  box-shadow: none;
+}
+
+.mode-toggle button.active {
+  /* Background comes from the sliding .mode-toggle::before thumb underneath
+     instead (see design-v2.css) — the button itself just changes text
+     color as the thumb glides under it. */
+  color: var(--accent-ink);
+  background: transparent;
+}
+
+.mode-toggle button.active:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* .mode-toggle's own CSS only neutralized :hover on its buttons
+   (above), never :active — so a click still briefly triggered
+   App.css's generic button:active press (translate + shadow-collapse),
+   nudging the label text by a couple px for the duration of the click.
+   Invisible with the old instant background-swap, but very visible once
+   the thumb glides smoothly underneath instead — the label doing its own
+   separate little jump read as broken. */
+.mode-toggle button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---- Segmented toggles (.mode-toggle): a shared sliding pill instead of
+   each button swapping its own background instantly + a small bounce.
+   Pure CSS, no markup change — :has() reads which button already carries
+   .active. Every real .mode-toggle in the app has 2 or 3 buttons as direct
+   children (Settings.tsx's Theme/Language/Haptics/Currency toggles, and
+   Dashboard's receive-panel Ark/Lightning/On-chain switch), so those are
+   the only two widths this needs to handle.
+   @supports-guarded: browsers without :has() just keep the old instant-swap
+   toggle behavior entirely, not a half-broken thumb. ---- */
+@supports selector(:has(a)) {
+  .mode-toggle {
+    position: relative;
+  }
+  .mode-toggle::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    /* container padding (4px each side) + 1 gap (4px) between 2 buttons */
+    width: calc((100% - 12px) / 2);
+    background: var(--accent);
+    border-radius: 10px;
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 0;
+  }
+  .mode-toggle:has(button:nth-child(3))::before {
+    /* container padding (4px each side) + 2 gaps (4px each) between 3 buttons */
+    width: calc((100% - 16px) / 3);
+  }
+  .mode-toggle:has(button:nth-child(1).active)::before {
+    transform: translateX(0);
+  }
+  .mode-toggle:has(button:nth-child(2).active)::before {
+    /* one slot pitch = the thumb's own width (100%) plus the 4px gap it crosses */
+    transform: translateX(calc(100% + 4px));
+  }
+  .mode-toggle:has(button:nth-child(3).active)::before {
+    transform: translateX(calc(200% + 8px));
+  }
+  .mode-toggle button {
+    position: relative;
+    z-index: 1;
+    transition: color 0.28s ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-toggle::before {
+    transition: none;
+  }
+}
+
+/* ---- Shipped to V1 2026-09-11 (no longer gated on [data-design-version="v2"]):
+   the same sliding pill for the sats <-> měna switch (.unit-toggle) in the
+   Send/Receive amount fields and the converter modal. Had this animation
+   once, lost it when the segmented-toggle restyle only picked up
+   .mode-toggle. Every .unit-toggle in the app has exactly 2 direct-child
+   buttons (sats + the currency symbol), so unlike .mode-toggle this only
+   needs the 2-button width. Same @supports(:has()) guard — older browsers
+   keep the plain instant swap.
+   Selectors are doubled (.unit-toggle.unit-toggle, not plain .unit-toggle)
+   purely for specificity — same trick as the history-list section above:
+   dropping the [data-design-version="v2"] attribute selector cost a rung of
+   specificity, and Dashboard.css's plain .unit-toggle rules (loaded after
+   this file) would otherwise win the cascade and cancel the thumb. Doesn't
+   change what matches, only the specificity math. ---- */
+@supports selector(:has(a)) {
+  .unit-toggle.unit-toggle {
+    position: relative;
+  }
+  /* The two labels ("sats" vs "Kč"/"€"/"$") are different widths, and the
+     base rule (Dashboard.css) lets each button shrink-wrap its own text —
+     so the slots were unequal and the fixed half-width thumb couldn't line
+     up under either label. Force equal slots (flex:1 1 0 + a shared
+     min-width that fits "sats" at 11px/700) and dead-center the text, same
+     as .mode-toggle does. This also fixes the "sats" label looking
+     off-centre even with the thumb ignored. */
+  .unit-toggle.unit-toggle button {
+    position: relative;
+    z-index: 1;
+    /* Equal slots so the fixed half-width thumb lines up under either
+       label; sized off "sats" (the wider label) so it's no broader than
+       the old ragged toggle really needs. */
+    flex: 1 1 0;
+    min-width: 2.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 4px 6px;
+    transition: color 0.24s ease;
+  }
+  .unit-toggle.unit-toggle::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    /* container padding (2px each side) + 1 gap (2px) between 2 buttons */
+    width: calc((100% - 6px) / 2);
+    background: var(--accent);
+    border-radius: 6px;
+    transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 0;
+  }
+  .unit-toggle.unit-toggle:has(button:nth-child(1).active)::before {
+    transform: translateX(0);
+  }
+  .unit-toggle.unit-toggle:has(button:nth-child(2).active)::before {
+    /* one slot pitch = the thumb's own width (100%) plus the 2px gap it crosses */
+    transform: translateX(calc(100% + 2px));
+  }
+  /* Press feedback (like tapping the QR to copy): while a button is held
+     down the thumb squishes in place, then springs back + glides to the
+     newly-picked side on release — the .active class only moves on click,
+     so during :active the thumb is still on the old side. Needs the
+     translate duplicated per side because `transform` is one property. */
+  .unit-toggle.unit-toggle:has(button:nth-child(1).active):has(button:active)::before {
+    transform: translateX(0) scale(0.88);
+  }
+  .unit-toggle.unit-toggle:has(button:nth-child(2).active):has(button:active)::before {
+    transform: translateX(calc(100% + 2px)) scale(0.88);
+  }
+  /* Dashboard.css paints .active's own background — with the shared thumb
+     underneath that would just double up and hide the slide. */
+  .unit-toggle.unit-toggle button.active {
+    background: transparent;
+  }
+  /* App.css's generic button:active nudges the label a couple px — kill
+     that; the thumb squish above is the press feedback instead. The colour
+     flip gives the pressed (not-yet-active) label a beat of highlight
+     before the thumb reaches it. */
+  .unit-toggle.unit-toggle button:active:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    color: var(--accent-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unit-toggle.unit-toggle::before {
+    transition: none;
+  }
+}
+
+/* ---- Header cluster.
+   Obnovit / Nastavení are two flat, thicker-bordered rounded squares with
+   real air between them — no --pop-sm offset drop-shadow, no joined-capsule
+   shape (two earlier attempts at that: a loud joined pill and a quiet joined
+   pill, both rejected in favor of the plain reference image the user
+   supplied: two flat rounded squares with real air between them).
+
+   There is no lock button in the header: locking is a double-click on the
+   empty area below the history list (.lock-gesture-area in Dashboard.tsx/css).
+
+   Pure CSS — Dashboard.tsx's .header-actions div and its .icon-btn
+   children are untouched. ---- */
+.dashboard-header .header-actions {
+  gap: 7.65px;
+  align-items: center;
+}
+
+.dashboard-header .header-actions .icon-btn {
+  width: 42.56px;
+  height: 42.56px;
+  border: 2.5px solid var(--border);
+  border-radius: 13.68px;
+  background: var(--surface);
+  box-shadow: none;
+  /* button.small (App.css) carries `padding: 7px 14px` at specificity (0,1,1),
+     which actually beats .icon-btn's own `padding: 0` at (0,1,0) — a
+     pre-existing conflict. It shrinks the flex content box asymmetrically
+     (14px eaten off each side vs 7px top/bottom), and since the svg icon is
+     a flex item on the main (horizontal) axis, flex-shrink actually
+     compresses its rendered WIDTH down to fit that narrowed box while its
+     unconstrained HEIGHT just overflows the padding — so every earlier
+     "bigger icon" width bump was silently being squeezed back down, and only
+     the height ever grew. Restated here at this selector's higher
+     specificity to win outright. */
+  padding: 0;
+}
+
+/* Icon size independent of the square's own size — matches the reference
+   image's icons filling roughly half the button regardless of exactly how
+   big that button is. The stroke-width here overrides each icon's own
+   presentation attribute (2 on the refresh arrow, 1.8 on the gear), which
+   CSS always wins against — hence one value rather than a per-icon bump. */
+.dashboard-header .header-actions .icon-btn svg {
+  width: 20.33px;
+  height: 20.33px;
+}
+
+.dashboard-header .header-actions .icon-btn svg :is(path, circle, rect) {
+  stroke-width: 1.8;
+}
+
+/* The gear's <svg> box is centred, but its drawing isn't centred inside that
+   box: the teeth aren't vertically symmetric, so the painted shape spans
+   y 2.5..23.6 of the 24-unit viewBox — centre 13.05, i.e. ~1px low once
+   rendered at 20.33px. (GearIcon in Dashboard.tsx already accounts for this
+   when placing its inner circle; nothing had corrected the shape as a whole.)
+   Measured, not eyeballed: union of every child's stroke-inclusive getBBox().
+   Fixed here rather than in the icon itself. */
+.dashboard-header .header-actions .icon-btn-gear svg {
+  transform: translateY(calc(-1.05 / 24 * 20.33px));
+}
+
+/* Hover/press never bring the generic button's offset shadow back, on any
+   input type. The tint rules below are gated to (hover: hover) because on
+   touch :hover and :active stay matched after the tap, but this one was gated
+   with them: on a phone the sticky :hover then matched App.css's
+   `button.small:hover` (3px 3px 0 shadow, higher specificity than the flat
+   box-shadow above), and once the refresh finished and the button left
+   :disabled it was left wearing a big offset border on its right and bottom. */
+.dashboard-header .header-actions .icon-btn:is(:hover, :active):not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Flat by design — no shadow to collapse on press, so press feedback comes
+   from a background tint instead of the usual translate+shadow-shift.
+   Gated to (hover: hover) devices only: on touch, :hover and :active both
+   commonly stay matched after the tap ends (no real pointer to "leave"
+   with, and iOS/Android don't reliably clear :active on touchend either),
+   which read as Obnovit staying filled in long after the refresh it
+   triggered had finished. Real pointer devices release both correctly, so
+   this doesn't cost them anything. */
+@media (hover: hover) {
+  .dashboard-header .header-actions .icon-btn:is(.icon-btn-gear, .icon-btn-profile):hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: var(--surface-2);
+  }
+
+  .dashboard-header .header-actions .icon-btn:is(.icon-btn-gear, .icon-btn-profile):active:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: var(--border-soft);
+  }
+}
+
+.dashboard-header .header-actions .icon-btn:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+/* ---- Boolean switch (Haptika, Oznámení o platbách, Zatřesení) — used
+   unconditionally by Settings.tsx's BooleanSwitch. ---- */
+.boolean-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.boolean-switch-copy {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+.boolean-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.boolean-switch:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.boolean-switch:active:not(:disabled) {
+  transform: none;
+}
+.boolean-switch.on {
+  background: var(--accent);
+}
+.boolean-switch:disabled {
+  opacity: 0.55;
+}
+.boolean-switch-thumb {
+  position: absolute;
+  /* Centered by the box itself (auto margins), not by a top offset that has
+     to know the border width: the outline knob (--border-w) moves it. */
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  /* Fixed light thumb regardless of theme, like an iOS switch — the thumb
+     sits on top of a colored track either way, so tying it to --surface
+     made it go near-black in dark mode instead of reading as a knob. */
+  background: #fffdf9;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 0 0 1.5px rgba(22, 19, 13, 0.18);
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.boolean-switch.on .boolean-switch-thumb {
+  transform: translateX(20px);
+}
+
+/* "Nedávná aktivita" heading: sentence-case instead of uppercase-mono,
+   reads softer/more native (won the A/B round against the mono-label
+   look).
+   NOTE: every history-list selector below is deliberately prefixed with an
+   extra `.history-list` / `.recent-activity` (or `.panel`) ancestor. These
+   styles shipped to V1 (no more [data-design-version="v2"] gate), which
+   dropped them to single-class specificity — the exact same as the flat-v1
+   .history-item rules in Dashboard.css, which load *after* this file in the
+   bundle and would otherwise win the cascade and collapse the chunky cards
+   back to the flat divider look. The extra ancestor buys back one class of
+   specificity without needing the design-version attribute (V1 users don't
+   have it). Don't remove it. */
+.recent-activity .recent-activity-header h2 {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-h);
+}
+
+/* ---- History palette + card tone ("Grafitová" card / "Sytější" red-green
+   from the design exploration mockup). Scoped to the history list only —
+   --success/--danger/--history-in stay exactly as they are everywhere else
+   (error toasts, delete confirmations, etc.); only the history row's own
+   icon/ring/tag/amount colors read from these instead. */
+:root {
+  --v2-card-bg: #ffffff;
+  --v2-card-border: #8a8271;
+  --v2-in: #2f7d3a;
+  --v2-out: #c4281c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --v2-card-bg: #1a1712;
+    --v2-card-border: #a49b87;
+    --v2-in: #6fe07a;
+    --v2-out: #ff6b5c;
+  }
+}
+[data-theme="dark"] {
+  --v2-card-bg: #1a1712;
+  --v2-card-border: #a49b87;
+  --v2-in: #6fe07a;
+  --v2-out: #ff6b5c;
+}
+
+/* ---- History rows as individual "chunky" cards (mockup: "Duotone karta"),
+   instead of one flat divider-list panel. Same DOM/classes as v1
+   (Dashboard.tsx/css) — this only restyles .history-item, so the fly-in
+   entrance animation on .history-icon (Dashboard.css) is untouched and
+   still plays exactly as before. ---- */
+.panel.history-list {
+  gap: 10px;
+}
+
+.history-list .history-item {
+  /* v1 leaves this transparent (Dashboard.css) since rows there are just
+     dividers inside one shared flat panel — each row is its own card here,
+     so it needs its own fill or the border/shadow just floats over the
+     page background instead of reading as a card. Graphite instead of
+     plain --surface white — picked in the design mockup after white read
+     as too clean against the rest of the neobrutalist UI. */
+  background: var(--v2-card-bg);
+  /* Muted, thinner outline than v1's --border (chosen in the border-softening
+     mockup) — the full-contrast --border reads too heavy now that the card
+     has its own fill. Icon border/ring below is untouched: this only
+     restyles the outer card outline, not the icon or arrow glyphs inside. */
+  border: 1.9px solid var(--v2-card-border);
+  border-radius: 16px;
+  /* Flush by default — no offset shadow — same size outline the card had
+     at the moment of a click (shadow collapsed, card flush) before this;
+     that flush look is now the resting state everywhere, not just the
+     instant of the click that opens the detail view. */
+  box-shadow: none;
+  padding: 16px 18px;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
+}
+
+/* v1's divider-list makes every row but the last drop its bottom border
+   (Dashboard.css .history-item:last-child) — each row is its own card here,
+   so all of them keep the full border. */
+.history-list .history-item:last-child {
+  border-bottom: 1.9px solid var(--v2-card-border);
+}
+
+@media (hover: hover) {
+  .history-list .history-item:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    /* Small lift only — the flush resting look is the whole point of the
+       change above, so hover shouldn't puff the card back up to the old
+       bigger 4px offset. */
+    box-shadow: var(--pop-sm);
+    /* No background override here (unlike v1's plain tint hover in
+       Dashboard.css) — the shadow lift is the hover cue instead, and
+       leaving background alone lets a pending/failed card keep its tint
+       on hover instead of flashing back to plain on mouseover. */
+  }
+}
+
+.history-list .history-item:active:not(:disabled) {
+  /* Back to the flush resting look (undoes hover's lift, if any) — a touch
+     tap that never hovered goes straight from flush to flush, no jump. */
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-list .history-item {
+    transition: none;
+  }
+}
+
+.history-list .history-icon {
+  width: 46px;
+  height: 46px;
+  box-shadow: 1.7px 1.7px 0 var(--border);
+  /* Anchors the status ring (HistoryIconRing); Dashboard.css never positions
+     this element, so it's safe to set. */
+  position: relative;
+}
+
+.history-list .history-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Two overlapping layers so the pending -> confirmed flourish (below) can
+   crossfade between them without touching the arrow glyphs themselves —
+   .history-icon-arrow-layer just wraps the existing HistoryReceiveIcon/
+   HistorySendIcon unchanged. */
+.history-list .history-icon-arrow-layer,
+.history-list .history-icon-check-layer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-list .history-icon-check-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+/* stroke-dasharray must match the checkmark path's own length (in viewBox
+   units) — see ConfirmCheckIcon's comment in Dashboard.tsx. */
+.history-list .history-icon-check-layer path {
+  stroke-dasharray: 18;
+  stroke-dashoffset: 18;
+}
+
+/* Icon fill color — the "Sytější" pick from the design mockup instead of
+   the app-wide --history-in (deliberately muted olive elsewhere) / --danger
+   tokens, which read as too dull against this card's new graphite
+   background. Backgrounds (--history-in-bg/--danger-bg, Dashboard.css)
+   stay the same soft wash either way. */
+.history-list .history-icon.in {
+  color: var(--v2-in);
+}
+.history-list .history-icon.out {
+  color: var(--v2-out);
+}
+
+/* Pending -> confirmed flourish: the arrow fades out, a checkmark draws in
+   (stroke-dasharray, not a plain fade — reads as too static otherwise) and
+   holds for a deliberate 2s (explicit feedback: "at least 1s" wasn't
+   enough), then just fades away as the arrow fades back in. The arrow is
+   never permanently replaced by the checkmark — same shape, same direction,
+   just a green flourish marking the moment it confirmed. All three run off
+   one 3s timeline (Dashboard.tsx's ConfirmCheckIcon onAnimationEnd cleans up
+   the .just-confirmed class once it ends) so they can't drift out of sync. */
+.history-list .history-icon.just-confirmed .history-icon-arrow-layer {
+  animation: history-icon-arrow-fade 3s ease forwards;
+}
+
+.history-list .history-icon.just-confirmed .history-icon-check-layer {
+  animation: history-icon-check-fade 3s ease forwards;
+}
+
+.history-list .history-icon.just-confirmed .history-icon-check-layer path {
+  animation: history-icon-check-draw 3s ease forwards;
+}
+
+@keyframes history-icon-arrow-fade {
+  0% {
+    opacity: 1;
+  }
+  17% {
+    opacity: 0;
+  }
+  87% {
+    opacity: 0;
+  }
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes history-icon-check-fade {
+  0% {
+    opacity: 1;
+  }
+  83% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes history-icon-check-draw {
+  0% {
+    stroke-dashoffset: 18;
+  }
+  17% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-list .history-icon.just-confirmed .history-icon-arrow-layer,
+  .history-list .history-icon.just-confirmed .history-icon-check-layer,
+  .history-list .history-icon.just-confirmed .history-icon-check-layer path {
+    animation: none;
+  }
+}
+
+/* ---- "G" history icon (beta 2026-09-26, V1 2026-10-05). A round pastel tile with an ink
+   arrow, ink outline and a hard shadow, picked from mockups over the tinted
+   circle above. The arrows stay diagonal (HistoryReceiveIcon /
+   HistorySendIcon), so the diagonal fly-in still matches. The status
+   ring is HistoryIconRing's SVG: a capsule that follows tile + shadow at
+   the same distance all round (see its comment); only its dashes run. ---- */
+/* Light mode: a pastel tile (#97cf9d / #df988e at +0.065 OKLCH lightness and
+   55% chroma, set by the user on sliders) with an ink arrow, ink outline and
+   ink shadow. The outline is ink, not var(--border): that one turns light in
+   dark mode and drew a white rim around the tile.
+   Dark mode: a saturated deep green / red tile with a cream arrow, and an
+   outline + shadow of a lighter tint of the tile's own hue (not cream, which
+   glared on the dark card), shadow 1.4px. The check flourish follows the
+   arrow via currentColor. HISTORY_TILE_SHADOW in Dashboard.tsx stays 1.75
+   (the ring is 0.35px off the shadow in dark, not visible). */
+.history-list .history-icon {
+  --g-in-bg: #beddc1;
+  --g-in-ink: #16130d;
+  --g-in-edge: #16130d;
+  --g-out-bg: #dfb7b0;
+  --g-out-ink: #16130d;
+  --g-out-edge: #16130d;
+  --g-shadow: 1.75px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid;
+  /* The ring reaches 4.75px past the tile's right edge; keeps it off the text. */
+  margin-right: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .history-list .history-icon {
+    --g-in-bg: #2c5a34;
+    --g-in-ink: #f3ecde;
+    --g-in-edge: #4c8656;
+    --g-out-bg: #7a2e27;
+    --g-out-ink: #f3ecde;
+    --g-out-edge: #b45c52;
+    --g-shadow: 1.4px;
+  }
+}
+[data-theme="dark"] .history-list .history-icon {
+  --g-in-bg: #2c5a34;
+  --g-in-ink: #f3ecde;
+  --g-in-edge: #4c8656;
+  --g-out-bg: #7a2e27;
+  --g-out-ink: #f3ecde;
+  --g-out-edge: #b45c52;
+  --g-shadow: 1.4px;
+}
+.history-list .history-icon.in {
+  background: var(--g-in-bg);
+  color: var(--g-in-ink);
+  border-color: var(--g-in-edge);
+  box-shadow: var(--g-shadow) var(--g-shadow) 0 var(--g-in-edge);
+}
+.history-list .history-icon.out {
+  background: var(--g-out-bg);
+  color: var(--g-out-ink);
+  border-color: var(--g-out-edge);
+  box-shadow: var(--g-shadow) var(--g-shadow) 0 var(--g-out-edge);
+}
+.history-list .history-icon-arrow-layer svg,
+.history-list .history-icon-check-layer svg {
+  width: 20px;
+  height: 20px;
+}
+.history-list .history-icon-ring-g {
+  /* Box and offset are set inline by HistoryIconRing (computed from the
+     tile, its outline and its shadow). */
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+.history-list .history-icon-ring-g path {
+  stroke-width: 2;
+  stroke: var(--v2-in);
+}
+.history-list .history-icon-ring-g--pending path {
+  stroke: var(--accent);
+  /* 20 dashes over pathLength 100 (was 10, user asked for denser). The
+     period must divide 100 or the seam shows a short dash. */
+  stroke-dasharray: 3 2;
+  animation: history-icon-ring-run 14s linear infinite;
+}
+.history-list .history-icon-ring-g--failed path {
+  stroke: var(--v2-out);
+}
+@keyframes history-icon-ring-run {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-list .history-icon-ring-g--pending path {
+    animation: none;
+  }
+}
+
+.history-list .history-kind {
+  font-size: 16.5px;
+}
+
+/* .history-info's own time text — .muted.small (App.css) is used all over
+   the app, so this stays scoped to inside .history-info rather than
+   bumping that shared class everywhere. */
+.history-list .history-info .muted.small {
+  font-size: 13.5px;
+}
+
+/* Scoped to .history-item, not bare .amount — .modal-amount (TxDetailModal,
+   Dashboard.css) reuses the .amount/.positive/.negative classes for its own
+   intended 26px display. Kept scoped so v2 doesn't pile another override on
+   top: .amount (Dashboard.css line ~1702) and .modal-amount (line ~1345)
+   are already equal specificity, and .amount's plain 14px currently wins
+   the cascade there regardless of v2 by sheer source order — a pre-existing
+   V1 issue, not something this change touches or fixes. */
+.history-list .history-item .amount {
+  font-size: 16.5px;
+}
+
+.history-list .history-item .amount.positive {
+  color: var(--v2-in);
+}
+
+/* Whole-card tint signals "not final yet" (pending) or "went wrong"
+   (failed) without needing to read the tag — confirmed rows stay plain, on
+   the same "only show what needs attention" logic as the tag itself. */
+.history-list .history-item--pending {
+  background: var(--accent-bg);
+}
+
+.history-list .history-item--failed {
+  background: var(--danger-bg);
+}
+
+.history-list .history-amount-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.history-list .onchain-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* Sans + italic instead of the mono/uppercase/tracked badge look (picked
+     in the status-tag-styles mockup — the mono badge read as too "AI slop"
+     generic; italic sans reads softer and matches the rest of the UI's
+     typeface. */
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.history-list .onchain-status-tag svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Freestanding text (not on their own -bg pill) already reads fine in both
+   themes — same tokens .link-btn/.history-icon already use as plain text
+   color. confirmed/failed use the same --v2-in/--v2-out as the icon and
+   ring above for one consistent color per state; pending stays --accent
+   (unrelated to this red/green pass). */
+.history-list .onchain-status-tag--confirmed {
+  color: var(--v2-in);
+}
+
+.history-list .onchain-status-tag--pending {
+  color: var(--accent);
+}
+
+.history-list .onchain-status-tag--failed {
+  color: var(--v2-out);
+}
+
+/* "Zobrazit vše" (Dashboard.tsx's dayGroups) wraps each day in
+   .history-day-group. In v1 that's the only card in the list, so it gets
+   the bordered-card look; here every .history-item is already its own card
+   (v2 rules above), so the group itself becomes the card instead and the
+   rows inside flatten back to plain dividers — otherwise a card would sit
+   inside a card for no reason. */
+.history-list.history-list--grouped {
+  gap: 14px;
+}
+
+.history-list .history-day-group {
+  background: var(--v2-card-bg);
+  border: 1.9px solid var(--v2-card-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.history-list .history-day-header {
+  padding: 12px 18px;
+  background: transparent;
+  border-bottom: 1.9px solid var(--v2-card-border);
+}
+
+.history-list .history-day-group .history-item {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1.9px solid var(--v2-card-border);
+  box-shadow: none;
+  padding: 14px 18px;
+}
+
+.history-list .history-day-group .history-item:last-child {
+  border-bottom: none;
+}
+
+@media (hover: hover) {
+  .history-list .history-day-group .history-item:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Shipped to V1 2026-09-11 (mergedCard in Dashboard.tsx, no longer gated on
+   isBeta): the home recent-activity list wrapped in one bordered box — same
+   outer shell as a .history-day-group, no day-header. Unlike
+   .history-day-group, the rows here KEEP the full standalone chunky-card
+   padding (from the base .history-list .history-item rule) — only their
+   individual border/radius is dropped for a shared divider, so the box
+   reads like "Zobrazit vše" without the rows getting visibly smaller. */
+.history-list .history-home-bundle {
+  background: var(--v2-card-bg);
+  border: 1.9px solid var(--v2-card-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.history-list .history-home-bundle .history-item {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1.9px solid var(--v2-card-border);
+  box-shadow: none;
+}
+
+.history-list .history-home-bundle .history-item:last-child {
+  border-bottom: none;
+}
+
+@media (hover: hover) {
+  .history-list .history-home-bundle .history-item:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ---- Element polish (V1 since 2026-10-18) ----
+   Outline thickness is the --border-w knob in index.css (1.5px on purpose: at 1x density a
+   fractional width snaps to 1px, on phones it renders as written). Hardcoded widths (dividers, the
+   balance and big action buttons) are left alone. The selectors below are `:root`, not the old
+   design-version attribute: same specificity, so no later stylesheet starts winning. */
+
+/* Sizing: only buttons whose class attribute is exactly primary, secondary, danger or small (or
+   none), plus the sheet CTAs (.sht-wide), so a button with its own component class (icon-btn, ...)
+   keeps its own size. */
+:root :is(button:not([class]), button[class="secondary"], button[class="danger"], button[class="primary"], button.sht-wide) {
+  font-size: 15px;
+  min-height: 48px;
+  border-radius: 14px;
+  transition:
+    transform 0.2s var(--ease-spring),
+    box-shadow 0.2s var(--ease-spring),
+    opacity 0.4s ease;
+}
+
+:root :is(button[class="small"], button[class="secondary small"], button[class="small secondary"], button[class="danger small"], button[class="small danger"], button[class="primary small"], button[class="secondary danger small"]) {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  border-radius: 9px;
+}
+
+/* Every small button (App.css hardcodes 2px) gets the lighter outline and shadow. */
+:root button.small:not(.icon-btn) {
+  border-width: var(--border-w);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+:root button.small:not(.icon-btn):hover:not(:disabled) {
+  box-shadow: 2.5px 2.5px 0 var(--border);
+}
+
+:root button.small:not(.icon-btn):active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+/* Disabled reads as flat, not as a faded clickable button. */
+:root :is(button:not([class]), button[class="secondary"], button[class="danger"], button[class="primary"], button.sht-wide, button.small:not(.icon-btn)):disabled {
+  box-shadow: none;
+  opacity: 0.4;
+}
+
+:root :is(button:not([class]), button[class="secondary"], button[class="danger"], button[class="primary"], button.sht-wide, button.small:not(.icon-btn)):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Bare fields: black outline at rest, focus adds the accent offset (global input:focus rule). */
+:root :is(input, textarea):not([class]):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+:root :is(input, textarea):focus {
+  outline: none;
+}
+
+/* Boolean switch: same size and thumb position, outline about 1.5px (1px border + 0.5px inner
+   ring). The shadow has no vertical offset, so the thumb reads centered on the Y axis (the 0 1px
+   shadow weighted its bottom). */
+:root .boolean-switch,
+:root .boolean-switch:hover:not(:disabled) {
+  border-width: 1px;
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  /* Its own layer: track and thumb are snapped to device pixels together. Without it a row whose
+     height leaves the track on a half pixel rounds the outline and the thumb in different
+     directions, so the thumb sits a device pixel off center in some rows and not in others. */
+  will-change: transform;
+}
+
+:root .boolean-switch .boolean-switch-thumb {
+  left: 4px;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.25),
+    0 0 0 1.5px rgba(22, 19, 13, 0.18);
+}
+
+
+/* Segmented toggle (Ark / Lightning / On-chain). */
+:root .mode-toggle {
+  border-radius: 16px;
+}

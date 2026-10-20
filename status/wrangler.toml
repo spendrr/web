@@ -1,0 +1,32 @@
+# Status probe for spendrr.app/status (status/worker.ts). A SEPARATE Cloudflare
+# account from the app (signed in with Apple): its own Free
+# plan limits, and it keeps answering when the app's Worker does not.
+# account_id pins every deploy of this config to that account, so it can never
+# land on the app's account, and `npm run ship` can never land here.
+# Deploy: npm run ship:status.
+name = "spendrr-status"
+main = "worker.ts"
+compatibility_date = "2026-08-29"
+account_id = "00000000000000000000000000000000"
+
+# Served only on spendrr-status.spendrr-info.workers.dev; the page on
+# spendrr.app fetches /v1/status from there (CORS allows only spendrr.app).
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["* * * * *"]
+
+# SQLite-backed, the only kind the Free plan has. Not KV: a status that
+# records its last check every minute would need 1440 KV writes a day, over
+# the Free plan's 1000.
+[[durable_objects.bindings]]
+name = "STATUS"
+class_name = "StatusStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StatusStore"]

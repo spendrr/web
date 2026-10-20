@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Keep in step with what worker/ actually stores, and with privacy/en.html. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2ede4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#100e0a" media="(prefers-color-scheme: dark)" />
+    <title>Ochrana soukromí, Spendrr</title>
+    <meta name="description" content="Jaká data Spendrr zpracovává, proč a jak dlouho." />
+    <link rel="canonical" href="https://spendrr.app/privacy" />
+    <link rel="alternate" hreflang="cs" href="https://spendrr.app/privacy" />
+    <link rel="alternate" hreflang="en" href="https://spendrr.app/privacy/en" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/learn.css" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <header class="top wrap">
+      <a class="wordmark" href="/learn?lang=cs" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
+      <div class="top-right">
+        <a class="lang" href="/privacy/en" hreflang="en" lang="en">English</a>
+        <a class="pill pill--small" href="/">Otevřít</a>
+      </div>
+    </header>
+
+    <main class="legal wrap">
+      <h1>Ochrana soukromí</h1>
+      <p class="legal-date">Platné od 2. 10. 2026</p>
+
+      <div class="legal-box">
+        <p class="legal-lead"><strong>Krátce:</strong> tvoje klíče a seed phrase nikdy neopustí tvoje zařízení. Nemáme účty, analytiku, reklamu ani sledovací cookies. Na náš server jde jen to, co potřebuje funkce, kterou si sám zapneš.</p>
+      </div>
+
+      <h2>Kdo data zpracovává</h2>
+      <p>Spendrr (spendrr.app). Kontakt pro vše kolem soukromí: <a href="mailto:help@spendrr.app">help@spendrr.app</a>.</p>
+
+      <h2>Co zůstává jen u tebe</h2>
+      <p>Seed phrase, klíče, heslo, zůstatek, historie plateb a nastavení se ukládají jen v tvém prohlížeči (localStorage a IndexedDB). Seed je zašifrovaný tvým heslem. My k ničemu z toho přístup nemáme a neumíme ti to obnovit.</p>
+
+      <h2>Co zpracovává náš server</h2>
+      <p>Server běží na Cloudflare. U každé funkce je napsáno, co ukládá a jak dlouho.</p>
+
+      <h3>Každý požadavek</h3>
+      <p>IP adresu používáme k omezení zneužití (rate limity). Denní počítadla podle sítě, ze které přicházíš, mažeme nejpozději po 2 dnech. Cloudflare navíc vede technické záznamy o požadavcích po několik dní.</p>
+
+      <h3>Upozornění na platby (jen když je zapneš)</h3>
+      <p>Adresa pro doručení upozornění od tvého prohlížeče nebo telefonu (push endpoint a jeho klíče), identifikátor tvé Ark schránky a výška bloku, kdy vyprší tvoje nejbližší mince. Mažeme po vypnutí upozornění, když endpoint přestane platit, nebo po 40 dnech, kdy aplikaci neotevřeš. Samotné doručení zajišťuje push služba tvého prohlížeče (Apple, Google, Mozilla), v Android aplikaci Google Firebase.</p>
+
+      <h3>@jméno (jen když si ho vybereš)</h3>
+      <p>Jméno, identifikátor tvé Ark schránky, tvoje Ark adresa a čas vytvoření, změny a poslední aktivity. <strong>@jméno je veřejné:</strong> kdokoli podle něj zjistí tvoji Ark adresu a otevře profil na spendrr.app/@jméno. Po uvolnění jména ho držíme ještě 30 dní, aby ho nikdo hned nepřevzal. Jméno, u kterého rok neprojevíš aktivitu, může převzít někdo jiný.</p>
+
+      <h3>Lightning adresa (jen když ji zapneš, beta)</h3>
+      <p>U každé příchozí platby: jméno, tvoje Ark adresa, částka, zpráva od plátce, faktura a stav platby. Tyto záznamy uchováváme, abys viděl, co ti přišlo. Síť plátce ukládáme jen jako klíčovaný otisk (hash) pro limity a mažeme ho nejpozději po 10 minutách.</p>
+
+      <h3>Záloha do cloudu</h3>
+      <p>Zálohu tvé peněženky zašifruje tvoje zařízení klíčem odvozeným ze seed phrase. My vidíme jen zašifrovaná data, číslo verze a otisk zapisovacího tokenu. Obsah přečíst neumíme. Záloha se uchovává bez časového omezení. Smazání přímo z aplikace zatím chybí, doplníme ho.</p>
+
+      <h3>Platba ťuknutím</h3>
+      <p>Během párování dvou telefonů tvoje Ark adresa a časování ťuknutí. Mažeme nejpozději po 15 minutách. Dlouhodobě držíme jen souhrnné statistiky bez adres.</p>
+
+      <h3>Kurz, poplatky, mapa</h3>
+      <p>Tyto údaje stahuje náš server za tebe od CoinGecko, mempool a BTC Map. Těm službám se tvoje IP adresa nedostane.</p>
+
+      <h3>E-mail</h3>
+      <p>Když nám napíšeš na help@spendrr.app, uchováme konverzaci, dokud je potřeba. E-maily běží přes Google (Gmail) a Resend.</p>
+
+      <h2>Kam se připojuje přímo tvoje zařízení</h2>
+      <p>Peněženka mluví přímo s Ark serverem <code>ark.second.tech</code> a s blockchainovým API <code>mempool.second.tech</code>, které provozuje společnost <a href="https://second.tech" rel="noopener">Second</a>. Ta vidí tvoji IP adresu a údaje potřebné k provedení plateb a řídí se vlastními pravidly. Záložně se peněženka může připojit k blockstream.info a mempool.space.</p>
+
+      <h2>Proč a na jakém základě</h2>
+      <ul>
+        <li>Funkce, které si zapneš (upozornění, @jméno, Lightning adresa, záloha, platba ťuknutím): poskytnutí služby, o kterou žádáš (čl. 6 odst. 1 písm. b GDPR).</li>
+        <li>Rate limity a ochrana proti zneužití: oprávněný zájem na bezpečném provozu (čl. 6 odst. 1 písm. f GDPR).</li>
+      </ul>
+      <p>Data neprodáváme, nesdílíme pro reklamu a nepoužíváme k profilování.</p>
+
+      <h2>Kdo nám pomáhá</h2>
+      <ul>
+        <li><strong>Cloudflare</strong>: hosting serveru a úložiště</li>
+        <li><strong>Google</strong>: e-mail, push v Android aplikaci</li>
+        <li><strong>Resend</strong>: odesílání e-mailů</li>
+      </ul>
+      <p>Někteří z nich zpracovávají data i mimo EU (USA) na základě standardních smluvních doložek nebo EU-US Data Privacy Framework.</p>
+
+      <h2>Tvoje práva</h2>
+      <p>Máš právo na přístup ke svým údajům, jejich opravu a výmaz, omezení zpracování, přenositelnost a právo vznést námitku. Většinu funkcí vypneš sám v aplikaci a tím se příslušná data smažou. Jinak napiš na <a href="mailto:help@spendrr.app">help@spendrr.app</a>. Protože nemáme účty, budeme od tebe potřebovat údaj, podle kterého data najdeme (třeba @jméno). Stížnost můžeš podat u <a href="https://uoou.gov.cz" rel="noopener">Úřadu pro ochranu osobních údajů</a>.</p>
+
+      <h2>Změny</h2>
+      <p>Když se tu něco podstatného změní, upozorníme na to v aplikaci v přehledu novinek.</p>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-inner wrap">
+        <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
+        <div class="foot-links">
+          <span class="foot-group">
+            <a href="mailto:help@spendrr.app">help@spendrr.app</a>
+            <a href="/terms">Podmínky</a>
+            <a href="/privacy">Soukromí</a>
+          </span>
+          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

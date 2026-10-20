@@ -1,0 +1,49 @@
+/* NotificationsSheet.tsx: the bell mark and the privacy line. Theme tokens
+   only, same rule as PaySheet.css. */
+
+.nts-ring {
+  stroke-dashoffset: 0;
+  animation: sht-breathe 2.4s ease-in-out 1.2s infinite;
+}
+
+.nts-bell .sht-mark-glyph {
+  stroke: var(--accent);
+  stroke-width: 5.5;
+}
+
+.nts-bell-body {
+  transform-origin: 32px 16px;
+  animation: nts-ring 1s ease-in-out 0.45s both;
+}
+
+@keyframes nts-ring {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  35% { transform: rotate(-11deg); }
+  55% { transform: rotate(7deg); }
+  75% { transform: rotate(-4deg); }
+  100% { transform: rotate(0); }
+}
+
+.nts-note {
+  margin: -4px 0 0;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.nts-denied {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+  animation: sht-rise 0.3s var(--sht-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nts-ring,
+  .nts-bell-body {
+    animation: none;
+  }
+}

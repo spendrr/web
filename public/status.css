@@ -1,0 +1,462 @@
+/* Status page (public/status.html). Loaded after learn.css, which supplies
+   the tokens, fonts, header and footer. */
+
+:root {
+  --st-ok: #1a8f5e;
+  --st-ok-bg: #d3f2e3;
+  --st-warn: #c47a12;
+  --st-warn-bg: #f8ebd9;
+  --st-down: #d0362b;
+  --st-down-bg: #fbdbd8;
+  --st-none: #d8d0bf;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --st-ok: #34c785;
+    --st-ok-bg: #16301f;
+    --st-warn: #f0b04a;
+    --st-warn-bg: #3a2a10;
+    --st-down: #f0665c;
+    --st-down-bg: #33130f;
+    --st-none: #3a3226;
+  }
+}
+
+.st {
+  max-width: 760px;
+  padding-top: 8px;
+  padding-bottom: 64px;
+}
+
+.st h1 {
+  font-size: clamp(32px, 6vw, 44px);
+  line-height: 1.1;
+  margin: 8px 0 24px;
+}
+
+.st h2 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 40px 0 14px;
+}
+
+.st-card {
+  background: var(--surface);
+  border: 2.5px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 3.4px 3.4px 0 var(--border);
+}
+
+.st-overall {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+.st-round {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.st-round[hidden] {
+  display: none;
+}
+
+.st-mark.st-pie {
+  background: conic-gradient(var(--accent) var(--pie, 0deg), var(--st-none) 0);
+}
+
+.st-mark.st-pie--late {
+  background: var(--st-warn);
+}
+
+.st-round-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-round p {
+  margin: 0;
+}
+
+.st-round-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.st-round-hint {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.st-round-time {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-round-time--late {
+  color: var(--st-warn);
+}
+
+.st-mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border);
+  background: var(--st-none);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1;
+  color: #16130d;
+}
+
+.st-mark--ok {
+  background: var(--st-ok);
+}
+
+.st-mark--degraded {
+  background: var(--st-warn);
+}
+
+.st-mark--down {
+  background: var(--st-down);
+  color: #ffffff;
+}
+
+.st-overall-title {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-h);
+}
+
+.st-overall-sub {
+  font-size: 14px;
+}
+
+.st-services {
+  padding: 4px 18px;
+}
+
+.st-svc {
+  padding: 16px 0;
+  border-bottom: 1.5px solid var(--border-soft);
+}
+
+.st-svc:last-child {
+  border-bottom: 0;
+}
+
+.st-svc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.st-svc-name {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.st-svc-hint {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.st-pill {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  white-space: nowrap;
+}
+
+.st-pill--ok {
+  color: var(--st-ok);
+  background: var(--st-ok-bg);
+}
+
+.st-pill--degraded {
+  color: var(--st-warn);
+  background: var(--st-warn-bg);
+}
+
+.st-pill--down {
+  color: var(--st-down);
+  background: var(--st-down-bg);
+}
+
+.st-pill--unknown {
+  color: var(--text-dim);
+  background: transparent;
+}
+
+.st-bars {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  margin: 10px 0 6px;
+}
+
+.st-bars i {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px;
+  background: var(--st-ok);
+  cursor: pointer;
+}
+
+.st-bars i.warn {
+  background: var(--st-warn);
+}
+
+.st-bars i.down {
+  background: var(--st-down);
+}
+
+.st-bars i.none {
+  background: var(--st-none);
+}
+
+.st-bars i:hover,
+.st-bars i.sel {
+  outline: 2px solid var(--border);
+  outline-offset: 1px;
+}
+
+.st-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.st-axis .st-up {
+  color: var(--text-h);
+}
+
+.st-axis--narrow {
+  display: none;
+}
+
+.st-tip {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  max-width: 260px;
+  padding: 8px 11px;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--surface);
+  color: var(--text-h);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 2px 2px 0 var(--border);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.st-tip.on {
+  opacity: 1;
+}
+
+.st-tip b {
+  display: block;
+}
+
+.st-inc {
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+
+.st-inc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.st-inc-title {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.st-inc-when {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.st-note {
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 560px) {
+  .st-bars i.old,
+  .st-axis--wide {
+    display: none;
+  }
+
+  .st-axis--narrow {
+    display: flex;
+  }
+
+  .st-svc-hint {
+    display: block;
+    margin: 0;
+  }
+}
+
+/* Header button: a lighter shadow than the shared pill's. */
+.top .pill {
+  box-shadow: 1.5px 1.5px 0 var(--border);
+}
+
+@media (hover: hover) {
+  .top .pill:hover {
+    box-shadow: 2.5px 2.5px 0 var(--border);
+  }
+}
+
+.top .pill:active {
+  box-shadow: 0 0 0 var(--border);
+}
+
+/* Theme toggle: the explicit choice (data-theme, set by status-theme.js)
+   wins over the system setting. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2ede4;
+  --surface: #ffffff;
+  --surface-2: #ece6d9;
+  --border: #16130d;
+  --border-soft: #d8d0bf;
+  --text: #55503f;
+  --text-h: #0f0d09;
+  --accent-2: #7c3aed;
+  --band: #16130d;
+  --st-ok: #1a8f5e;
+  --st-ok-bg: #d3f2e3;
+  --st-warn: #c47a12;
+  --st-warn-bg: #f8ebd9;
+  --st-down: #d0362b;
+  --st-down-bg: #fbdbd8;
+  --st-none: #d8d0bf;
+  --text-dim: color-mix(in srgb, var(--text) 60%, var(--bg));
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #100e0a;
+  --surface: #1c1811;
+  --surface-2: #1a1610;
+  --border: #f2ede4;
+  --border-soft: #3a3226;
+  --text: #b3aa96;
+  --text-h: #f9f5ec;
+  --accent-2: #a78bfa;
+  --band: #050403;
+  --st-ok: #34c785;
+  --st-ok-bg: #16301f;
+  --st-warn: #f0b04a;
+  --st-warn-bg: #3a2a10;
+  --st-down: #f0665c;
+  --st-down-bg: #33130f;
+  --st-none: #3a3226;
+  --text-dim: color-mix(in srgb, var(--text) 60%, var(--bg));
+}
+
+.st-theme {
+  display: inline-grid;
+  place-items: center;
+  /* Same box as the small Open pill: 2 x 8px padding + 2 x 2.5px border + one line of 15px/1.55. */
+  width: calc(23.25px + 21px);
+  height: calc(23.25px + 21px);
+  padding: 0;
+  border-radius: 50%;
+  border: 2.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  box-shadow: 1.5px 1.5px 0 var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-theme svg {
+  grid-area: 1 / 1;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    transform 0.4s var(--spring),
+    opacity 0.2s ease;
+}
+
+.st-theme:active {
+  box-shadow: 0 0 0 var(--border);
+  transform: translate(1.5px, 1.5px);
+}
+
+.st-theme:focus-visible {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 3px;
+}
+
+/* Shows what a tap switches to; the other icon spins away. */
+:root[data-theme="dark"] .st-theme-moon,
+:root[data-theme="light"] .st-theme-sun {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+
+.st-theme:active svg {
+  transform: scale(0.9);
+}
+
+body,
+.st-card,
+.st-svc,
+.st-theme,
+.st-pill {
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-theme svg,
+  body,
+  .st-card,
+  .st-svc,
+  .st-theme,
+  .st-pill {
+    transition: none;
+  }
+}

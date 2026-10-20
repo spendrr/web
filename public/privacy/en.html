@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Keep in step with what worker/ actually stores, and with privacy.html. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2ede4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#100e0a" media="(prefers-color-scheme: dark)" />
+    <title>Privacy, Spendrr</title>
+    <meta name="description" content="What data Spendrr processes, why, and for how long." />
+    <link rel="canonical" href="https://spendrr.app/privacy/en" />
+    <link rel="alternate" hreflang="cs" href="https://spendrr.app/privacy" />
+    <link rel="alternate" hreflang="en" href="https://spendrr.app/privacy/en" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/learn.css" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <header class="top wrap">
+      <a class="wordmark" href="/learn/en" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
+      <div class="top-right">
+        <a class="lang" href="/privacy" hreflang="cs" lang="cs">Česky</a>
+        <a class="pill pill--small" href="/">Open</a>
+      </div>
+    </header>
+
+    <main class="legal wrap">
+      <h1>Privacy</h1>
+      <p class="legal-date">Effective 2 October 2026</p>
+
+      <div class="legal-box">
+        <p class="legal-lead"><strong>In short:</strong> your keys and seed phrase never leave your device. No accounts, no analytics, no ads, no tracking cookies. Our server only gets what a feature you switch on needs.</p>
+      </div>
+
+      <h2>Who processes the data</h2>
+      <p>Spendrr (spendrr.app). Contact for anything privacy-related: <a href="mailto:help@spendrr.app">help@spendrr.app</a>.</p>
+
+      <h2>What stays with you</h2>
+      <p>Your seed phrase, keys, password, balance, payment history and settings are stored only in your browser (localStorage and IndexedDB). The seed is encrypted with your password. We have no access to any of it and can't recover it for you.</p>
+
+      <h2>What our server processes</h2>
+      <p>The server runs on Cloudflare. For each feature, here is what it stores and for how long.</p>
+
+      <h3>Every request</h3>
+      <p>We use your IP address to limit abuse (rate limits). Daily counters keyed by the network you come from are deleted within 2 days. Cloudflare also keeps technical request logs for a few days.</p>
+
+      <h3>Payment notifications (only if you turn them on)</h3>
+      <p>The delivery address your browser or phone gives us (push endpoint and its keys), your Ark mailbox identifier, and the block height at which your next coin expires. Deleted when you turn notifications off, when the endpoint stops working, or after 40 days without opening the app. Delivery itself goes through your browser's push service (Apple, Google, Mozilla), or Google Firebase in the Android app.</p>
+
+      <h3>@name (only if you pick one)</h3>
+      <p>The name, your Ark mailbox identifier, your Ark address, and when it was created, changed and last active. <strong>An @name is public:</strong> anyone can look up your Ark address by it and open your profile at spendrr.app/@name. After you release a name we hold it for 30 more days so nobody grabs it right away. A name with no activity for a year can be taken by someone else.</p>
+
+      <h3>Lightning address (only if you turn it on, beta)</h3>
+      <p>For each incoming payment: the name, your Ark address, the amount, the payer's comment, the invoice and the payment state. We keep these records so you can see what you received. The payer's network is stored only as a keyed hash for rate limits, and deleted within 10 minutes.</p>
+
+      <h3>Cloud backup</h3>
+      <p>Your device encrypts the wallet backup with a key derived from your seed phrase. We only see ciphertext, a version number and a hash of the write token. We can't read the contents. Backups are kept with no time limit. Deleting one from inside the app isn't available yet. It's on the way.</p>
+
+      <h3>Tap to pay</h3>
+      <p>While two phones pair: your Ark address and the timing of the tap. Deleted within 15 minutes. Long term we keep only aggregate statistics with no addresses.</p>
+
+      <h3>Price, fees, map</h3>
+      <p>Our server fetches these for you from CoinGecko, mempool and BTC Map. Those services never see your IP address.</p>
+
+      <h3>Email</h3>
+      <p>If you write to help@spendrr.app, we keep the conversation for as long as needed. Email runs through Google (Gmail) and Resend.</p>
+
+      <h2>Where your device connects directly</h2>
+      <p>The wallet talks directly to the Ark server <code>ark.second.tech</code> and the blockchain API <code>mempool.second.tech</code>, both run by <a href="https://second.tech" rel="noopener">Second</a>. Second sees your IP address and the data needed to make payments, and follows its own policies. As a fallback the wallet may connect to blockstream.info and mempool.space.</p>
+
+      <h2>Why, and on what legal basis</h2>
+      <ul>
+        <li>Features you switch on (notifications, @name, Lightning address, backup, tap to pay): providing the service you ask for (GDPR Art. 6(1)(b)).</li>
+        <li>Rate limits and abuse protection: legitimate interest in running the service safely (GDPR Art. 6(1)(f)).</li>
+      </ul>
+      <p>We don't sell data, share it for advertising or use it for profiling.</p>
+
+      <h2>Who helps us</h2>
+      <ul>
+        <li><strong>Cloudflare</strong>: server hosting and storage</li>
+        <li><strong>Google</strong>: email, push in the Android app</li>
+        <li><strong>Resend</strong>: sending email</li>
+      </ul>
+      <p>Some of them process data outside the EU (USA) under standard contractual clauses or the EU-US Data Privacy Framework.</p>
+
+      <h2>Your rights</h2>
+      <p>You have the right to access, correct and erase your data, to restrict processing, to data portability and to object. Most features you can switch off yourself in the app, which deletes the related data. Otherwise write to <a href="mailto:help@spendrr.app">help@spendrr.app</a>. Since there are no accounts, we will need something to find your data by (your @name, for example). You can complain to your data protection authority. In the Czech Republic that is the <a href="https://uoou.gov.cz" rel="noopener">ÚOOÚ</a>.</p>
+
+      <h2>Changes</h2>
+      <p>If anything important here changes, we'll say so in the app's "what's new".</p>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-inner wrap">
+        <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
+        <div class="foot-links">
+          <span class="foot-group">
+            <a href="mailto:help@spendrr.app">help@spendrr.app</a>
+            <a href="/terms/en">Terms of Service</a>
+            <a href="/privacy/en">Privacy</a>
+          </span>
+          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,166 @@
+/* The public page for a @handle (ProfilePage.tsx). Structure comes from
+   sheet/PaySheet.css; this is only the name and the Ark address block. */
+
+.pfp-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(17px, 5.6vw, 22px);
+}
+
+/* Set apart like PaymentRequestPage's Lightning block: the "you are paying
+   from some other Ark wallet" route, self-contained under the main action. */
+.pfp-ark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 16px 14px 14px;
+  border-radius: 20px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface-2);
+}
+
+.pfp-ark-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.pfp-ark-qr {
+  line-height: 0;
+  padding: 14px;
+  border-radius: 16px;
+  /* A scanner needs dark-on-light whatever the theme, so the tile brings its
+     own white. */
+  background: white;
+  box-shadow: 2px 2px 0 #8a8a8a;
+}
+
+/* The wallet-owner view: just the code, big, on its own white tile. */
+.pfp-qr {
+  line-height: 0;
+  padding: 16px;
+  border-radius: 20px;
+  background: white;
+  border: var(--border-w) solid var(--border);
+}
+
+.pfp-qr svg {
+  display: block;
+  width: min(220px, 60vw);
+  height: auto;
+}
+
+/* The address as one quiet, tappable pill: short head...tail (tail in the
+   accent, the part people actually compare) plus a copy icon. */
+.pfp-ark-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  min-height: 40px;
+  margin-top: 2px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 999px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  box-shadow: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pfp-ark-copy:hover:not(:disabled) {
+  transform: none;
+}
+
+.pfp-ark-addr {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pfp-ark-copy.is-copied .pfp-ark-icon {
+  background: var(--accent-2);
+  color: white;
+}
+
+.pfp-ark-dots {
+  margin: 0 0.05em 0 -0.05em;
+  letter-spacing: -0.12em;
+  color: var(--text-dim);
+}
+
+.pfp-ark-tail {
+  color: var(--accent-2);
+}
+
+.pfp-ark-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  transition: background 0.15s, color 0.15s;
+}
+
+.pfp-ark-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Only when copying failed: the whole value, selectable by hand. */
+.pfp-ark-full {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+  text-align: center;
+  user-select: all;
+}
+
+.pfp-ark-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.pfp-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Second box, below the Ark one, only when the name's owner opted into
+   Lightning (LightningSection in ProfilePage.tsx). */
+.pfp-ln {
+  margin-top: 10px;
+}
+
+/* With the Lightning address on: the name as the full address, domain quieter. */
+.pfp-name-domain {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.pfp-name-hint {
+  margin-top: -6px;
+  font-size: 13px;
+}
+
+.pfp-name-hint strong {
+  color: var(--text-h);
+  font-weight: 600;
+}
