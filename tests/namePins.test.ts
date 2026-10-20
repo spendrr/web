@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkNamePin, pinName, pinnedNamesStartingWith } from "../src/lib/names/namePins";
+import { checkNamePin, pinName, pinnedAddressFor, pinnedNamesStartingWith } from "../src/lib/names/namePins";
 
 function fakeStorage(): Storage {
   const m = new Map<string, string>();
@@ -181,5 +181,14 @@ describe("cached reads", () => {
     expect(nameForPayment(row(3000, 2_000_000), s)).toBe("jan");
     s.setItem("btc-wallet-name-payments", "garbage");
     expect(nameForPayment(row(2000, 1_000_000), s)).toBeNull();
+  });
+});
+
+describe("pinnedAddressFor", () => {
+  it("returns the pinned address for an exact name only", () => {
+    const storage = fakeStorage();
+    pinName("pavel", "ark1pavel", storage);
+    expect(pinnedAddressFor("pavel", storage)).toBe("ark1pavel");
+    expect(pinnedAddressFor("pave", storage)).toBeNull();
   });
 });
