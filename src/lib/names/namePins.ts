@@ -63,6 +63,11 @@ function read(storage: Storage): Pins {
   return readCached(storage).pins;
 }
 
+/** The address this wallet last paid this handle at, or null. A hint for showing who it is; never what a payment uses. */
+export function pinnedAddressFor(name: string, storage: Storage = localStorage): string | null {
+  return read(storage)[name] ?? null;
+}
+
 export function checkNamePin(name: string, address: string, storage: Storage = localStorage): PinCheck {
   const pinned = read(storage)[name];
   if (pinned === undefined) return "new";

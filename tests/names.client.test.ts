@@ -24,6 +24,24 @@ describe("lookupName", () => {
     expect(f.mock.calls[0][0]).toBe("/api/names/pavel");
   });
 
+  it("shares one request between concurrent lookups of the same name", async () => {
+    const f = respond(200, { name: "sharedx", address: "ark1x" });
+    const [a, b] = await Promise.all([lookupName("sharedx"), lookupName("sharedx")]);
+    expect(a).toEqual(b);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a shared request alive when only one caller aborts", async () => {
+    const f = respond(200, { name: "abortx", address: "ark1x" });
+    const gone = new AbortController();
+    const first = lookupName("abortx", gone.signal);
+    const second = lookupName("abortx");
+    gone.abort();
+    expect(await second).toMatchObject({ kind: "found", name: "abortx" });
+    await first;
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
   it("encodes the name into the path", async () => {
     // Not a name the registry could hold, so it never gets that far (below);
     // the encoding is what protects the path for anything that does.

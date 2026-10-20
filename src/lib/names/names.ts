@@ -53,6 +53,13 @@ function remember(name: string, outcome: LookupOutcome): LookupOutcome {
 // "checking" until something else happened to refresh it.
 const LOOKUP_TIMEOUT_MS = 8_000;
 
+// One request per name at a time: a refresh landing on a retry, or a form
+// reopened, shares the call. The request has its own controller and is
+// cancelled only when every caller has left, so one caller aborting never
+// fails another's lookup.
+type Inflight = { promise: Promise<LookupOutcome>; controller: AbortController; waiters: number };
+const inflight = new Map<string, Inflight>();
+
 export async function lookupName(name: string, signal?: AbortSignal): Promise<LookupOutcome> {
   // The server runs the very same checkHandle before it looks anything up and
   // answers "invalid" for a name that fails it, so asking it is a round trip
@@ -60,7 +67,40 @@ export async function lookupName(name: string, signal?: AbortSignal): Promise<Lo
   // for an answer already known here. Reserved names are NOT turned away: some
   // have an owner and resolve, which only the registry knows.
   if (!checkHandle(name, { allowReserved: true }).ok) return remember(name, { kind: "absent", status: "invalid" });
-  return remember(name, await fetchLookup(name, signal));
+  if (signal?.aborted) return { kind: "error" };
+  let entry = inflight.get(name);
+  if (!entry) {
+    const controller = new AbortController();
+    const created: Inflight = {
+      controller,
+      waiters: 0,
+      promise: fetchLookup(name, controller.signal)
+        .then((outcome) => remember(name, outcome))
+        .finally(() => {
+          if (inflight.get(name) === created) inflight.delete(name);
+        }),
+    };
+    inflight.set(name, created);
+    entry = created;
+  }
+  const joined = entry;
+  joined.waiters += 1;
+  let left = false;
+  const leave = () => {
+    if (left) return;
+    left = true;
+    joined.waiters -= 1;
+    if (joined.waiters > 0) return;
+    if (inflight.get(name) === joined) inflight.delete(name);
+    joined.controller.abort();
+  };
+  signal?.addEventListener("abort", leave, { once: true });
+  try {
+    return await joined.promise;
+  } finally {
+    signal?.removeEventListener("abort", leave);
+    leave();
+  }
 }
 
 async function fetchLookup(name: string, signal?: AbortSignal): Promise<LookupOutcome> {

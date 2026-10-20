@@ -109,7 +109,7 @@ import {
 } from "../lib/wallet/walletSession";
 import { decodeBolt11Amount, normalizeDestination } from "../lib/send/destination";
 import { classifyStatic, isArkAddressShape, parseScannedPayload } from "../lib/send/destinationCheck";
-import { isKnownValidArkAddress, rememberValidArkAddress } from "../lib/send/validArkAddresses";
+import { isKnownValidArkAddress, learnArkServerFrom, rememberValidArkAddress } from "../lib/send/validArkAddresses";
 import { isValidMainnetBitcoinAddress } from "../lib/send/bitcoinAddress";
 import { formatAddressValue } from "../lib/send/movementAddress";
 import {
@@ -150,6 +150,7 @@ import {
   logNamedPayment,
   nameForPayment,
   pinName,
+  pinnedAddressFor,
   pinnedNamesStartingWith,
   type PinCheck,
 } from "../lib/names/namePins";
@@ -772,6 +773,11 @@ export default function Dashboard({
   // behind the post-unlock sync/maintenance calls. Null otherwise; the
   // effect below then asks for it itself.
   const [address, setAddress] = useState<string | null>(() => wallet.openedAddress ?? null);
+  // The wallet's own address names the Ark server, so the send form can tell an
+  // address for that server apart without queuing behind the wallet worker.
+  useEffect(() => {
+    if (address) learnArkServerFrom(address);
+  }, [address]);
   // Surfaced right under the "Generuji adresu…" text in ReceivePanel, not
   // just the generic top-level `loadError` banner below — that banner lives
   // on the home screen and is invisible while the Receive view is open,
@@ -4396,9 +4402,11 @@ type SendPlan = {
 
 // How often an open send form re-checks the address behind a typed @handle.
 const NAME_REFRESH_MS = 30_000;
-// Shorter than the 350ms address-classification debounce: a name lookup is a
-// cheap GET that never touches the wallet worker's queue.
-const NAME_LOOKUP_DEBOUNCE_MS = 150;
+// Every prefix typed on the way to a name is a distinct name and a request
+// (and a slot in the per-IP miss limiter), so the lookup waits for a pause in
+// typing, not for the next keystroke. A name this wallet has paid before skips
+// the wait: it is almost certainly the whole name.
+const NAME_LOOKUP_DEBOUNCE_MS = 300;
 // A failed first lookup is tried once more after this, before "could not
 // verify" is shown: a dropped connection or a momentary rate limit usually
 // clears in that time.
@@ -4815,11 +4823,20 @@ function SendPanel({
     };
     const cached = cachedLookup(nameQuery);
     if (cached) void settle(cached);
+    // A name paid before shows who it is at once, from the pin. It is only a
+    // hint: "checking" is not payable, and the registry's answer (asked with no
+    // wait) replaces it, since the address behind a handle can have changed.
+    const pinned = cached ? null : pinnedAddressFor(nameQuery);
+    if (pinned) setNameResolution({ query: nameQuery, state: "checking", address: pinned });
     // Requests are numbered when they START: two can overlap (the first
     // lookup and a refresh), and a slow older answer arriving after a newer one
     // must not put its address back over it.
     let requestSeq = 0;
     let goodAnswer = cached !== null && cached.kind !== "error";
+    // Refreshing only matters for a name that resolves: a free, invalid or
+    // reserved one stays that for the life of the form and a second request
+    // per 30 s for it is pure waste.
+    let refreshable = cached === null || cached.kind !== "absent";
     let retries = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const resolve = async () => {
@@ -4842,13 +4859,16 @@ function SendPanel({
         }
       } else {
         goodAnswer = true;
+        refreshable = result.kind === "found";
       }
       await settle(result);
     };
-    const timer = setTimeout(() => void resolve(), cached ? 0 : NAME_LOOKUP_DEBOUNCE_MS);
+    const timer = setTimeout(() => void resolve(), cached || pinned ? 0 : NAME_LOOKUP_DEBOUNCE_MS);
     // A handle's address can change while the form sits open, and the plan
     // freezes whatever this last said. Refreshing keeps that at most this old.
-    const refresh = setInterval(() => void resolve(), NAME_REFRESH_MS);
+    const refresh = setInterval(() => {
+      if (refreshable) void resolve();
+    }, NAME_REFRESH_MS);
     return () => {
       cancelled = true;
       controller.abort();
