@@ -293,6 +293,14 @@ export function classifyWalletCall(method: string, args: unknown[]): CallVerdict
   return { kind: "denied" };
 }
 
+// `target` is typed in TypeScript only; a crafted message can name anything.
+// The worker's extra controls (argument sanitizing, the refresh budget, the
+// exit lock handling) all key off the exact string "wallet", so any other
+// value must be refused before it selects a wallet or a policy.
+export function isCallTarget(target: unknown): target is "wallet" | "onchain" {
+  return target === "wallet" || target === "onchain";
+}
+
 export function classifyOnchainCall(method: string): CallVerdict {
   return ONCHAIN_READ_METHODS.has(method) ? { kind: "allow" } : { kind: "denied" };
 }

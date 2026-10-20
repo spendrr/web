@@ -16,6 +16,7 @@ import {
   classifyWalletCall,
   createRefreshSubmitBudget,
   createUnauthorizedSpendBudget,
+  isCallTarget,
   isGiftMethodAllowed,
   sendAmountSats,
   WALLET_ALWAYS_AUTH_METHODS,
@@ -288,6 +289,20 @@ describe("classifyWalletCall — spend authorization", () => {
     for (const bad of [-1, NaN, Infinity, "100", null, undefined, {}]) {
       expect(classifyWalletCall("sendArkoorPayment", ["ark1x", bad]).kind, String(bad)).toBe("needs-auth");
     }
+  });
+});
+
+describe("isCallTarget", () => {
+  it("accepts exactly the two real targets", () => {
+    expect(isCallTarget("wallet")).toBe(true);
+    expect(isCallTarget("onchain")).toBe(true);
+  });
+
+  it("refuses everything else, so the target-keyed controls cannot be skipped", () => {
+    for (const t of ["x", "", "Wallet", "wallet ", "__proto__", "constructor", undefined, null, 0, {}, ["wallet"]]) {
+      expect(isCallTarget(t)).toBe(false);
+    }
+    fc.assert(fc.property(fc.anything().filter((v) => v !== "wallet" && v !== "onchain"), (t) => !isCallTarget(t)));
   });
 });
 

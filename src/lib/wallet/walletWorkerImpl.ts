@@ -69,6 +69,7 @@ import {
   classifyWalletCall,
   createRefreshSubmitBudget,
   createUnauthorizedSpendBudget,
+  isCallTarget,
   isGiftMethodAllowed,
   sanitizeWalletCallArgs,
 } from "./walletSpendPolicy";
@@ -639,6 +640,7 @@ async function runRequest(msg: Request): Promise<unknown> {
       return { fingerprint: wallet.fingerprint(), address };
     }
     case "call": {
+      if (!isCallTarget(msg.target)) throw new Error(METHOD_NOT_ALLOWED);
       const target = msg.target === "onchain" ? currentOnchainWallet : currentWallet;
       if (!target) throw new Error(`${WALLET_NOT_OPEN} (${msg.target}.${msg.method})`);
       // Allowlist + spend authorization FIRST — before msg.method is used to

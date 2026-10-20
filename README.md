@@ -5,6 +5,8 @@ Self-custodial, instant and cheap payments, no jargon. Runs in the browser and i
 
 **[Open the wallet](https://spendrr.app)** · **[What is it?](https://spendrr.app/learn/en)**
 
+[![Deploy watch](https://github.com/spendrr/web/actions/workflows/deploy-watch.yml/badge.svg)](https://github.com/spendrr/web/actions/workflows/deploy-watch.yml)
+
 <p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="public/learn-img/en/home-dark.webp">
