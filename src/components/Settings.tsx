@@ -669,6 +669,13 @@ function SettingsMenu({ onNavigate }: { onNavigate: (s: Section) => void }) {
             {t("Třetí strany")}
           </a>
         </div>
+        {/* The source is AGPL; VERIFY.md in the repo explains how to check that the site runs it. */}
+        <div className="info-row">
+          <span>{t("Zdrojový kód")}</span>
+          <a className="info-row-link" href="https://github.com/spendrr/web" target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+        </div>
         {/* Static pages (public/terms.html, privacy.html), English under /en. */}
         <div className="info-row">
           <span>{t("Podmínky a soukromí")}</span>

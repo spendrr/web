@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "20. 10. 2026",
+    title: "Otevřený zdrojový kód",
+    items: [
+      "Zdrojový kód peněženky je teď veřejný, odkaz najdeš v Nastavení.",
+      "Kdokoli si může ověřit, že web běží přesně tento kód.",
+    ],
+  },
+  {
     date: "19. 10. 2026",
     title: "Odeslání: částka z faktury",
     items: [

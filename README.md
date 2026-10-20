@@ -38,6 +38,7 @@ Self-custodial, instant and cheap payments, no jargon. Runs in the browser and i
 - **Encrypted cloud backup** of wallet state, on top of the seed phrase. The server only ever sees ciphertext.
 - **Emergency exit.** Move funds to a regular Bitcoin address without the Ark server's cooperation.
 - **Automatic coin refresh**, so Ark coins don't expire unnoticed.
+- **Chat** (beta). Messages over Nostr that can carry a payment.
 - Password plus optional fingerprint or Face ID unlock, auto-lock, shake to hide the balance, offline mode,
   light and dark themes, Czech and English.
 
@@ -61,7 +62,8 @@ threshold needs the password, and so does every exit.
 
 **The site runs the code in this repo.** The build is reproducible, so you can rebuild a tagged
 release and compare every file spendrr.app serves with your build, byte for byte. Steps are in
-[VERIFY.md](VERIFY.md).
+[VERIFY.md](VERIFY.md). A public workflow ([`deploy-watch`](.github/workflows/deploy-watch.yml)) does the
+same every hour, and a failed run is the alert.
 
 This covers the app itself, not the code of the Cloudflare Worker that serves it.
 
@@ -102,9 +104,11 @@ Under the hood: React 19 and Vite, the [Ark protocol](https://second.tech) throu
 Self-hosting isn't packaged yet. The app is a static build that talks to the Ark server directly.
 The extras (push notifications, @names, Lightning address, cloud backup, price data) come from the Worker
 in `worker/`, and [`wrangler.toml`](wrangler.toml) is the production config for spendrr.app. To run your
-own, point its routes and bindings at your own Cloudflare account.
+own, point its routes and bindings at your own Cloudflare account. The KV namespace ids in the file are
+placeholders, and every secret the Worker reads (`env.*` in `worker/`) is set with `wrangler secret put`,
+never stored in the repo.
 
-A public copy must not be called Spendrr or use its logo (see License).
+A public copy must not be called Spendrr or use its logo (see [TRADEMARKS.md](TRADEMARKS.md)).
 
 ## 🤝 Contributing
 
@@ -115,7 +119,8 @@ not keep its author. Say what you found and the fix goes into the next release.
 ## 🛡️ Security
 
 Found a vulnerability? Don't open a public issue. Report it privately through
-[GitHub's private vulnerability reporting](../../security/advisories/new).
+[GitHub's private vulnerability reporting](../../security/advisories/new). Scope and what to expect are in
+[SECURITY.md](SECURITY.md).
 
 ## ⚠️ Known limitations
 
