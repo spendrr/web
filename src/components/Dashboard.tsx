@@ -154,12 +154,11 @@ import {
   type PinCheck,
 } from "../lib/names/namePins";
 import ActionMenuButton, { type ActionMenuItem } from "./ActionMenu";
-import { getPendingGiftPassword, hasClaimedGift, needsSeedBackup } from "../lib/gift/giftStore";
+import { hasClaimedGift, needsSeedBackup } from "../lib/gift/giftStore";
 import { isGiftPath, type GiftLinkParams } from "../lib/gift/giftLink";
 import GiftClaimModal from "./GiftClaimModal";
 import { isRequestPath } from "../lib/send/paymentRequest";
 import { autoReturnExpiredGifts } from "../lib/gift/giftReclaim";
-import GiftPasswordModal from "./GiftPasswordModal";
 import BumpOverlay from "./BumpOverlay";
 import { isBumpPayEnabled } from "../lib/bump/bump";
 import { isBumpReceiving, isPaymentPriority } from "../lib/wallet/paymentPriority";
@@ -352,6 +351,7 @@ export default function Dashboard({
   onWalletStateChanged,
   giftEncryptionKey,
   giftClaimActive,
+  giftClaimFresh,
   payRequest,
   onPayRequestConsumed,
 }: {
@@ -365,10 +365,10 @@ export default function Dashboard({
   // disabled without it, since it would have no safe place for the reclaim
   // seed. See giftStore.ts / GiftComposeModal.
   giftEncryptionKey?: CryptoKey | null;
-  // True while the "Dostal jsi dárek" claim overlay is still up. The
-  // "save your password" prompt below waits for this to clear (i.e. the
-  // user tapped "Přijmout dárek") before starting its 7s countdown.
+  // True while the "Dostal jsi dárek" claim overlay is still up.
+  // The gift reveal holds the headline until the user accepts the gift.
   giftClaimActive?: boolean;
+  giftClaimFresh?: boolean;
   // A payment-request link (spendrr.app/r#…) the user chose to pay: opens
   // the Send view with its address and amount already filled in. Handed
   // over by App.tsx, which owns the request itself; onPayRequestConsumed
@@ -525,29 +525,12 @@ export default function Dashboard({
   // in state (not read live) so revealing it in Settings and coming back
   // re-checks and the banner disappears.
   const [showSeedBackupBanner, setShowSeedBackupBanner] = useState(() => needsSeedBackup());
-  // The auto-generated vault password for a fresh gift-link recipient —
-  // shown 7s after the wallet opens so it doesn't slam a modal over the
-  // balance landing. Held in the clear (giftStore) until confirmed; without
-  // this the password could vanish and lock the wallet permanently.
-  const [pendingGiftPw, setPendingGiftPw] = useState<string | null>(null);
-  // True only when this Dashboard mounted mid-gift-claim for a brand-new
-  // recipient (the pending password is written before the wallet opens).
-  // Used to keep the headline balance at 0 behind the claim modal.
-  const [hideBalanceForGiftReveal] = useState(() => getPendingGiftPassword() !== null);
+  // Keep a new recipient's headline at zero until the gift reveal finishes.
+  const [hideBalanceForGiftReveal] = useState(() => !!giftClaimFresh);
   // Mirrors giftRevealHold (computed far below, after `spendable`) for the
   // callbacks defined above it — showToast reads it to swallow the
   // "payment received" toast while the claim modal is still up.
   const giftRevealHoldRef = useRef(false);
-  useEffect(() => {
-    // Wait until the "Dostal jsi dárek" overlay is gone — the countdown
-    // starts once the user has actually tapped "Přijmout dárek", not while
-    // they're still reading the claim modal.
-    if (giftClaimActive) return;
-    const pw = getPendingGiftPassword();
-    if (!pw) return;
-    const h = window.setTimeout(() => setPendingGiftPw(pw), 10_000);
-    return () => window.clearTimeout(h);
-  }, [giftClaimActive]);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   // Sticky for this mount, not just "currently active": skipping only while
   // giftClaimActive is true would let the popup fire the instant the claim
@@ -2690,7 +2673,6 @@ export default function Dashboard({
     !requestOpen &&
     !profileOpen &&
     !chatOpen &&
-    !pendingGiftPw &&
     !showWhatsNew &&
     !showBoardConfirm &&
     !showPriceEasterEgg &&
@@ -2735,10 +2717,10 @@ export default function Dashboard({
   });
   useBackLayer(showUtility && utilityVisible, closeUtility);
   const installSheetAllowed =
-    balance !== null && homeIsFree && !refreshSheet && !giftClaimActive && !pendingGiftPw;
+    balance !== null && homeIsFree && !refreshSheet && !giftClaimActive;
   useEffect(() => {
     if (!installSheetAllowed || installSheetTriedRef.current) return;
-    if (getPendingGiftPassword() !== null || !shouldAutoShowInstallHint()) return;
+    if (sawGiftClaimRef.current || !shouldAutoShowInstallHint()) return;
     // A beat after the home screen settles, not on top of its entrance.
     const id = window.setTimeout(() => {
       installSheetTriedRef.current = true;
@@ -3490,21 +3472,6 @@ export default function Dashboard({
           amountSats={refreshSheet.amountSats}
           withheld={refreshSheet.withheld}
           onClose={() => setRefreshSheet(null)}
-        />
-      )}
-      {pendingGiftPw && (
-        <GiftPasswordModal
-          password={pendingGiftPw}
-          onDone={() => {
-            // Dismiss only — "Uložil jsem si ho" is not proof they actually
-            // did. The stored copy is cleared only where the correct password
-            // was actually typed and verified: a successful password unlock
-            // (App.tsx), a password change, a biometric enrolment or a seed
-            // reveal (all three in Settings). Until one of those happens it
-            // survives any number of further locks, same safety net as the
-            // unlock-screen version of this prompt.
-            setPendingGiftPw(null);
-          }}
         />
       )}
       {showBoardConfirm && onchainBalance && (

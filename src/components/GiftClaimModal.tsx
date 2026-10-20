@@ -11,15 +11,12 @@ import { encryptMnemonic, loadVault, saveVault } from "../lib/vault/crypto";
 import { hasBiometricUnlock } from "../lib/vault/webauthn";
 import { createDeviceVault, hasDeviceVault } from "../lib/vault/deviceVault";
 import { requestPersistentStorage } from "../lib/vault/storageProtection";
-import { generateGiftPassword } from "../lib/gift/giftPassword";
+import { isPasswordStrong, passwordProblem } from "../lib/vault/password";
 import { offerPasswordToManager } from "../lib/vault/credentialStore";
 import {
   clearNeedsSeedBackup,
-  clearPendingGiftPassword,
   markGiftClaimed,
-  getPendingGiftPassword,
   markNeedsSeedBackup,
-  setPendingGiftPassword,
 } from "../lib/gift/giftStore";
 import type { GiftLinkParams } from "../lib/gift/giftLink";
 import { fetchBtcRates } from "../lib/price";
@@ -33,7 +30,7 @@ import { stableArkAddress } from "../lib/send/arkAddress";
 
 type Rates = Awaited<ReturnType<typeof fetchBtcRates>>;
 
-type Phase = "preparing" | "needs-unlock" | "claiming" | "ready" | "error";
+type Phase = "set-password" | "preparing" | "needs-unlock" | "claiming" | "ready" | "error";
 
 // The receiving half of a gift link: what someone sees when they open
 // spendrr.app/g#… . Built on the same sheet as the sender's composer and as
@@ -45,7 +42,7 @@ type Phase = "preparing" | "needs-unlock" | "claiming" | "ready" | "error";
 // here, an existing one unlocks, and either way the gift is pulled in the
 // background while this screen is already showing what is coming.
 
-// The credential-manager username the auto-generated recipient password is
+// The credential-manager username the recipient password is
 // filed under. Fixed string, not the wallet fingerprint — the user recovers
 // by picking "Spendrr" in their password manager, not by matching an id.
 const CREDENTIAL_USERNAME = "Spendrr";
@@ -88,6 +85,7 @@ export default function GiftClaimModal({
   const [claimedSats, setClaimedSats] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [rates, setRates] = useState<Rates | null>(null);
   // The user tapped "Přijmout" before the background claim finished — as
   // soon as it does, dismiss automatically instead of making them tap again.
@@ -110,7 +108,7 @@ export default function GiftClaimModal({
   // resumes (bark finishes a stored arkoor send on the next sync, to the
   // address it was started with). A fresh seed would overwrite the only copy
   // of that wallet's seed, so the retry opens the existing one instead.
-  const runFreshOpen = useCallback(async () => {
+  const runFreshOpen = useCallback(async (newPassword = "") => {
     if (startedFreshRef.current) return;
     startedFreshRef.current = true;
     setPhase("preparing");
@@ -121,13 +119,15 @@ export default function GiftClaimModal({
         return;
       }
       if (loadVault() !== null) {
-        const pw = getPendingGiftPassword();
-        if (pw === null) {
-          startedFreshRef.current = false;
-          setPhase("needs-unlock");
-          return;
-        }
-        await onOpenVault(pw);
+        startedFreshRef.current = false;
+        setPhase("needs-unlock");
+        return;
+      }
+      // Complete password setup before persisting a wallet or moving the gift.
+      // A refresh before this point leaves no wallet to get locked out of.
+      if (!gift.passwordless && (!newPassword || !isPasswordStrong(newPassword))) {
+        startedFreshRef.current = false;
+        setPhase("set-password");
         return;
       }
       const mnemonic = await generateMnemonic();
@@ -139,28 +139,21 @@ export default function GiftClaimModal({
         await onOpenFresh(mnemonic);
         return;
       }
-      const pw = generateGiftPassword();
-      const vault = await encryptMnemonic(mnemonic, pw);
+      const vault = await encryptMnemonic(mnemonic, newPassword);
       saveVault(vault);
-      // Hold the password in the clear until the dashboard has shown it to
-      // the user and they've confirmed saving it — set BEFORE the flaky
-      // credential-manager call so a mid-flow tab close still leaves it
-      // recoverable.
-      setPendingGiftPassword(pw);
-      // Best-effort hand-off to the OS password manager. Silently no-ops on
-      // desktop Safari/Chrome — the dashboard's "save your password" modal
-      // (backed by setPendingGiftPassword above) is the real safety net.
-      await offerPasswordToManager(CREDENTIAL_USERNAME, pw);
+      // The user has entered and confirmed this password. Only offer it to
+      // their password manager; never retain a plaintext recovery copy.
+      await offerPasswordToManager(CREDENTIAL_USERNAME, newPassword);
       await onOpenFresh(mnemonic);
     } catch (e) {
       startedFreshRef.current = false;
       surfaceError(e, setErrorMsg);
       setPhase("error");
     }
-  }, [onOpenFresh, onOpenDevice, onOpenVault, gift.passwordless]);
+  }, [onOpenFresh, onOpenDevice, gift.passwordless]);
 
-  // Fresh recipient: eagerly, the moment the modal shows. The actual gift
-  // claim waits for liveWallet in the effect below.
+  // Fresh recipients set up their password first; passwordless gifts open
+  // eagerly. The actual claim waits for liveWallet in the effect below.
   useEffect(() => {
     if (freshRecipient) void runFreshOpen();
   }, [freshRecipient, runFreshOpen]);
@@ -205,10 +198,9 @@ export default function GiftClaimModal({
           // device falls straight through instead of spinning again.
           markGiftClaimed(gift.id);
           // A fresh recipient spun up a wallet for nothing; don't then nag
-          // about backing it up or saving a password for it.
+          // about backing it up.
           if (fresh) {
             clearNeedsSeedBackup();
-            clearPendingGiftPassword();
           }
         }
         if (msg === GIFT_EMPTY_MESSAGE || msg === GIFT_RETRY_MESSAGE) setErrorMsg(msg);
@@ -269,7 +261,52 @@ export default function GiftClaimModal({
   let screenKey: string;
   let body;
 
-  if (phase === "needs-unlock") {
+  if (phase === "set-password") {
+    const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
+    const problem = passwordProblem(password);
+    const canCreate = isPasswordStrong(password) && password === confirmPassword;
+    screenKey = "set-password";
+    body = (
+      <Screen>
+        <h2 className="sht-title">{t("Nastav heslo")}</h2>
+        <p className="sht-sub">
+          {t("Heslo šifruje seed phrase v tomto prohlížeči. Neposílá se nikam a nikdo ho nemůže obnovit za tebe.")}
+        </p>
+        <input
+          type="password"
+          className="sht-field"
+          placeholder={t("Heslo")}
+          value={password}
+          autoFocus
+          autoComplete="new-password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <input
+          type="password"
+          className="sht-field"
+          placeholder={t("Heslo znovu")}
+          value={confirmPassword}
+          autoComplete="new-password"
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+        {mismatch && <p className="sht-error">{t("Hesla se neshodují.")}</p>}
+        {!mismatch && problem && <p className="sht-sub">{t(problem)}</p>}
+        <button
+          type="button"
+          className="primary sht-wide"
+          disabled={!canCreate}
+          onClick={() => {
+            if (!canCreate) return;
+            void runFreshOpen(password);
+            setPassword("");
+            setConfirmPassword("");
+          }}
+        >
+          {t("Vytvořit peněženku")}
+        </button>
+      </Screen>
+    );
+  } else if (phase === "needs-unlock") {
     screenKey = "unlock";
     body = (
       <Screen>

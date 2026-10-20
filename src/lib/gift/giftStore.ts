@@ -190,45 +190,10 @@ export function writeGiftScanCache(keepIds: string[], updates: Record<string, Gi
   }
 }
 
-// --- Pending gift-recipient password ----------------------------------
-// The auto-generated vault password, held in the clear until the fresh
-// recipient demonstrably has it. navigator.credentials silently no-ops on
-// desktop Safari/Chrome, so without this the password simply vanished and the
-// vault — and its seed phrase — became unrecoverable; the wallet holds at
-// most a 100k-sat gift and the alternative is permanent lockout.
-//
-// Dismissing the modal is NOT what clears it ("Uložil/a jsem si ho" is not
-// evidence). Every clear site is a path where the correct password was just
-// typed and verified, or where the seed itself is now in the user's hands:
-//
-//   - App.tsx           successful password unlock
-//   - Settings.tsx      password change / biometric enrolment / seed reveal
-//   - resetLocalState   the wallet it belongs to is being thrown away
-//
-// Biometric *unlock* deliberately does not clear it — it proves possession of
-// a finger, not of the password. That is also why enrolment has to: without
-// it, a recipient who turns on a fingerprint never types the password again,
-// and this plaintext copy sat next to the vault it opens for the life of the
-// wallet, defeating the vault's encryption at rest for exactly the users who
-// never chose their own password.
-
+// Remove the plaintext password cached by older gift-recipient flows. New
+// password-protected gift wallets require a user-chosen, confirmed password
+// before creation and never persist a recovery copy.
 const PENDING_PW_KEY = "btc-wallet-gift-pending-pw";
-
-export function setPendingGiftPassword(pw: string): void {
-  try {
-    localStorage.setItem(PENDING_PW_KEY, pw);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function getPendingGiftPassword(): string | null {
-  try {
-    return localStorage.getItem(PENDING_PW_KEY);
-  } catch {
-    return null;
-  }
-}
 
 export function clearPendingGiftPassword(): void {
   try {

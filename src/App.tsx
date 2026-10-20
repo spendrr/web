@@ -52,7 +52,6 @@ import MnemonicGrid from "./components/MnemonicGrid";
 import ImportSeedForm from "./components/ImportSeedForm";
 import Dashboard from "./components/Dashboard";
 import GiftClaimModal from "./components/GiftClaimModal";
-import GiftPasswordModal from "./components/GiftPasswordModal";
 import { ErrorCircleIcon, WarningIcon } from "./components/BannerIcons";
 import { isPasswordStrong, passwordProblem } from "./lib/vault/password";
 import { decodeGiftFragment, isGiftPath, type GiftLinkParams } from "./lib/gift/giftLink";
@@ -60,7 +59,7 @@ import { decodeRequestFragment, isRequestPath, type PaymentRequestParams } from 
 import PaymentRequestPage from "./components/PaymentRequestPage";
 import ProfilePage from "./components/ProfilePage";
 import { handleFromPath } from "./lib/names/handle";
-import { clearPendingGiftPassword, getPendingGiftPassword, hasClaimedGift } from "./lib/gift/giftStore";
+import { clearPendingGiftPassword, hasClaimedGift } from "./lib/gift/giftStore";
 import { tf, useT } from "./lib/i18n";
 import { WALLET_OPEN_ELSEWHERE, walletTabLock } from "./lib/wallet/walletTabLock";
 import WalletOpenElsewhereSheet from "./components/WalletOpenElsewhereSheet";
@@ -208,13 +207,10 @@ function App() {
   // Read by the auto-lock timer: a lock mid-claim kills the gift worker
   // (closeWallet) while the gift may be on its way into the wallet.
   const giftClaimRef = useRef<GiftLinkParams | null>(null);
+  const freshGiftWalletRef = useRef(false);
   useEffect(() => {
     giftClaimRef.current = giftClaim;
   }, [giftClaim]);
-  // "Uložil jsem si ho" was tapped on the unlock-screen gift-password
-  // prompt — hides it for this render without touching the stored copy.
-  const [strandedPwDismissed, setStrandedPwDismissed] = useState(false);
-
   // Set when the app was opened via a payment-request URL (spendrr.app/r#…).
   // Unlike a gift link this carries no secret and moves nothing by itself —
   // it is an ask, shown over whatever screen is active until the user either
@@ -249,6 +245,9 @@ function App() {
   }, [screen, payRequestLink]);
 
   useEffect(() => {
+    // Older gift wallets cached their unlock password beside the encrypted
+    // vault. Purge that copy before any locked screen can be shown.
+    clearPendingGiftPassword();
     // Which screen to show next only depends on a synchronous localStorage
     // read — it doesn't need the ~4MB WASM SDK at all. The open (called
     // once a password is actually submitted) awaits ensureWasm() itself, so
@@ -1176,6 +1175,7 @@ function App() {
             }}
             giftEncryptionKey={giftEncryptionKeyRef.current}
             giftClaimActive={true}
+            giftClaimFresh={freshGiftWalletRef.current}
             onWalletStateChanged={() => backupTriggerRef.current?.trigger()}
           />
         ) : (
@@ -1186,7 +1186,10 @@ function App() {
         <GiftClaimModal
           gift={giftClaim}
           liveWallet={liveWallet}
-          onOpenFresh={(mnemonic) => openSession({ kind: "mnemonic", mnemonic }, false, false)}
+          onOpenFresh={(mnemonic) => {
+            freshGiftWalletRef.current = !giftClaim.passwordless;
+            return openSession({ kind: "mnemonic", mnemonic }, false, false);
+          }}
           onOpenDevice={async () => {
             const unwrap = await loadDeviceUnwrap();
             await openSession({ kind: "bioVault", ...unwrap }, false, false);
@@ -1213,14 +1216,8 @@ function App() {
   // Before the screen machine, and only while nothing is open: the request
   // is the whole reason this app was launched, so it shows over a plain
   // backdrop rather than behind an unlock or onboarding screen the visitor
-  // did not ask for. Exception: on "unlock" specifically, the visitor may
-  // well be this wallet's own owner (this device already has a vault), so
-  // the stranded-gift-password reminder that would otherwise show on the
-  // unlock screen below still needs to surface here too — it's the same
-  // one-time recovery prompt, just not gated behind an extra "Odemknout a
-  // zaplatit" tap first.
+  // did not ask for.
   if ((payRequestShown || profileShown) && screen.kind !== "ready") {
-    const strandedPw = screen.kind === "unlock" && !strandedPwDismissed ? getPendingGiftPassword() : null;
     return (
       <>
         <div className="centered-screen">
@@ -1228,7 +1225,6 @@ function App() {
         </div>
         {payRequestEl}
         {profileEl}
-        {strandedPw && <GiftPasswordModal password={strandedPw} onDone={() => setStrandedPwDismissed(true)} />}
       </>
     );
   }
@@ -1439,16 +1435,6 @@ function App() {
   }
 
   if (screen.kind === "unlock") {
-    // A gift-link recipient who refreshed (or got auto-locked) before the
-    // dashboard's delayed "save your password" prompt fired is now staring
-    // at an unlock screen for a password they've never seen. It's still in
-    // localStorage (cleared only once they've actually typed it somewhere —
-    // see giftStore.ts's PENDING_PW_KEY for the full list of clear sites) —
-    // surface it right here, no delay, so a plain refresh is all the
-    // recovery they need. "Uložil jsem si ho" only hides the modal; the
-    // stored copy survives until a successful unlock, so another refresh
-    // still shows it.
-    const strandedPw = strandedPwDismissed ? null : getPendingGiftPassword();
     return (
       <>
         <UnlockForm
@@ -1460,7 +1446,6 @@ function App() {
           onBiometric={hasBiometricUnlock() ? unlockBiometric : undefined}
           opened={unlockOpened}
         />
-        {strandedPw && <GiftPasswordModal password={strandedPw} onDone={() => setStrandedPwDismissed(true)} />}
         {showResetConfirm && (
           <DeleteWalletSheet pendingExit={resetPendingExit} onConfirm={resetWallet} onCancel={() => setShowResetConfirm(false)} />
         )}
@@ -1482,6 +1467,7 @@ function App() {
         }}
         giftEncryptionKey={giftEncryptionKeyRef.current}
         giftClaimActive={giftClaim !== null}
+        giftClaimFresh={freshGiftWalletRef.current}
         payRequest={payRequestHandoff}
         onPayRequestConsumed={() => setPayRequestHandoff(null)}
         onWalletStateChanged={() => backupTriggerRef.current?.trigger()}
