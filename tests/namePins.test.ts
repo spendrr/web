@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkNamePin, pinName, pinnedAddressFor, pinnedNamesStartingWith } from "../src/lib/names/namePins";
+import { checkNamePin, distinctSuggestions, pinName, pinnedAddressFor, pinnedNamesStartingWith } from "../src/lib/names/namePins";
 
 function fakeStorage(): Storage {
   const m = new Map<string, string>();
@@ -190,5 +190,25 @@ describe("pinnedAddressFor", () => {
     pinName("pavel", "ark1pavel", storage);
     expect(pinnedAddressFor("pavel", storage)).toBe("ark1pavel");
     expect(pinnedAddressFor("pave", storage)).toBeNull();
+  });
+});
+
+describe("distinctSuggestions", () => {
+  const list = [
+    { name: "merry-chive", address: "ark1a" },
+    { name: "merry-old", address: "ark1a" },
+    { name: "merrick", address: "ark1b" },
+  ];
+
+  it("keeps the most recent name per address", () => {
+    expect(distinctSuggestions(list, null).map((s) => s.name)).toEqual(["merry-chive", "merrick"]);
+  });
+
+  it("drops a pin whose address the typed name already resolved to", () => {
+    expect(distinctSuggestions(list, "ark1a").map((s) => s.name)).toEqual(["merrick"]);
+  });
+
+  it("leaves unrelated suggestions alone", () => {
+    expect(distinctSuggestions(list, "ark1z")).toHaveLength(2);
   });
 });
