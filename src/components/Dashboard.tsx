@@ -1621,6 +1621,12 @@ export default function Dashboard({
     return () => window.clearTimeout(timer);
   }, [wallet]);
 
+  // Receive detection (toast, balance roll) runs on every fresh read inside a
+  // refresh cycle, not only once the whole cycle ends: maintenance and the
+  // engine tick after the read can take seconds, and the history row is
+  // already on screen by then. Set to checkPendingReceive below; idempotent.
+  const onFreshReadRef = useRef<(r: { balance: Balance; history: Movement[] }) => void>(() => {});
+
   const refresh = useCallback(() => {
     if (busyRef.current && activeRunRef.current) return activeRunRef.current;
     // Offline: don't queue a call that would only hang in the worker until
@@ -1650,6 +1656,7 @@ export default function Dashboard({
         await withTimeout(wallet.sync(), WALLET_CALL_TIMEOUT_MS, t(TIMEOUT_MESSAGE));
         result = await fetchBalanceAndHistory();
         loadErrorSinceRef.current = null;
+        onFreshReadRef.current(result);
       } catch (e) {
         reportLoadError(e);
       }
@@ -1692,6 +1699,7 @@ export default function Dashboard({
           // this call's outcome, not next cycle's). Re-fetch after it succeeds.
           result = await fetchBalanceAndHistory();
           loadErrorSinceRef.current = null;
+          onFreshReadRef.current(result);
         }
         if (engineMode === "off" && !isPaymentPriority()) {
           // A batch a live session left behind: release its coins once the
@@ -1706,6 +1714,7 @@ export default function Dashboard({
           // coins leave the headline, a Refresh movement appears).
           if (ran && ran.events.some((e) => ENGINE_STATE_CHANGING.has(e.kind))) {
             result = await fetchBalanceAndHistory();
+            onFreshReadRef.current(result);
             void reportExpiryIfMoved(wallet, ratesRef.current?.usd, exitPushWatchRef.current, { force: true });
           }
         }
@@ -1776,45 +1785,61 @@ export default function Dashboard({
   // invoice from another wallet/app and coming back used to require waiting
   // out however much of the watch loop's stalled cycle was left — this
   // resolves it the instant the tab is visible again instead.
+  // Read from a ref, not inside a state updater: the toast, the roll and the
+  // stored movement id must happen once, and an updater may be replayed or
+  // discarded. The ref moves to the new value at once, so a second caller
+  // (the watch tick awaiting the same refresh) sees the payment as settled;
+  // the layout effect below keeps it equal to the committed state.
+  const pendingReceiveRef = useRef<PendingReceive | null>(null);
+  useLayoutEffect(() => {
+    pendingReceiveRef.current = pendingReceive;
+  }, [pendingReceive]);
+
   const checkPendingReceive = useCallback(
     (result: { balance: Balance; history: Movement[] } | undefined) => {
-      if (!result) return;
-      setPendingReceive((current) => {
-        if (!current) return current;
-        if (current.kind === "lightning") {
-          if (current.status !== "waiting") return current;
-          const match = result.history.find((m) => m.paymentHash === current.invoice.paymentHash);
-          if (!match || match.effectiveBalanceSats <= 0) return current;
-          showToast(
-            tf(t("Faktura zaplacena: +{amount} sats"), {
-              amount: current.invoice.amountSats.toLocaleString(localeFor(lang)),
-            }),
-            "success",
-            { title: t("Faktura zaplacena"), amountSats: current.invoice.amountSats, direction: "in" },
-          );
-          requestBalanceBump(result.balance.spendableSats);
-          return { ...current, status: "paid" };
-        }
-        // Newest incoming movement not seen yet, not history[0]: a refresh
-        // created in the same cycle must not hide a payment (refreshHistory.ts).
-        const newest = newestUnseenIncoming(result.history, current.lastSeenMovementId);
-        if (!newest) return current;
-        setPersistedLastSeenMovementId(newest.id);
-        if (!isBumpReceiving()) {
-          showToast(
-            tf(t("Platba přijata: +{amount} sats"), {
-              amount: newest.effectiveBalanceSats.toLocaleString(localeFor(lang)),
-            }),
-            "success",
-            { title: t("Platba přijata"), amountSats: newest.effectiveBalanceSats, direction: "in" },
-          );
-        }
+      const current = pendingReceiveRef.current;
+      if (!result || !current) return;
+      if (current.kind === "lightning") {
+        if (current.status !== "waiting") return;
+        const match = result.history.find((m) => m.paymentHash === current.invoice.paymentHash);
+        if (!match || match.effectiveBalanceSats <= 0) return;
+        const paid: PendingReceive = { ...current, status: "paid" };
+        pendingReceiveRef.current = paid;
+        setPendingReceive(paid);
+        showToast(
+          tf(t("Faktura zaplacena: +{amount} sats"), {
+            amount: current.invoice.amountSats.toLocaleString(localeFor(lang)),
+          }),
+          "success",
+          { title: t("Faktura zaplacena"), amountSats: current.invoice.amountSats, direction: "in" },
+        );
         requestBalanceBump(result.balance.spendableSats);
-        return null;
-      });
+        return;
+      }
+      // Newest incoming movement not seen yet, not history[0]: a refresh
+      // created in the same cycle must not hide a payment (refreshHistory.ts).
+      const newest = newestUnseenIncoming(result.history, current.lastSeenMovementId);
+      if (!newest) return;
+      pendingReceiveRef.current = null;
+      setPendingReceive(null);
+      setPersistedLastSeenMovementId(newest.id);
+      if (!isBumpReceiving()) {
+        showToast(
+          tf(t("Platba přijata: +{amount} sats"), {
+            amount: newest.effectiveBalanceSats.toLocaleString(localeFor(lang)),
+          }),
+          "success",
+          { title: t("Platba přijata"), amountSats: newest.effectiveBalanceSats, direction: "in" },
+        );
+      }
+      requestBalanceBump(result.balance.spendableSats);
     },
     [showToast, requestBalanceBump, t, lang],
   );
+
+  useLayoutEffect(() => {
+    onFreshReadRef.current = checkPendingReceive;
+  }, [checkPendingReceive]);
 
   // Backgrounded tabs get their timers throttled hard by the browser (often
   // to roughly once a minute, sometimes suspended outright), so the 8s
@@ -2048,7 +2073,6 @@ export default function Dashboard({
   // loses track of an in-progress receive.
   useEffect(() => {
     if (!pendingReceive || pendingReceive.kind !== "lightning" || pendingReceive.status !== "waiting") return;
-    const watch = pendingReceive;
     let cancelled = false;
     let timer: number | null = null;
     // isInvoicePaid() alone never reflected a real payment no matter how
@@ -2075,19 +2099,10 @@ export default function Dashboard({
       if (cancelled) return;
       if (result) {
         consecutiveFailures = 0;
-        const match = result.history.find((m) => m.paymentHash === watch.invoice.paymentHash);
-        if (match && match.effectiveBalanceSats > 0) {
-          setPendingReceive({ ...watch, status: "paid" });
-          showToast(
-            tf(t("Faktura zaplacena: +{amount} sats"), {
-              amount: watch.invoice.amountSats.toLocaleString(localeFor(lang)),
-            }),
-            "success",
-            { title: t("Faktura zaplacena"), amountSats: watch.invoice.amountSats, direction: "in" },
-          );
-          requestBalanceBump(result.balance.spendableSats);
-          return;
-        }
+        // The same check refresh() already ran on its fresh reads: it settles
+        // against the latest state, so a payment found there is not announced
+        // a second time here.
+        checkPendingReceive(result);
       } else {
         consecutiveFailures++;
       }
@@ -2103,11 +2118,10 @@ export default function Dashboard({
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [pendingReceive, refresh, showToast, requestBalanceBump, t, lang]);
+  }, [pendingReceive, refresh, checkPendingReceive]);
 
   useEffect(() => {
     if (!pendingReceive || pendingReceive.kind !== "ark") return;
-    const watch = pendingReceive;
     let cancelled = false;
     let timer: number | null = null;
     // No busyRef pre-check — see the Lightning watch's tick() comment just
@@ -2121,22 +2135,7 @@ export default function Dashboard({
       if (cancelled) return;
       if (result) {
         consecutiveFailures = 0;
-        const newest = newestUnseenIncoming(result.history, watch.lastSeenMovementId);
-        if (newest) {
-          setPersistedLastSeenMovementId(newest.id);
-          setPendingReceive(null);
-          if (!isBumpReceiving()) {
-            showToast(
-              tf(t("Platba přijata: +{amount} sats"), {
-                amount: newest.effectiveBalanceSats.toLocaleString(localeFor(lang)),
-              }),
-              "success",
-              { title: t("Platba přijata"), amountSats: newest.effectiveBalanceSats, direction: "in" },
-            );
-          }
-          requestBalanceBump(result.balance.spendableSats);
-          return;
-        }
+        checkPendingReceive(result);
       } else {
         consecutiveFailures++;
       }
@@ -2152,7 +2151,7 @@ export default function Dashboard({
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [pendingReceive, refresh, showToast, requestBalanceBump, t, lang]);
+  }, [pendingReceive, refresh, checkPendingReceive]);
 
   const startArkWatch = useCallback(() => {
     if (!address) return;
