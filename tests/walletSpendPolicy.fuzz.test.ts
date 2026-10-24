@@ -455,3 +455,40 @@ describe("sanitizeWalletCallArgs (external audit 2026-09-27, H1)", () => {
     expect(sanitizeWalletCallArgs("drainExits", [{ vtxoIds: ["a"], address: "bc1q" }])).toEqual([{ vtxoIds: ["a"], address: "bc1q" }]);
   });
 });
+
+// The worker indexes the live WASM object with the method name after the gate
+// (`target[msg.method]`). A name the gate waves through that exists on every
+// object (constructor, toString, __proto__, ...) would reach that lookup, so
+// every inherited name must be refused by all three allowlists, not just the
+// two the wallet list happens to spell out.
+describe("inherited property names never pass an allowlist", () => {
+  const inherited = [
+    ...new Set([
+      ...Object.getOwnPropertyNames(Object.prototype),
+      ...Object.getOwnPropertyNames(Function.prototype),
+      "__proto__",
+      "prototype",
+      "then",
+    ]),
+  ];
+
+  it("has names to check", () => {
+    expect(inherited.length).toBeGreaterThan(8);
+  });
+
+  it("wallet calls are denied, with no arguments and with an amount", () => {
+    for (const name of inherited) {
+      expect(classifyWalletCall(name, []), name).toEqual({ kind: "denied" });
+      expect(classifyWalletCall(name, [1]), name).toEqual({ kind: "denied" });
+    }
+  });
+
+  it("onchain calls are denied", () => {
+    for (const name of inherited) expect(classifyOnchainCall(name), name).toEqual({ kind: "denied" });
+  });
+
+  it("gift calls are not allowed", () => {
+    for (const name of inherited) expect(isGiftMethodAllowed(name), name).toBe(false);
+  });
+});
+
