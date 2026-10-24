@@ -1,6 +1,6 @@
 # Push plateb přes relay se streamy
 
-Stav: rozpracované. Navazuje na „Background push notifications“ v [claude-notes-full.md](claude-notes-full.md).
+Stav: rozpracované.
 
 ## Proč
 
