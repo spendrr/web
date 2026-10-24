@@ -1011,8 +1011,8 @@ function DesignVersionToggle() {
 
 
 const LANGUAGE_OPTIONS: { value: Lang; label: string }[] = [
-  { value: "cs", label: "Čeština" },
   { value: "en", label: "English" },
+  { value: "cs", label: "Čeština" },
 ];
 
 function LanguageToggle() {
