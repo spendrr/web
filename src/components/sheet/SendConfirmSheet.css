@@ -1,0 +1,413 @@
+/* Send confirm sheet (V2). Builds on the shared sht- vocabulary.
+   Centered hero (plane, title, amount) over a full-width card; one type scale (title 32, amount 48, rows 15, notes 13)
+   and explicit spacing per group instead of one uniform gap: head and
+   amount sit tight, the card and the actions get air. */
+
+.sht-sheet .sht-send {
+  align-items: stretch;
+  gap: 0;
+  text-align: left;
+}
+
+/* --- Head ---------------------------------------------------------------- */
+
+.sht-send-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.sht-send-glyph {
+  width: 48px;
+  height: 48px;
+  color: var(--text-h);
+  overflow: visible;
+  animation: sht-pop 0.5s var(--sht-ease) both;
+}
+
+.sht-send-trail--a { opacity: 0.9; }
+.sht-send-trail--b,
+.sht-send-trail--c { opacity: 0.5; }
+
+/* In flight: the plane lifts along its own axis while the trail streams
+   out behind it, looping until the call settles. */
+.sht-send-glyph.is-flying .sht-send-plane {
+  animation: sht-send-fly 1.9s ease-in-out infinite;
+}
+.sht-send-glyph.is-flying .sht-send-trail {
+  stroke-dasharray: 6;
+  animation: sht-send-stream 1s linear infinite;
+}
+.sht-send-glyph.is-flying .sht-send-trail--b { animation-delay: -0.35s; }
+.sht-send-glyph.is-flying .sht-send-trail--c { animation-delay: -0.7s; }
+
+@keyframes sht-send-fly {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(1.2px, -1.2px); }
+}
+
+@keyframes sht-send-stream {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -12; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sht-send-glyph.is-flying .sht-send-plane,
+  .sht-send-glyph.is-flying .sht-send-trail {
+    animation: none;
+  }
+}
+
+.sht-send-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--text-h);
+  animation: sht-rise 0.4s var(--sht-ease) 0.04s both;
+}
+
+/* Title swap for @names, once: 1.2 s in, 0.9 s morph, 5 s hold, 0.9 s back
+   (8 s total). The outgoing line leaves a beat before the incoming one
+   arrives, so the two never sit half-faded on top of each other. The title's
+   own height eases between the two lines' measured heights (--ha, --hb, set
+   by TitleSwap) on the same clock. */
+.sht-send-title--swap {
+  position: relative;
+  align-self: stretch;
+  height: var(--ha);
+  animation:
+    sht-rise 0.4s var(--sht-ease) 0.04s both,
+    sht-send-title-h 8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+
+.sht-send-title--swap > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  translate: 0 -50%;
+  will-change: opacity, filter, transform;
+}
+
+/* The @name wraps as a whole, and breaks inside only if it alone is wider
+   than the sheet. */
+.sht-send-title-name {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.sht-send-title-ln {
+  display: block;
+  white-space: nowrap;
+}
+.sht-send-title-lndomain {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.sht-send-title-ln.is-stacked {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.sht-send-title-ln.is-stacked .sht-send-title-lndomain {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+@keyframes sht-send-title-h {
+  0%, 15% { height: var(--ha); }
+  26.25%, 88.75% { height: var(--hb); }
+  100% { height: var(--ha); }
+}
+
+/* The sheet follows the title frame by frame instead of easing after it
+   (AutoHeight's own transition would lag and clip the buttons). */
+.sht-autoheight:has(.sht-send-title--swap) {
+  transition: none;
+}
+
+.sht-send-title-a {
+  animation: sht-send-title-out 8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+
+.sht-send-title-b {
+  opacity: 0;
+  animation: sht-send-title-in 8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+
+@keyframes sht-send-title-out {
+  0%, 15% { opacity: 1; filter: blur(0); transform: none; }
+  21.9%, 93.1% { opacity: 0; filter: blur(4px); transform: translateY(-4px); }
+  100% { opacity: 1; filter: blur(0); transform: none; }
+}
+
+@keyframes sht-send-title-in {
+  0%, 19.4% { opacity: 0; filter: blur(4px); transform: translateY(4px); }
+  26.25%, 88.75% { opacity: 1; filter: blur(0); transform: none; }
+  95.6%, 100% { opacity: 0; filter: blur(4px); transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sht-send-title-a { animation: none; }
+  .sht-send-title-b { animation: none; opacity: 0; }
+  .sht-send-title--swap { animation: sht-rise 0.4s var(--sht-ease) 0.04s both; }
+}
+
+/* --- Amount -------------------------------------------------------------- */
+
+.sht-send-amount {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: sht-rise 0.4s var(--sht-ease) 0.08s both;
+}
+
+.sht-send-sats {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.sht-send-unit {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-dim);
+}
+
+.sht-send-unit--glyph {
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.sht-send-fiat {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* --- Details card -------------------------------------------------------- */
+
+.sht-send-card {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--pop-sm);
+  overflow: hidden;
+  animation: sht-rise 0.4s var(--sht-ease) 0.12s both;
+}
+
+.sht-send-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 50px;
+  padding: 8px 16px;
+  font-family: var(--sans);
+  font-size: 15px;
+}
+
+.sht-sheet .sht-send-card > .sht-send-row + .sht-send-row {
+  border-top: 1.5px solid var(--border-soft);
+}
+
+.sht-send-label {
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.sht-send-value,
+.sht-send-row strong {
+  min-width: 0;
+  text-align: right;
+  font-weight: 700;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.sht-send-row--total .sht-send-label {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.sht-send-row--total .sht-send-value {
+  font-size: 16px;
+}
+
+.sht-send-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sht-send-domain {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* The address row is a button: tap to copy. Reset the global button look. */
+.sht-sheet .sht-send-copy {
+  width: 100%;
+  margin: 0;
+  background: none;
+  border: 0 solid var(--border-soft);
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  transform: none;
+  cursor: pointer;
+}
+
+/* No tint at all: hover sticks on touch and under a resting mouse, a pressed
+   tint flashes on every click, and the check mark already confirms the copy. */
+.sht-sheet .sht-send-copy:hover:not(:disabled),
+.sht-sheet .sht-send-copy:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.sht-send-addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sht-send-addr code {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+/* One line: the domain never shrinks, an overlong name ends in an ellipsis. */
+.sht-send-lnaddr {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.sht-send-lnname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sht-send-lnmeasure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.sht-send-lnaddr .sht-send-domain {
+  flex: none;
+}
+
+.sht-send-copyglyph {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+}
+
+.sht-send-copy.is-copied .sht-send-copyglyph,
+.sht-send-copy.is-copied code {
+  color: var(--success);
+}
+
+/* The confirmation is a word, not an address: app sans, not the mono. */
+.sht-send-copy.is-copied code {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* --- Notes, password, actions -------------------------------------------- */
+
+.sht-send-note {
+  margin: 16px 0 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text-dim);
+  animation: sht-rise 0.4s var(--sht-ease) 0.16s both;
+}
+
+.sht-send-note svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1.5px;
+}
+
+/* Danger notes are long sentences: left-aligned reads better than centered. */
+.sht-send-note--danger {
+  justify-content: flex-start;
+  color: var(--danger);
+  font-weight: 600;
+  animation-delay: 0s;
+}
+
+.sht-sheet .sht-send-pw {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sht-sheet .sht-send-pw input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sht-send-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.sht-send-actions .sht-wide {
+  margin: 0;
+}
+
+.sht-sheet .sht-send-actions .sht-link {
+  align-self: center;
+  padding: 8px 14px;
+  font-size: 16px;
+}
