@@ -253,6 +253,13 @@
   font-weight: 700;
 }
 
+/* Waiting dots sit on the row's centre line, not on the text baseline. */
+.sht-send-value--wait {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .sht-send-row--total .sht-send-value {
   font-size: 16px;
 }

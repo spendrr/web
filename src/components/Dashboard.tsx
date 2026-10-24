@@ -152,6 +152,7 @@ import {
   nameForPayment,
   pinName,
   pinnedAddressFor,
+  distinctSuggestions,
   pinnedNamesStartingWith,
   type PinCheck,
 } from "../lib/names/namePins";
@@ -4709,6 +4710,8 @@ function SendPanel({
   // nothing unsendable becomes sendable by typing quickly.
   const [destinationFocused, setDestinationFocused] = useState(false);
   const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
+  // A failed estimate stops the "loading" state of the V2 sheet's fee row.
+  const [feeFailed, setFeeFailed] = useState(false);
 
   // Initial value only — the homepage QR shortcut passes autoScan={true} to
   // jump straight into the scanner. SendPanel remounts fresh (key={view} on
@@ -4755,6 +4758,18 @@ function SendPanel({
     [nameQuery],
   );
   const currentNameResolution = nameQuery !== null && nameResolution?.query === nameQuery ? nameResolution : null;
+  // A pin whose address is the one the typed name already resolved to (an old
+  // or deleted handle of the same wallet) would list the same person twice.
+  const visibleSuggestions = useMemo(
+    () =>
+      distinctSuggestions(
+        nameSuggestions,
+        currentNameResolution?.state === "found" || currentNameResolution?.state === "checking"
+          ? currentNameResolution.address
+          : null,
+      ),
+    [nameSuggestions, currentNameResolution],
+  );
   const staticKind = useMemo(() => {
     if (nameQuery !== null) return null;
     const trimmed = normalizeDestination(destination);
@@ -5472,6 +5487,9 @@ function SendPanel({
     // the fee for the send that will actually happen.
     const { destination: trimmed, effectiveAmountSats: amountSats } = plan;
     if (!trimmed || amountSats === undefined) return;
+    // The previous send's fee must not show for this plan while it loads.
+    setFeeEstimate(null);
+    setFeeFailed(false);
     let cancelled = false;
     const estimate =
       plan.kind === "onchain"
@@ -5482,7 +5500,10 @@ function SendPanel({
         if (!cancelled) setFeeEstimate(result);
       })
       .catch(() => {
-        if (!cancelled) setFeeEstimate(null);
+        if (!cancelled) {
+          setFeeEstimate(null);
+          setFeeFailed(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -5610,6 +5631,16 @@ function SendPanel({
             },
           }}
           feeSats={feeEstimate ? feeEstimate.feeSats : null}
+          feePending={
+            !feeEstimate &&
+            !feeFailed &&
+            plan.effectiveAmountSats !== undefined &&
+            (plan.kind === "onchain" ||
+              plan.kind === "lightning-invoice" ||
+              plan.kind === "lightning-address" ||
+              plan.kind === "lnurl" ||
+              plan.kind === "lightning-offer")
+          }
           rate={rates ? rates[currency] : null}
           currency={currency}
           amountUnit={amountUnit}
@@ -5657,9 +5688,9 @@ function SendPanel({
             <ScanIcon />
           </button>
         </div>
-        {nameSuggestions.length > 0 && (
+        {visibleSuggestions.length > 0 && (
           <div className="name-suggestions" role="listbox" aria-label={t("Dříve placená jména")}>
-            {nameSuggestions.map((s) => (
+            {visibleSuggestions.map((s) => (
               <button
                 key={s.name}
                 type="button"
@@ -5683,7 +5714,7 @@ function SendPanel({
         {nameQuery !== null ? (
           // While suggestions are up, a half-typed name is not yet a mistake:
           // "Takové jméno nikdo nemá" for "pav" would only be noise.
-          (nameSuggestions.length === 0 ||
+          (visibleSuggestions.length === 0 ||
             currentNameResolution?.state === "found" ||
             currentNameResolution?.state === "checking") && (
             <NameLookupStatus query={nameQuery} resolution={currentNameResolution} />

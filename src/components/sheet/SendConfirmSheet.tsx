@@ -59,6 +59,7 @@ export interface SendConfirmPlan {
 export function SendConfirmSheet({
   plan,
   feeSats,
+  feePending,
   rate,
   currency,
   amountUnit,
@@ -75,6 +76,9 @@ export function SendConfirmSheet({
 }: {
   plan: SendConfirmPlan;
   feeSats: number | null;
+  // The estimate is still running: the fee rows show waiting dots instead of
+  // appearing late and moving the sheet.
+  feePending: boolean;
   rate: number | null;
   currency: FiatCurrency;
   // The unit the amount was typed in leads; the other one is the small line.
@@ -176,18 +180,20 @@ export function SendConfirmSheet({
             <span className="sht-send-label">{t("Doručení")}</span>
             <span className="sht-send-value">{plan.onchain ? t("desítky minut") : t("hned")}</span>
           </div>
-          {feeSats !== null && (
+          {(feeSats !== null || feePending) && (
             <div className="sht-send-row">
               <span className="sht-send-label">{t("Poplatek")}</span>
-              <span className="sht-send-value">≈ {fmt(feeSats)} sats</span>
+              <span className={`sht-send-value${feeSats === null ? " sht-send-value--wait" : ""}`}>{feeSats !== null ? `≈ ${fmt(feeSats)} sats` : <WaitingDots />}</span>
             </div>
           )}
           {/* What actually leaves the wallet. On-chain only: there the fee is
               real and sizable; a Lightning fee is a routing estimate. */}
-          {plan.onchain && feeSats !== null && plan.amountSats !== undefined && (
+          {plan.onchain && (feeSats !== null || feePending) && plan.amountSats !== undefined && (
             <div className="sht-send-row sht-send-row--total">
               <span className="sht-send-label">{t("Celkem")}</span>
-              <span className="sht-send-value">≈ {fmt(plan.amountSats + feeSats)} sats</span>
+              <span className={`sht-send-value${feeSats === null ? " sht-send-value--wait" : ""}`}>
+                {feeSats !== null ? `≈ ${fmt(plan.amountSats + feeSats)} sats` : <WaitingDots />}
+              </span>
             </div>
           )}
         </div>

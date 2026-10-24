@@ -92,6 +92,24 @@ export function pinnedNamesStartingWith(
     .map(([name, address]) => ({ name, address }));
 }
 
+/**
+ * One suggestion per wallet. Two pinned names can point at the same address (a
+ * renamed or deleted handle keeps its old pin), and the exact name being typed
+ * may already have resolved to that address: neither should be listed again.
+ * Keeps the first (most recent) of each address.
+ */
+export function distinctSuggestions(
+  suggestions: { name: string; address: string }[],
+  resolvedAddress: string | null,
+): { name: string; address: string }[] {
+  const seen = new Set<string>(resolvedAddress === null ? [] : [resolvedAddress]);
+  return suggestions.filter((s) => {
+    if (seen.has(s.address)) return false;
+    seen.add(s.address);
+    return true;
+  });
+}
+
 /** Handles this wallet has paid, most recently paid first. Local only. */
 export function recentPinnedNames(limit = 5, storage: Storage = localStorage): { name: string; address: string }[] {
   return Object.entries(read(storage))
