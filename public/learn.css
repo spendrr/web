@@ -32,7 +32,7 @@
   --text: #55503f;
   --text-h: #0f0d09;
   --text-dim: color-mix(in srgb, var(--text) 60%, var(--bg));
-  --accent: #b2564f;
+  --accent: #6d5a9e;
   --accent-ink: #ffffff;
   --accent-2: #7c3aed;
   --plus: #2f8a4e;
