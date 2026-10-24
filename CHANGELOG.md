@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-24: New payment confirmation
+
+- The payment confirmation is clearer, with a large amount and the recipient. (beta)
+- For a Lightning address you see who you are paying before you send. (beta)
+
 ## 2026-10-20: Open source
 
 - The wallet's source code is now public, with a link in Settings.

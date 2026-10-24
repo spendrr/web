@@ -128,6 +128,7 @@ import RefreshInfoSheet from "./RefreshInfoSheet";
 import InstallAppSheet from "./InstallAppSheet";
 import { neverShowInstallHint, shouldAutoShowInstallHint, snoozeInstallHint } from "../lib/vault/storageProtection";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
+import { SendConfirmSheet } from "./sheet/SendConfirmSheet";
 import { useBackLayer } from "../lib/ui/backLayers";
 import { createTapCounter, TAP_MAX_GAP_MS } from "../lib/ui/tapCounter";
 import PaymentRequestModal from "./PaymentRequestModal";
@@ -4458,6 +4459,7 @@ function AmountInput({
   currency,
   placeholder,
   actionSlot,
+  onUnitChange,
 }: {
   label: string;
   hint?: ReactNode;
@@ -4467,6 +4469,7 @@ function AmountInput({
   currency: FiatCurrency;
   placeholder?: string;
   actionSlot?: ReactNode;
+  onUnitChange?: (unit: "sats" | "fiat") => void;
 }) {
   const lang = useLang();
   const [unit, setUnit] = useState<"sats" | "fiat">("sats");
@@ -4492,6 +4495,7 @@ function AmountInput({
       setFiatText(satsNum > 0 ? satsToFiat(satsNum, rate).toFixed(2) : "");
     }
     setUnit(next);
+    onUnitChange?.(next);
   };
 
   const handleFiatChange = (text: string) => {
@@ -4650,6 +4654,8 @@ function SendPanel({
   const lang = useLang();
   const [destination, setDestination] = useState(initialDestination ?? "");
   const [amount, setAmount] = useState(initialAmountSats ? String(initialAmountSats) : "");
+  // Which unit the amount was typed in; the V2 confirm sheet leads with it.
+  const [amountUnit, setAmountUnit] = useState<"sats" | "fiat">("sats");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -5483,7 +5489,8 @@ function SendPanel({
     };
   }, [plan, wallet]);
 
-  if (plan) {
+  // V2 confirms in a sheet over the form (below); V1 swaps the panel.
+  if (plan && !isV2) {
     const needsPassword = planNeedsPassword(plan) || spendLimitReached;
     // Motion design: the button fills over exactly the arm delay above.
     const armStyle = motionOn
@@ -5588,7 +5595,42 @@ function SendPanel({
     );
   }
 
+  const confirmSheet =
+    plan && isV2 ? (
+        <SendConfirmSheet
+          plan={{
+            onchain: plan.kind === "onchain",
+            lightningAddress: plan.kind === "lightning-address",
+            destination: plan.destination,
+            amountSats: plan.effectiveAmountSats,
+            recipient: plan.recipient && {
+              name: plan.recipient.name,
+              address: plan.recipient.address,
+              changed: plan.recipient.pin === "changed",
+            },
+          }}
+          feeSats={feeEstimate ? feeEstimate.feeSats : null}
+          rate={rates ? rates[currency] : null}
+          currency={currency}
+          amountUnit={amountUnit}
+          needsPassword={planNeedsPassword(plan) || spendLimitReached}
+          password={confirmPassword}
+          onPassword={setConfirmPassword}
+          busy={busy}
+          ready={confirmReady}
+          armMs={motionOn ? (isLongArm(plan) ? CONFIRM_BUTTON_ARM_DELAY_LONG_MS : CONFIRM_BUTTON_ARM_DELAY_MS) : undefined}
+          error={error}
+          errorRef={errorRef}
+          onConfirm={() => send(plan)}
+          onBack={() => {
+            setPlan(null);
+            setConfirmPassword("");
+          }}
+        />
+    ) : null;
+
   return (
+    <>
     <div className="panel">
       <div className="field">
         <label className="field-label">{t("Adresa, faktura nebo Lightning adresa")}</label>
@@ -5692,6 +5734,7 @@ function SendPanel({
         label={t("Částka")}
         sats={amount}
         onSatsChange={setAmount}
+        onUnitChange={setAmountUnit}
         rates={rates}
         currency={currency}
         placeholder="21000"
@@ -5703,7 +5746,8 @@ function SendPanel({
           ) : undefined
         }
       />
-      {error && (
+      {/* While the V2 sheet is open it shows the error itself and owns the ref. */}
+      {error && !confirmSheet && (
         <div className="banner banner-danger" ref={errorRef}>
           <ErrorCircleIcon />
           <span>{error}</span>
@@ -5723,6 +5767,8 @@ function SendPanel({
         {t("Odeslat")}
       </button>
     </div>
+    {confirmSheet}
+    </>
   );
 }
 

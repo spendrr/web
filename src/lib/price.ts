@@ -215,7 +215,7 @@ export async function fetchBtcPriceHistory(currency: FiatCurrency, range: PriceR
   return promise;
 }
 
-export function formatFiat(amount: number, currency: FiatCurrency): string {
+function fiatFormatter(currency: FiatCurrency): Intl.NumberFormat {
   return new Intl.NumberFormat("cs-CZ", {
     style: "currency",
     currency: currency.toUpperCase(),
@@ -224,7 +224,26 @@ export function formatFiat(amount: number, currency: FiatCurrency): string {
     // plain "$" people actually expect.
     currencyDisplay: "narrowSymbol",
     maximumFractionDigits: currency === "czk" ? 0 : 2,
-  }).format(amount);
+  });
+}
+
+export function formatFiat(amount: number, currency: FiatCurrency): string {
+  return fiatFormatter(currency).format(amount);
+}
+
+// Same string as formatFiat, split so the symbol can be styled apart from
+// the number wherever the locale puts it.
+export function formatFiatParts(amount: number, currency: FiatCurrency): { value: string; symbol: string; symbolFirst: boolean } {
+  const parts = fiatFormatter(currency).formatToParts(amount);
+  const at = parts.findIndex((p) => p.type === "currency");
+  const symbol = at === -1 ? "" : parts[at].value;
+  const value = parts
+    .filter((p) => p.type !== "currency")
+    .map((p) => p.value)
+    .join("")
+    .trim();
+  const firstNumber = parts.findIndex((p) => p.type === "integer");
+  return { value, symbol, symbolFirst: at !== -1 && at < firstNumber };
 }
 
 // Test-only: the module-level cache would otherwise leak between tests.

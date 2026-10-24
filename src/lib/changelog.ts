@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "24. 10. 2026",
+    title: "Nové potvrzení platby",
+    items: [
+      { text: "Potvrzení platby je přehlednější, s velkou částkou a příjemcem.", beta: true },
+      { text: "U Lightning adresy vidíš před odesláním, komu platíš.", beta: true },
+    ],
+  },
+  {
     date: "20. 10. 2026",
     title: "Otevřený zdrojový kód",
     items: [
