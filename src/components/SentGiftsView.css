@@ -35,6 +35,15 @@
   cursor: pointer;
   box-sizing: border-box;
 }
+/* `all: unset` loses to App.css's button:hover / :active (higher specificity),
+   which draws the pop shadow: on the dark theme a bright L under the row. */
+.sgv-main:hover:not(:disabled),
+.sgv-main:active:not(:disabled),
+.sgv-link:hover:not(:disabled),
+.sgv-link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
 .sgv-main:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;

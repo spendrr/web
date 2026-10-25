@@ -27,6 +27,7 @@ import {
   type ClaimOutcome,
 } from "../lib/exit/exitActions";
 import { planExitStart, type ExitStartPlan } from "../lib/exit/exitLocks";
+import { estimateWithoutNonStandard } from "../lib/exit/exitFeeEstimate";
 import { useNetState } from "../lib/connectivity/connectivity";
 import { EXIT_EXPIRY_WARN_BLOCKS, type ExitOverview } from "../lib/exit/exitModel";
 import { localeFor, tf, useLang, useT } from "../lib/i18n";
@@ -139,6 +140,9 @@ interface StartInfo {
   // Every coin that can exit, including inputs of a pending round.
   exitableSats: number;
   exitableCount: number;
+  // What a new exit takes, coin by coin: the fee estimate can leave a coin
+  // out (non-standard), and its value must leave the amount shown too.
+  coins: { id: string; sats: number; inRound: boolean }[];
   // Of those, the ones in a pending round (a refresh): left out by default,
   // see planExitStart in exitLocks.ts.
   inRoundSats: number;
@@ -162,6 +166,8 @@ interface StartFees {
   claimFeeSats: number | null;
   fundable: boolean | null;
   estimateError: string | null;
+  // Coins bark cannot exit (non-standard chain), left out of the estimate.
+  skippedIds: string[];
   // What the broadcast fee is made of (bark's estimate: rate × weight of
   // every exit transaction not yet confirmed plus its CPFP child), so a
   // number that moved can be traced to the fee market or to more
@@ -171,9 +177,12 @@ interface StartFees {
 }
 
 // The coins a new exit would take, and which of them sit in a pending round.
+// vtxos(), not allVtxos(): the plan only looks at Spendable and Locked coins,
+// and allVtxos() parses every record ever stored (seconds on this screen's
+// "Načítám mince").
 async function loadExitStartPlan(wallet: WalletClient) {
   const [vtxos, roundInputs] = await Promise.all([
-    withTimeout(wallet.allVtxos(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE),
+    withTimeout(wallet.vtxos(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE),
     withTimeout(pendingRoundInputIds(wallet), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null),
   ]);
   return { vtxos, plan: planExitStart(vtxos, roundInputs, true) };
@@ -186,10 +195,12 @@ async function loadStartInfo(wallet: WalletClient): Promise<StartInfo> {
     withTimeout(wallet.onchainWallet.tipHeight(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null),
   ]);
   const wanted = new Set(plan.ids);
+  const inRoundIds = new Set(plan.inRoundIds);
   const real = vtxos.filter((v, i, all) => wanted.has(v.id) && all.findIndex((x) => x.id === v.id) === i);
   return {
     exitableSats: plan.sats,
     exitableCount: plan.ids.length,
+    coins: real.map((v) => ({ id: v.id, sats: v.amountSats, inRound: inRoundIds.has(v.id) })),
     inRoundSats: plan.inRoundSats,
     inRoundCount: plan.inRoundIds.length,
     dustSats: plan.dustSats,
@@ -208,6 +219,7 @@ async function loadStartFees(wallet: WalletClient, ids: string[]): Promise<Start
     claimFeeSats: null,
     fundable: null,
     estimateError: null,
+    skippedIds: [],
     txsToBroadcast: null,
     feeRateSatPerVb: null,
   };
@@ -215,7 +227,11 @@ async function loadStartFees(wallet: WalletClient, ids: string[]): Promise<Start
   // below current.
   const pop = pushWorkerWatchdogOverride(ONCHAIN_SYNC_TIMEOUT_MS);
   try {
-    const e = await withTimeout(wallet.estimateEmergencyExitFee(ids, null, null), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE);
+    const { result: e, skipped } = await estimateWithoutNonStandard(
+      (left) => withTimeout(wallet.estimateEmergencyExitFee(left, null, null), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE),
+      ids,
+    );
+    fees.skippedIds = skipped;
     fees.broadcastFeeSats = e.exitBroadcastFeeSats;
     fees.claimFeeSats = e.claimFeeSats;
     fees.fundable = e.fundable;
@@ -348,8 +364,16 @@ function StartScreen({
       ? Math.max(0, fees.broadcastFeeSats - fees.onchainConfirmedSats)
       : null;
   // What this start takes, with or without the coins in a pending round.
-  const startSats = info ? info.exitableSats - (includeInRound ? 0 : info.inRoundSats) : 0;
-  const startCount = info ? info.exitableCount - (includeInRound ? 0 : info.inRoundCount) : 0;
+  // Coins the fee estimate had to leave out (non-standard) never start, so
+  // they are not part of what the screen says goes to the address.
+  const skippedIds = new Set(fees?.skippedIds ?? []);
+  const leftOut = info ? info.coins.filter((c) => skippedIds.has(c.id) && (includeInRound || !c.inRound)) : [];
+  const startSats = info
+    ? info.exitableSats - (includeInRound ? 0 : info.inRoundSats) - leftOut.reduce((a, c) => a + c.sats, 0)
+    : 0;
+  const startCount = info
+    ? info.exitableCount - (includeInRound ? 0 : info.inRoundCount) - leftOut.length
+    : 0;
   // Nothing at all on-chain for fees that cost something: the exit could not
   // put a single transaction on the chain, so starting it would only lock the
   // coins and spin. The button then shows the reason in the island (over this
@@ -528,6 +552,9 @@ function StartScreen({
             </Collapse>
           </div>
 
+          {fees && fees.skippedIds.length > 0 && (
+            <p className="ex-note">{tf(t("Nestandardní mince zůstanou v Ark: {count}"), { count: String(fees.skippedIds.length) })}</p>
+          )}
           {fees?.estimateError && (
             <p className="ex-note">
               {tf(t("Poplatky nejde spočítat: {error}"), {

@@ -706,6 +706,12 @@
   box-shadow: none;
 }
 
+/* The global button:disabled rule is more specific than .link-btn above and
+   would draw the pop shadow around a plain text link. */
+.link-btn:disabled {
+  box-shadow: none;
+}
+
 .subview--no-balance {
   /* Receive has no balance-card above it to push things down (it's
      deliberately hidden there), so without this the back button and QR sit

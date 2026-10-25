@@ -675,7 +675,7 @@ async function runRequest(msg: Request): Promise<unknown> {
           if (!parsed.includeInRound) throw new Error(`${EXIT_ROUND_INPUTS_UNKNOWN}: ${e instanceof Error ? e.message : String(e)}`);
           roundInputs = null;
         }
-        const allowed = new Set(planExitStart(await w.allVtxos(), roundInputs, parsed.includeInRound).ids);
+        const allowed = new Set(planExitStart(await w.vtxos(), roundInputs, parsed.includeInRound).ids);
         const result: ExitStartResult = { started: [], skipped: [] };
         // Before the first exit request goes out (exitChainRedirect); only
         // once the start is really going ahead. syncExitLocks below settles

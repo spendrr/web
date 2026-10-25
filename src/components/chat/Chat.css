@@ -8,7 +8,7 @@
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
-  animation: cht-in 0.28s var(--ease-out) both;
+  animation: cht-in 0.28s var(--ease-out) backwards;
 }
 
 @keyframes cht-in {
@@ -80,8 +80,9 @@ button.cht-peer {
   text-align: left;
 }
 
+/* No hover tint: it sticks after the tap (back from the profile, a resting
+   mouse) and shows as a grey pill around the name. */
 button.cht-peer:hover {
-  background: var(--neutral-bg);
   box-shadow: none;
   transform: none;
 }
@@ -953,8 +954,10 @@ button.cht-jump {
   border-top: 1.5px solid var(--border-soft);
 }
 
+/* No hover tint: it sticks on touch and under a resting mouse after the tap,
+   and --neutral-bg reads as a flat grey slab on the dark theme. The chevron
+   already answers the tap. */
 button.cht-profile-row:hover {
-  background: var(--neutral-bg);
   box-shadow: none;
   transform: none;
 }
@@ -1630,11 +1633,11 @@ button:is(.cht-btc, .cht-send):active:not(:disabled) {
 /* ---- motion (the app-wide motion switch, src/lib/ui/motion.ts) ----------------- */
 
 :root[data-motion="on"] .cht-view.is-push {
-  animation: cht-push 0.26s var(--ease-out) both;
+  animation: cht-push 0.26s var(--ease-out) backwards;
 }
 
 :root[data-motion="on"] .cht-view.is-pop {
-  animation: cht-pop 0.26s var(--ease-out) both;
+  animation: cht-pop 0.26s var(--ease-out) backwards;
 }
 
 @keyframes cht-push {
