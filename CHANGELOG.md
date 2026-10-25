@@ -2,6 +2,10 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-25: Updated terms
+
+- The privacy policy and terms now also cover Messages and gift links.
+
 ## 2026-10-24: New payment confirmation
 
 - The payment confirmation is clearer, with a large amount and the recipient. (beta)

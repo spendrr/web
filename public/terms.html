@@ -20,13 +20,18 @@
       <a class="wordmark" href="/learn?lang=cs" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
       <div class="top-right">
         <a class="lang" href="/terms/en" hreflang="en" lang="en">English</a>
+        <input class="theme-input" type="checkbox" id="theme" aria-label="Světlý nebo tmavý vzhled" />
+        <label class="theme-btn" for="theme" title="Světlý nebo tmavý vzhled" aria-hidden="true">
+          <svg class="i-moon" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </label>
         <a class="pill pill--small" href="/">Otevřít</a>
       </div>
     </header>
 
     <main class="legal wrap">
       <h1>Podmínky užívání</h1>
-      <p class="legal-date">Platné od 2. 10. 2026</p>
+      <p class="legal-date">Platné od 25. 10. 2026</p>
 
       <div class="legal-box">
         <p class="legal-lead"><strong>Krátce:</strong> Spendrr je software, ne banka. Tvoje peníze držíš ty, přes svou seed phrase. Když ji ztratíš, nikdo ti je nevrátí. Je to beta bez nezávislého auditu: měj v ní jen tolik, kolik jsi ochotný ztratit.</p>
@@ -55,7 +60,7 @@
       </ul>
 
       <h2>5. Dárkové odkazy</h2>
-      <p>Kdo má dárkový odkaz, může si peníze z něj vzít. Posílej ho jen tomu, komu je určen. Dokud si dárek nikdo nevyzvedl, můžeš si ho vzít zpět.</p>
+      <p>Kdo má dárkový odkaz, může si peníze z něj vzít. Posílej ho jen tomu, komu je určen. Dokud si dárek nikdo nevyzvedl, můžeš si ho vzít zpět. Nevyzvednutý dárek se ti po 7 dnech vrátí sám, až otevřeš aplikaci.</p>
 
       <h2>6. @jména</h2>
       <ul>
@@ -68,19 +73,22 @@
       <h2>7. Lightning adresa (beta)</h2>
       <p>Platbu na tvoji Lightning adresu přijme naše služba a předá ji tobě. Klíč, kterým by šlo peníze utratit, přitom nikdy nemá. Platí limity 100 až 1 000 000 sats na platbu. Když služba nejede, platba se neprovede a plátci se nic nestrhne. Funkci můžeme kdykoli omezit nebo vypnout.</p>
 
-      <h2>8. Co je zakázané</h2>
+      <h2>8. Zprávy (beta)</h2>
+      <p>Zprávy běží přes veřejné Nostr relaye, které neprovozujeme. Obsah je šifrovaný, ale doručení nezaručujeme a odeslanou zprávu z relayů neumíme smazat. Funkci můžeme kdykoli omezit nebo vypnout.</p>
+
+      <h2>9. Co je zakázané</h2>
       <p>Používat Spendrr k protiprávní činnosti, zahlcovat nebo obcházet ochranu našeho serveru, nebo se vydávat za Spendrr či jeho tým.</p>
 
-      <h2>9. Omezení odpovědnosti</h2>
+      <h2>10. Omezení odpovědnosti</h2>
       <p>V rozsahu, který dovoluje zákon, neodpovídáme za ztrátu peněz nebo jinou škodu způsobenou ztrátou seed phrase nebo hesla, chybou při zadání platby, výpadkem nebo změnou služeb třetích stran (včetně Ark serveru), vypršením mincí, chybou v softwaru nebo nedostupností aplikace. Práva, která ti jako spotřebiteli dává zákon, tím nejsou dotčena.</p>
 
-      <h2>10. Zdrojový kód a značka</h2>
-      <p>Kód Spendrru je otevřený pod licencí AGPL-3.0. Jméno Spendrr a logo součástí licence nejsou.</p>
+      <h2>11. Zdrojový kód a značka</h2>
+      <p>Kód Spendrru je otevřený pod licencí AGPL-3.0 a je na <a href="https://github.com/spendrr/web" rel="noopener">GitHubu</a>. Jméno Spendrr a logo součástí licence nejsou.</p>
 
-      <h2>11. Změny a ukončení</h2>
+      <h2>12. Změny a ukončení</h2>
       <p>Aplikaci a tyto podmínky můžeme měnit. O podstatných změnách dáme vědět v aplikaci. Službu můžeme i ukončit. Tvoje peníze tím o nic nepřijdou: zůstávají pod tvou seed phrase a k bitcoinové adrese se dostaneš nouzovým exitem.</p>
 
-      <h2>12. Rozhodné právo</h2>
+      <h2>13. Rozhodné právo</h2>
       <p>Tyto podmínky se řídí právem České republiky.</p>
 
       <h2>Kontakt</h2>
@@ -92,11 +100,13 @@
         <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
         <div class="foot-links">
           <span class="foot-group">
+            <a href="https://github.com/spendrr/web" rel="noopener">Zdrojový kód</a>
+            <a href="/status">Stav</a>
             <a href="mailto:help@spendrr.app">help@spendrr.app</a>
             <a href="/terms">Podmínky</a>
             <a href="/privacy">Soukromí</a>
           </span>
-          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+          <span class="foot-credit">Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
         </div>
       </div>
     </footer>

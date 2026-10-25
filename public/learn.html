@@ -16,7 +16,7 @@
     <meta name="theme-color" content="#f2ede4" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#100e0a" media="(prefers-color-scheme: dark)" />
     <title>Spendrr, bitcoinová peněženka v prohlížeči</title>
-    <meta name="description" content="Bitcoinová peněženka na spendrr.app. Platba jiné Ark peněžence dorazí za pár vteřin, zaplatíš i Lightning a běžný bitcoin. Bez účtu, klíče jsou jen v tvém prohlížeči." />
+    <meta name="description" content="Bitcoinová peněženka na spendrr.app. Lightning platby za pár vteřin, k tomu běžný bitcoin. Bez účtu, klíče jsou jen v tvém prohlížeči." />
     <link rel="canonical" href="https://spendrr.app/learn" />
     <link rel="alternate" hreflang="cs" href="https://spendrr.app/learn" />
     <link rel="alternate" hreflang="en" href="https://spendrr.app/learn/en" />
@@ -24,7 +24,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Spendrr" />
     <meta property="og:title" content="Spendrr, bitcoinová peněženka v prohlížeči" />
-    <meta property="og:description" content="Platba jiné Ark peněžence dorazí za pár vteřin, zaplatíš i Lightning a běžný bitcoin. Bez účtu, klíče jsou jen v tvém prohlížeči." />
+    <meta property="og:description" content="Lightning platby za pár vteřin, k tomu běžný bitcoin. Bez účtu, klíče jsou jen v tvém prohlížeči." />
     <meta property="og:url" content="https://spendrr.app/learn" />
     <meta property="og:image" content="https://spendrr.app/learn-img/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -43,6 +43,11 @@
       <a class="wordmark" href="/learn?lang=cs" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
       <div class="top-right">
         <a class="lang" href="/learn/en" hreflang="en" lang="en">English</a>
+        <input class="theme-input" type="checkbox" id="theme" aria-label="Světlý nebo tmavý vzhled" />
+        <label class="theme-btn" for="theme" title="Světlý nebo tmavý vzhled" aria-hidden="true">
+          <svg class="i-moon" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </label>
         <a class="pill pill--small" href="/">Otevřít</a>
       </div>
     </header>
@@ -65,7 +70,7 @@
           </div>
         </div>
 
-        <figure class="hero-visual" role="img" aria-label="Spendrr na telefonu: přijde Ark platba 21 000 sats a zůstatek naroluje na 172 300 sats.">
+        <figure class="hero-visual" role="img" aria-label="Spendrr na telefonu: přijde platba 21 000 sats a zůstatek naroluje na 172 300 sats.">
           <div class="phone phone--hero" aria-hidden="true">
             <div class="island">
               <span class="island-in">
@@ -102,22 +107,22 @@
               <ul class="history">
                 <li class="h-row h-row--new">
                   <span class="h-icon in"><svg viewBox="0 0 24 24" fill="none"><path d="M7 7L17 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M17 9.5V17H9.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Příchozí platba</b><span>16:41:09</span></span>
+                  <span class="h-info"><b>Přijato</b><span>16:41:09</span></span>
                   <span class="h-amt plus">+21&nbsp;000 sats</span>
                 </li>
                 <li class="h-row">
                   <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Ark platba</b><span>15:56:09</span></span>
+                  <span class="h-info"><b>Odesláno</b><span>15:56:09</span></span>
                   <span class="h-amt">−4&nbsp;500 sats</span>
                 </li>
                 <li class="h-row">
-                  <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Lightning platba</b><span>14:14:09</span></span>
-                  <span class="h-amt">−800 sats</span>
+                  <span class="h-icon in"><svg viewBox="0 0 24 24" fill="none"><path d="M7 7L17 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M17 9.5V17H9.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+                  <span class="h-info"><b>Přijato</b><span>14:14:09</span></span>
+                  <span class="h-amt plus">+8&nbsp;000 sats</span>
                 </li>
                 <li class="h-row">
                   <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Ark platba</b><span>11:34:09</span></span>
+                  <span class="h-info"><b>Odesláno</b><span>11:34:09</span></span>
                   <span class="h-amt">−12&nbsp;000 sats</span>
                 </li>
               </ul>
@@ -131,7 +136,7 @@
         <div class="wrap tap">
           <div class="tap-text rv">
             <h2>Ťukni a&nbsp;zaplať <span class="beta">beta</span></h2>
-            <p class="tap-sub">Bez adresy, bez QR. Telefony o&nbsp;sebe.</p>
+            <p class="tap-sub">Bez adresy, bez QR. Stačí ťuknout.</p>
             <ol class="steps">
               <li class="step st1"><span class="step-n">1</span>Ťukni telefony o&nbsp;sebe</li>
               <li class="step st2"><span class="step-n">2</span>Stejné symboly? Potvrď</li>
@@ -217,7 +222,7 @@
               <p class="bolt-took">za 2 s</p>
             </div>
             <h3>Bez čekání na blok</h3>
-            <p>Mezi Ark peněženkami za pár vteřin.</p>
+            <p>Lightning platby za pár vteřin.</p>
           </article>
 
           <article class="card rv">
@@ -302,7 +307,11 @@
           </details>
           <details>
             <summary>Kdo vidí moje platby?</summary>
-            <p>Ark server vidí platby, které přes něj jdou. Spendrr nemá analytiku ani sledovací skripty.</p>
+            <p>Ark server vidí platby, které přes něj jdou. Tvoje jméno ani e-mail nezná, účet nemáš. Spendrr nemá analytiku ani sledovací skripty.</p>
+          </details>
+          <details>
+            <summary>Můžu vidět kód?</summary>
+            <p>Ano, celý je veřejný na <a href="https://github.com/spendrr/web" rel="noopener">GitHubu</a>. Že spendrr.app běží právě z&nbsp;něj, si můžeš ověřit sám.</p>
           </details>
           <details>
             <summary>Něco nefunguje?</summary>
@@ -313,10 +322,13 @@
 
       <section class="end wrap rv">
         <h2>Založení za minutu.</h2>
-        <a class="pill pill--primary" href="/">
-          <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-          <span>Otevřít Spendrr</span>
-        </a>
+        <div class="end-actions">
+          <a class="pill pill--primary" href="/">
+            <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            <span>Otevřít Spendrr</span>
+          </a>
+          <a class="end-src" href="https://github.com/spendrr/web" rel="noopener"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg><span>Zdrojový kód na GitHubu</span></a>
+        </div>
       </section>
     </main>
 
@@ -325,11 +337,13 @@
         <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
         <div class="foot-links">
           <span class="foot-group">
+            <a href="https://github.com/spendrr/web" rel="noopener">Zdrojový kód</a>
+            <a href="/status">Stav</a>
             <a href="mailto:help@spendrr.app">help@spendrr.app</a>
             <a href="/terms">Podmínky</a>
             <a href="/privacy">Soukromí</a>
           </span>
-          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+          <span class="foot-credit">Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
         </div>
       </div>
     </footer>

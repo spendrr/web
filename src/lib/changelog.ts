@@ -47,6 +47,11 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "25. 10. 2026",
+    title: "Aktualizované podmínky",
+    items: ["Zásady soukromí a podmínky teď popisují i Zprávy a dárkové odkazy."],
+  },
+  {
     date: "24. 10. 2026",
     title: "Nové potvrzení platby",
     items: [

@@ -1180,6 +1180,8 @@ const DICT: Record<string, string> = {
   "Otevřený zdrojový kód": "Open source",
   "Zdrojový kód peněženky je teď veřejný, odkaz najdeš v Nastavení.": "The wallet's source code is now public, with a link in Settings.",
   "Kdokoli si může ověřit, že web běží přesně tento kód.": "Anyone can check that the site runs exactly this code.",
+  "Aktualizované podmínky": "Updated terms",
+  "Zásady soukromí a podmínky teď popisují i Zprávy a dárkové odkazy.": "The privacy policy and terms now also cover Messages and gift links.",
   "Nové potvrzení platby": "New payment confirmation",
   "Potvrzení platby je přehlednější, s velkou částkou a příjemcem.": "The payment confirmation is clearer, with a large amount and the recipient.",
   "U Lightning adresy vidíš před odesláním, komu platíš.": "For a Lightning address you see who you are paying before you send.",

@@ -23,6 +23,114 @@
     U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* The colour tokens are registered as colours so the theme switch can fade
+   them; every surface follows through var(). */
+@property --bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f2ede4;
+}
+@property --surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --surface-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ece6d9;
+}
+@property --border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --border-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d8d0bf;
+}
+@property --text {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #55503f;
+}
+@property --text-h {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f0d09;
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6d5a9e;
+}
+@property --accent-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --accent-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #7c3aed;
+}
+@property --plus {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2f8a4e;
+}
+@property --in-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #beddc1;
+}
+@property --in-ring {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --in-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --out-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #dfb7b0;
+}
+@property --out-ring {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --out-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --h-plus {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2f7d3a;
+}
+@property --card-line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8a8271;
+}
+@property --band {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #16130d;
+}
+@property --band-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f2ede4;
+}
+
 :root {
   --bg: #f2ede4;
   --surface: #ffffff;
@@ -54,8 +162,55 @@
   font-synthesis: none;
 }
 
+/* Dark follows the system; the header switch (#theme, a checkbox, so the
+   page stays free of JavaScript) flips to the other one for this visit. */
 @media (prefers-color-scheme: dark) {
   :root {
+    --bg: #100e0a;
+    --surface: #1c1811;
+    --surface-2: #1a1610;
+    --border: #f2ede4;
+    --border-soft: #3a3226;
+    --text: #b3aa96;
+    --text-h: #f9f5ec;
+    --accent-2: #a78bfa;
+    --plus: #5cc683;
+    --in-bg: #112513;
+    --in-ring: #3d5f41;
+    --in-ink: #beddc1;
+    --out-bg: #301714;
+    --out-ring: #734843;
+    --out-ink: #dfb7b0;
+    --h-plus: #5cc683;
+    --card-line: #a49b87;
+    --band: #050403;
+  }
+  :root:has(#theme:checked) {
+    color-scheme: light;
+    --bg: #f2ede4;
+    --surface: #ffffff;
+    --surface-2: #ece6d9;
+    --border: #16130d;
+    --border-soft: #d8d0bf;
+    --text: #55503f;
+    --text-h: #0f0d09;
+    --accent-2: #7c3aed;
+    --plus: #2f8a4e;
+    --in-bg: #beddc1;
+    --in-ring: #16130d;
+    --in-ink: #16130d;
+    --out-bg: #dfb7b0;
+    --out-ring: #16130d;
+    --out-ink: #16130d;
+    --h-plus: #2f7d3a;
+    --card-line: #8a8271;
+    --band: #16130d;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root:has(#theme:checked) {
+    color-scheme: dark;
     --bg: #100e0a;
     --surface: #1c1811;
     --surface-2: #1a1610;
@@ -172,6 +327,69 @@ section h2 {
   text-underline-offset: 3px;
 }
 
+/* Light/dark switch: the label is the button, the checkbox stays focusable
+   for the keyboard. Sun shows in dark, moon in light. It sits close to the
+   Otevřít pill, as one group. */
+.theme-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-right: -10px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme-btn svg {
+  grid-area: 1 / 1;
+  width: 18px;
+  height: 18px;
+}
+
+.theme-input:focus-visible + .theme-btn {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 3px;
+}
+
+.theme-btn .i-sun,
+:root:has(#theme:checked) .theme-btn .i-moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+
+:root:has(#theme:checked) .theme-btn .i-sun {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-btn .i-sun {
+    opacity: 1;
+    transform: none;
+  }
+  .theme-btn .i-moon,
+  :root:has(#theme:checked) .theme-btn .i-sun {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.4);
+  }
+  :root:has(#theme:checked) .theme-btn .i-moon {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .wordmark {
   display: inline-block;
   font-size: 30px;
@@ -186,7 +404,6 @@ section h2 {
   display: inline-block;
   color: var(--accent-2);
   font-style: italic;
-  transition: transform 0.4s var(--spring);
 }
 
 .accent-r.r1 {
@@ -195,15 +412,6 @@ section h2 {
 
 .accent-r.r2 {
   transform: rotate(9deg);
-}
-
-@media (hover: hover) {
-  .top .wordmark:hover .r1 {
-    transform: rotate(-14deg) translateY(-3px);
-  }
-  .top .wordmark:hover .r2 {
-    transform: rotate(20deg) translateY(-5px);
-  }
 }
 
 /* ---------- pills ---------- */
@@ -251,8 +459,18 @@ section h2 {
 }
 
 .pill--small {
-  padding: 8px 18px;
+  height: 40px;
+  padding: 0 16px;
+  border-width: 1.25px;
+  box-shadow: 1.5px 1.5px 0 var(--border);
   font-size: 15px;
+}
+
+@media (hover: hover) {
+  .pill--small:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 2.5px 2.5px 0 var(--border);
+  }
 }
 
 .pill-icon {
@@ -411,7 +629,12 @@ section h2 {
   gap: 56px;
   align-items: center;
   padding-top: 32px;
-  padding-bottom: 104px;
+}
+
+/* The phone stands on the band below and is cut by it, so the hero has no
+   bottom padding of its own; the text keeps its distance. */
+.hero-text {
+  padding-bottom: 56px;
 }
 
 .hero h1 {
@@ -445,15 +668,26 @@ section h2 {
 }
 
 .hero-visual {
+  --pz: 1;
+  align-self: end;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+  /* Down to the third history row; the rest is under the band. Cut at the
+     bottom only, so the phone rising in on load keeps its top corners. */
+  height: calc(var(--pz) * 540px);
+  clip-path: inset(-200px -200px 0 -200px);
 }
 
-/* The V2 home screen (learn-img/home-light.webp) at ~0.77 scale. */
+/* The V2 home screen (learn-img/home-light.webp) at ~0.77 scale. No offset
+   shadow: cut at the bottom, it would read as a second frame. */
 .phone--hero {
-  width: min(310px, 82vw);
+  flex: none;
+  zoom: var(--pz);
+  width: 310px;
   aspect-ratio: 9 / 19;
   background: var(--bg);
+  box-shadow: none;
 }
 
 /* The camera cut-out grows into the payment toast, like the app's island
@@ -461,7 +695,7 @@ section h2 {
 .island {
   position: absolute;
   z-index: 2;
-  top: 11px;
+  top: 9px;
   left: 50%;
   width: 84px;
   height: 24px;
@@ -485,8 +719,8 @@ section h2 {
   display: grid;
   place-items: center;
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #1fa56c;
   color: #fff;
@@ -519,7 +753,8 @@ section h2 {
 .app {
   position: absolute;
   inset: 0;
-  padding: 66px 16px 0;
+  /* The header sits right under the island, as in the app. */
+  padding: 54px 16px 0;
 }
 
 .app-head {
@@ -653,7 +888,7 @@ section h2 {
 }
 
 .recent {
-  margin: 26px 2px 0;
+  margin: 26px 0 0;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-h);
@@ -680,10 +915,8 @@ section h2 {
   border-top: none;
 }
 
-.h-row--new {
-  overflow: hidden;
-}
-
+/* The new payment slides in at the top; the card keeps its size and the
+   rows move by transform only, so nothing else on the screen shifts. */
 .h-row--new + .h-row {
   border-top: 1px solid var(--card-line);
 }
@@ -1193,8 +1426,10 @@ section h2 {
   color: var(--text-dim);
 }
 
-/* Gift link: a chat message, then the card the recipient opens. */
+/* Gift link: a chat message, then the card the recipient opens below it,
+   tall enough that the card never covers the link. */
 .vis--gift {
+  height: 210px;
   padding: 16px 20px;
 }
 
@@ -1407,10 +1642,10 @@ section h2 {
 
 /* ---------- end + footer ---------- */
 
+/* Left, on the same edge as the footer and every heading above. */
 .end {
   padding-top: 120px;
-  padding-bottom: 120px;
-  text-align: center;
+  padding-bottom: 96px;
 }
 
 .end h2 {
@@ -1418,7 +1653,40 @@ section h2 {
   letter-spacing: -0.05em;
 }
 
-/* Footer as on the live page: the wordmark across the width, links under it. */
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 32px;
+}
+
+.end-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.end-src span {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
+
+.end-src .gh {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.end-src:hover {
+  color: var(--accent);
+}
+
+/* The wordmark as a watermark on the left edge of the content, links under it. */
 .foot {
   overflow: hidden;
   padding-bottom: 40px;
@@ -1433,10 +1701,11 @@ section h2 {
 }
 
 .foot .foot-mark {
-  align-self: center;
+  align-self: flex-start;
   width: max-content;
-  margin: 0 0 0.46em;
-  font-size: clamp(80px, 15vw, 210px);
+  margin: 0 0 0.4em;
+  font-size: clamp(64px, 8.5vw, 116px);
+  transform-origin: 0 100%;
   line-height: 1;
   letter-spacing: -0.045em;
   white-space: nowrap;
@@ -1459,12 +1728,22 @@ section h2 {
 }
 
 .foot a {
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 
 .foot a:hover {
   color: var(--text-h);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+/* ---------- wider screens ---------- */
+
+@media (min-width: 1100px) {
+  .hero-visual {
+    --pz: 1.15;
+  }
 }
 
 /* ---------- narrower screens ---------- */
@@ -1477,7 +1756,11 @@ section h2 {
   }
 
   .hero {
-    padding-bottom: 88px;
+    gap: 48px;
+  }
+
+  .hero-text {
+    padding-bottom: 0;
   }
 
   /* Phones first: the steps read as a caption under them. */
@@ -1492,6 +1775,10 @@ section h2 {
     font-size: 16px;
   }
 
+  .hero-visual {
+    --pz: 0.92;
+  }
+
   .wrap {
     padding-right: max(16px, env(safe-area-inset-right));
     padding-left: max(16px, env(safe-area-inset-left));
@@ -1501,8 +1788,42 @@ section h2 {
     gap: 14px;
   }
 
+  .theme-btn {
+    margin-right: -6px;
+  }
+
   .foot .foot-mark {
-    font-size: 24vw;
+    font-size: 15vw;
+    margin-bottom: 0.3em;
+  }
+
+  /* Phone: links in two even columns, the Ark credit on its own line under
+     a rule, instead of a ragged wrap. */
+  .foot-links {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .foot-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    padding-bottom: 20px;
+    font-size: 15px;
+  }
+
+  .foot-group a {
+    color: var(--text);
+  }
+
+  .foot-credit {
+    padding-top: 16px;
+    border-top: 1.5px solid var(--border-soft);
+  }
+
+  .end {
+    padding-top: 88px;
+    padding-bottom: 64px;
   }
 
   .foot {
@@ -1514,8 +1835,9 @@ section h2 {
   }
 
   .tap {
-    padding-top: 80px;
-    padding-bottom: 80px;
+    gap: 32px;
+    padding-top: 64px;
+    padding-bottom: 72px;
   }
 
   .tap-stage {
@@ -1561,6 +1883,22 @@ section h2 {
    ===================================================================== */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* --- theme switch: colours fade, the icon turns over --- */
+  :root {
+    transition: --bg 0.45s ease, --surface 0.45s ease, --surface-2 0.45s ease, --border 0.45s ease, --border-soft 0.45s ease, --text 0.45s ease, --text-h 0.45s ease, --accent 0.45s ease, --accent-ink 0.45s ease, --accent-2 0.45s ease, --plus 0.45s ease, --in-bg 0.45s ease, --in-ring 0.45s ease, --in-ink 0.45s ease, --out-bg 0.45s ease, --out-ring 0.45s ease, --out-ink 0.45s ease, --h-plus 0.45s ease, --card-line 0.45s ease, --band 0.45s ease, --band-ink 0.45s ease;
+  }
+  .theme-btn svg {
+    transition:
+      opacity 0.3s ease,
+      transform 0.5s var(--spring);
+  }
+  .theme-btn:active {
+    transform: scale(0.92);
+  }
+  .theme-btn {
+    transition: transform 0.14s var(--spring);
+  }
+
   /* --- page load --- */
   .h-rise > span {
     animation: rise 0.9s var(--out) both;
@@ -1571,7 +1909,7 @@ section h2 {
   .h-fade {
     animation: fade-up 0.8s 0.25s var(--out) both;
   }
-  .hero-visual {
+  .phone--hero {
     animation: phone-in 1.1s 0.15s var(--spring) both;
   }
 
@@ -1600,7 +1938,11 @@ section h2 {
   .odo--hero .r1::before {
     animation-delay: 0.1s;
   }
-  .h-row--new {
+  .history .h-row {
+    animation: rows-down 8s infinite;
+  }
+  .h-row--new .h-info,
+  .h-row--new .h-amt {
     animation: row-in 8s infinite;
   }
   .fiat {
@@ -1679,14 +2021,10 @@ section h2 {
   .odo--tap .q1::before {
     animation-delay: 0.18s;
   }
-  /* One step at a time, in the same place; its underline fills while the
-     phones are in that step. */
-  .steps {
-    display: grid;
-  }
+  /* All four steps stay listed; the one the phones are in lights up and
+     its underline fills. */
   .step {
-    grid-area: 1 / 1;
-    opacity: 0;
+    opacity: 0.38;
   }
   .st1 { animation: c1 10s infinite; }
   .st2 { animation: c2 10s infinite; }
@@ -1822,10 +2160,11 @@ section h2 {
   }
 }
 
+/* The hero phone rises out of the band below it. */
 @keyframes phone-in {
   from {
     opacity: 0;
-    transform: translateY(60px) rotate(8deg);
+    transform: translateY(90px) rotate(4deg);
   }
 }
 
@@ -1841,9 +2180,9 @@ section h2 {
   }
   21%,
   66% {
-    width: 196px;
-    height: 44px;
-    margin-left: -98px;
+    width: 190px;
+    height: 40px;
+    margin-left: -95px;
     animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
   }
   71%,
@@ -1917,23 +2256,31 @@ section h2 {
   }
 }
 
-@keyframes row-in {
+@keyframes rows-down {
   0%,
   29% {
-    height: 0;
-    opacity: 0;
+    transform: translateY(-61px);
     animation-timing-function: var(--out);
   }
   36%,
-  91% {
-    height: 58px;
-    opacity: 1;
-    animation-timing-function: ease-in;
+  92% {
+    transform: none;
   }
-  97%,
+  /* back up while the balance is hidden for the reset */
+  95%,
   100% {
-    height: 0;
+    transform: translateY(-61px);
+  }
+}
+
+@keyframes row-in {
+  0%,
+  31% {
     opacity: 0;
+  }
+  37%,
+  100% {
+    opacity: 1;
   }
 }
 
@@ -2258,82 +2605,61 @@ section h2 {
 
 /* Steps, in step with the phones: tap, paired, amount, done. */
 @keyframes c1 {
-  0%,
   0% {
-    opacity: 0;
-    transform: translateY(0.6em);
-    animation-timing-function: var(--out);
+    opacity: 0.38;
   }
   3%,
   22% {
     opacity: 1;
-    transform: none;
-    animation-timing-function: ease-in;
   }
   25%,
   100% {
-    opacity: 0;
-    transform: translateY(-0.6em);
+    opacity: 0.38;
   }
 }
 
 @keyframes c2 {
   0%,
   25% {
-    opacity: 0;
-    transform: translateY(0.6em);
-    animation-timing-function: var(--out);
+    opacity: 0.38;
   }
   28%,
   42% {
     opacity: 1;
-    transform: none;
-    animation-timing-function: ease-in;
   }
   45%,
   100% {
-    opacity: 0;
-    transform: translateY(-0.6em);
+    opacity: 0.38;
   }
 }
 
 @keyframes c3 {
   0%,
   44% {
-    opacity: 0;
-    transform: translateY(0.6em);
-    animation-timing-function: var(--out);
+    opacity: 0.38;
   }
   47%,
   63% {
     opacity: 1;
-    transform: none;
-    animation-timing-function: ease-in;
   }
   66%,
   100% {
-    opacity: 0;
-    transform: translateY(-0.6em);
+    opacity: 0.38;
   }
 }
 
 @keyframes c4 {
   0%,
   66% {
-    opacity: 0;
-    transform: translateY(0.6em);
-    animation-timing-function: var(--out);
+    opacity: 0.38;
   }
   69%,
   92% {
     opacity: 1;
-    transform: none;
-    animation-timing-function: ease-in;
   }
   96%,
   100% {
-    opacity: 0;
-    transform: translateY(-0.6em);
+    opacity: 0.38;
   }
 }
 

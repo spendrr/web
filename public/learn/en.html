@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#f2ede4" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#100e0a" media="(prefers-color-scheme: dark)" />
     <title>Spendrr, a bitcoin wallet in your browser</title>
-    <meta name="description" content="A bitcoin wallet at spendrr.app. A payment to another Ark wallet arrives in seconds, and you can pay Lightning and regular bitcoin too. No account, the keys stay in your browser." />
+    <meta name="description" content="A bitcoin wallet at spendrr.app. Lightning payments in seconds, regular bitcoin too. No account, the keys stay in your browser." />
     <link rel="canonical" href="https://spendrr.app/learn/en" />
     <link rel="alternate" hreflang="cs" href="https://spendrr.app/learn" />
     <link rel="alternate" hreflang="en" href="https://spendrr.app/learn/en" />
@@ -17,7 +17,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Spendrr" />
     <meta property="og:title" content="Spendrr, a bitcoin wallet in your browser" />
-    <meta property="og:description" content="A payment to another Ark wallet arrives in seconds, and you can pay Lightning and regular bitcoin too. No account, the keys stay in your browser." />
+    <meta property="og:description" content="Lightning payments in seconds, regular bitcoin too. No account, the keys stay in your browser." />
     <meta property="og:url" content="https://spendrr.app/learn/en" />
     <meta property="og:image" content="https://spendrr.app/learn-img/og-en.png" />
     <meta property="og:image:width" content="1200" />
@@ -36,6 +36,11 @@
       <a class="wordmark" href="/learn/en" aria-label="Spendrr">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></a>
       <div class="top-right">
         <a class="lang" href="/learn?lang=cs" hreflang="cs" lang="cs">Česky</a>
+        <input class="theme-input" type="checkbox" id="theme" aria-label="Light or dark look" />
+        <label class="theme-btn" for="theme" title="Light or dark look" aria-hidden="true">
+          <svg class="i-moon" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </label>
         <a class="pill pill--small" href="/">Open</a>
       </div>
     </header>
@@ -58,7 +63,7 @@
           </div>
         </div>
 
-        <figure class="hero-visual" role="img" aria-label="Spendrr on a phone: an Ark payment of 21,000 sats arrives and the balance rolls up to 172,300 sats.">
+        <figure class="hero-visual" role="img" aria-label="Spendrr on a phone: a payment of 21,000 sats arrives and the balance rolls up to 172,300 sats.">
           <div class="phone phone--hero" aria-hidden="true">
             <div class="island">
               <span class="island-in">
@@ -100,17 +105,17 @@
                 </li>
                 <li class="h-row">
                   <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Ark payment</b><span>15:56:09</span></span>
+                  <span class="h-info"><b>Sent</b><span>15:56:09</span></span>
                   <span class="h-amt">−4,500 sats</span>
                 </li>
                 <li class="h-row">
-                  <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Lightning payment</b><span>14:14:09</span></span>
-                  <span class="h-amt">−800 sats</span>
+                  <span class="h-icon in"><svg viewBox="0 0 24 24" fill="none"><path d="M7 7L17 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M17 9.5V17H9.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+                  <span class="h-info"><b>Received</b><span>14:14:09</span></span>
+                  <span class="h-amt plus">+8,000 sats</span>
                 </li>
                 <li class="h-row">
                   <span class="h-icon out"><svg viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" /><path d="M9.5 7H17V14.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-                  <span class="h-info"><b>Ark payment</b><span>11:34:09</span></span>
+                  <span class="h-info"><b>Sent</b><span>11:34:09</span></span>
                   <span class="h-amt">−12,000 sats</span>
                 </li>
               </ul>
@@ -124,7 +129,7 @@
         <div class="wrap tap">
           <div class="tap-text rv">
             <h2>Tap to pay <span class="beta">beta</span></h2>
-            <p class="tap-sub">No address, no QR. Just tap phones.</p>
+            <p class="tap-sub">No address, no QR. Just tap.</p>
             <ol class="steps">
               <li class="step st1"><span class="step-n">1</span>Tap the phones together</li>
               <li class="step st2"><span class="step-n">2</span>Same symbols? Confirm</li>
@@ -210,7 +215,7 @@
               <p class="bolt-took">in 2 s</p>
             </div>
             <h3>No waiting for a block</h3>
-            <p>Between Ark wallets in seconds.</p>
+            <p>Lightning payments in seconds.</p>
           </article>
 
           <article class="card rv">
@@ -295,7 +300,11 @@
           </details>
           <details>
             <summary>Who sees my payments?</summary>
-            <p>The Ark server sees payments that go through it. Spendrr has no analytics or tracking scripts.</p>
+            <p>The Ark server sees payments that go through it. It does not know your name or email: there is no account. Spendrr has no analytics or tracking scripts.</p>
+          </details>
+          <details>
+            <summary>Can I see the code?</summary>
+            <p>Yes, all of it is public on <a href="https://github.com/spendrr/web" rel="noopener">GitHub</a>. You can check for yourself that spendrr.app runs exactly that code.</p>
           </details>
           <details>
             <summary>Something broken?</summary>
@@ -306,10 +315,13 @@
 
       <section class="end wrap rv">
         <h2>Set up in a minute.</h2>
-        <a class="pill pill--primary" href="/">
-          <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-          <span>Open Spendrr</span>
-        </a>
+        <div class="end-actions">
+          <a class="pill pill--primary" href="/">
+            <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            <span>Open Spendrr</span>
+          </a>
+          <a class="end-src" href="https://github.com/spendrr/web" rel="noopener"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg><span>Open source on GitHub</span></a>
+        </div>
       </section>
     </main>
 
@@ -318,11 +330,13 @@
         <div class="foot-mark wordmark" aria-hidden="true">Spend<span class="accent-r r1">r</span><span class="accent-r r2">r</span></div>
         <div class="foot-links">
           <span class="foot-group">
+            <a href="https://github.com/spendrr/web" rel="noopener">Source code</a>
+            <a href="/status">Status</a>
             <a href="mailto:help@spendrr.app">help@spendrr.app</a>
             <a href="/terms/en">Terms of Service</a>
             <a href="/privacy/en">Privacy</a>
           </span>
-          <span>Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
+          <span class="foot-credit">Ark server: <a href="https://second.tech" rel="noopener">Second</a></span>
         </div>
       </div>
     </footer>
