@@ -127,7 +127,7 @@ export async function startExit(
   } else if (address !== null) {
     await saveExitDestination(address, password);
   }
-  const vtxos = await withTimeout(wallet.allVtxos(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE);
+  const vtxos = await withTimeout(wallet.vtxos(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE);
   // Unknown: planExitStart still holds back every locked coin.
   const roundInputs = await withTimeout(pendingRoundInputIds(wallet), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null);
   // A delegated round leaves its inputs Spendable: without the list, a start

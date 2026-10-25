@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "25. 10. 2026",
+    title: "Drobná vylepšení",
+    items: [
+      "Nouzový exit se načte rychleji a poplatky spočítá i s problematickou mincí.",
+      "Opraveny drobné vady vzhledu v tmavém režimu a v chatu.",
+    ],
+  },
+  {
+    date: "25. 10. 2026",
     title: "Aktualizované podmínky",
     items: ["Zásady soukromí a podmínky teď popisují i Zprávy a dárkové odkazy."],
   },

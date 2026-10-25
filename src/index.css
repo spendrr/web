@@ -281,10 +281,13 @@
   min-height: 100svh;
   /* Two soft, low-opacity glows behind the flat-shadow UI — color-mix keeps
      them tied to whatever accent color/theme is active (light/dark, and any
-     of the color-theme options) instead of hardcoding per-theme values. */
+     of the color-theme options) instead of hardcoding per-theme values.
+     Heights and vertical positions are in svh, not % of #root: #root grows
+     with its content, and a % height made the glows stretch and slide down
+     the moment a long list (Zobrazit vše) rendered. */
   background:
-    radial-gradient(50% 38% at 12% -4%, color-mix(in srgb, var(--accent) var(--glow-1), transparent), transparent 70%),
-    radial-gradient(45% 34% at 104% 22%, color-mix(in srgb, var(--accent-2) var(--glow-2), transparent), transparent 70%),
+    radial-gradient(50% 38svh at 12% -4svh, color-mix(in srgb, var(--accent) var(--glow-1), transparent), transparent 70%),
+    radial-gradient(45% 34svh at 104% 22svh, color-mix(in srgb, var(--accent-2) var(--glow-2), transparent), transparent 70%),
     var(--bg);
   background-repeat: no-repeat;
 }

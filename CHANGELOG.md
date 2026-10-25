@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-25: Minor improvements
+
+- Emergency exit loads faster and works out fees even with a problem coin.
+- Fixed small visual flaws in dark mode and in chat.
+
 ## 2026-10-25: Updated terms
 
 - The privacy policy and terms now also cover Messages and gift links.
