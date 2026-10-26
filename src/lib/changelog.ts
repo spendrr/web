@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "25. 10. 2026",
+    title: "Jména a nový Přijmout",
+    items: [
+      "Platíš rovnou na @jméno, Přijmout ukazuje tvou Lightning adresu.",
+      "Potvrzení platby je přehlednější a dárek jde po odeslání hned zrušit.",
+    ],
+  },
+  {
+    date: "25. 10. 2026",
     title: "Drobná vylepšení",
     items: [
       "Nouzový exit se načte rychleji a poplatky spočítá i s problematickou mincí.",
@@ -63,8 +71,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "24. 10. 2026",
     title: "Nové potvrzení platby",
     items: [
-      { text: "Potvrzení platby je přehlednější, s velkou částkou a příjemcem.", beta: true },
-      { text: "U Lightning adresy vidíš před odesláním, komu platíš.", beta: true },
+      "Potvrzení platby je přehlednější, s velkou částkou a příjemcem.",
+      "U Lightning adresy vidíš před odesláním, komu platíš.",
     ],
   },
   {
@@ -80,7 +88,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Odeslání: částka z faktury",
     items: [
       "Faktura s částkou ti vyplní pole částky sama.",
-      { text: "Skener přečte QR kód i z obrázku v galerii.", beta: true },
+      "Skener přečte QR kód i z obrázku v galerii.",
     ],
   },
   {
@@ -101,39 +109,39 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Zůstatek: velká čísla",
     items: [
       "Velký zůstatek se vejde na displej i s jednotkou.",
-      { text: "Odemknutí tě občas přivítá pozdravem.", beta: true },
+      "Odemknutí tě občas přivítá pozdravem.",
     ],
   },
   {
     date: "14. 10. 2026",
     title: "Dárky: přehled a heslo",
     items: [
-      { text: "Dárek jde po odeslání hned zrušit a seznam ukazuje skutečný stav.", beta: true },
-      { text: "Příjemce dárku si heslo nastaví až při dalším otevření.", beta: true },
+      "Dárek jde po odeslání hned zrušit a seznam ukazuje skutečný stav.",
+      "Příjemce dárku si heslo nastaví až při dalším otevření.",
     ],
   },
   {
     date: "13. 10. 2026",
     title: "Vzhled: jemnější prvky",
     items: [
-      { text: "Tlačítka, pole a přepínače mají lehčí obrys.", beta: true },
-      { text: "Zaostřené pole je na první pohled poznat.", beta: true },
+      "Tlačítka, pole a přepínače mají lehčí obrys.",
+      "Zaostřené pole je na první pohled poznat.",
     ],
   },
   {
     date: "13. 10. 2026",
     title: "Profil: čistší vzhled",
     items: [
-      { text: "Tvoje adresa je v profilu větší a bez zbytečností.", beta: true },
-      { text: "Zapnutí Lightning adresy se zeptá hned pod adresou.", beta: true },
+      "Tvoje adresa je v profilu větší a bez zbytečností.",
+      "Zapnutí Lightning adresy se zeptá hned pod adresou.",
     ],
   },
   {
     date: "12. 10. 2026",
     title: "Donate stránka",
     items: [
-      { text: "Kdokoli ti může poslat bitcoin na stránce s tvým jménem.", beta: true },
-      { text: "V profilu zkopíruješ odkaz na stránku pro donate.", beta: true },
+      "Kdokoli ti může poslat bitcoin na stránce s tvým jménem.",
+      "V profilu zkopíruješ odkaz na stránku pro donate.",
     ],
   },
   {
@@ -174,7 +182,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "5. 10. 2026",
     title: "Nové Přijmout",
     items: [
-      { text: "Přijmout ukazuje tvou adresu jmeno@spendrr.app, zaplatí ji každá peněženka.", beta: true },
+      "Přijmout ukazuje tvou adresu jmeno@spendrr.app, zaplatí ji každá peněženka.",
     ],
   },
   {
@@ -268,7 +276,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Dárky, oznámení a mazání",
     items: [
       "Odeslané dárky v Nastavení se načtou hned a ukazují skutečný stav.",
-      { text: "Oznámení vysvětlí soukromí, smazání peněženky se potvrzuje podržením.", beta: true },
+      "Oznámení vysvětlí soukromí, smazání peněženky se potvrzuje podržením.",
     ],
   },
   {

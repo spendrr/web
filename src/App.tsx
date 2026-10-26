@@ -68,7 +68,6 @@ import DeleteWalletSheet from "./components/DeleteWalletSheet";
 import { isIosBrowserTab, requestPersistentStorage } from "./lib/vault/storageProtection";
 import InstallAppSheet from "./components/InstallAppSheet";
 import { hapticError, hapticSuccess, hapticTap } from "./lib/ui/haptics";
-import { getDesignVersion } from "./lib/ui/designVersion";
 import { sessionEngineMode } from "./lib/refreshEngine/mode";
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
@@ -925,11 +924,11 @@ function App() {
   );
 
   // The user's own lock (double tap), never an auto-lock: a press, the
-  // dashboard crossfades into a padlock that closes. V2 only; otherwise a
-  // plain swap.
+  // dashboard crossfades into a padlock that closes. A plain swap with reduced
+  // motion.
   const lockByHand = useCallback(() => {
     const plain = () => setScreen({ kind: "unlock" });
-    if (getDesignVersion() !== "v2" || prefersReducedMotion() || document.hidden) {
+    if (prefersReducedMotion() || document.hidden) {
       plain();
       return;
     }

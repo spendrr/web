@@ -219,7 +219,8 @@ export function parseHandleDestination(input: string): string | null {
 
 // A scanned QR of a profile link ("https://spendrr.app/@pavel"). Accepted from
 // this app's own origin (dev, previews) or the real domain, never an arbitrary
-// site, and only the exact "/@name" path with nothing after it.
+// site, and only a "/@name" path (a trailing slash or "%40" is fine, as in
+// handleFromPath) with no query or fragment.
 export function handleFromProfileUrl(raw: string, ownOrigin: string): string | null {
   let url: URL;
   try {
@@ -229,8 +230,7 @@ export function handleFromProfileUrl(raw: string, ownOrigin: string): string | n
   }
   if (url.origin !== ownOrigin && url.origin !== "https://spendrr.app") return null;
   if (url.search !== "" || url.hash !== "") return null;
-  const m = /^\/@([^/\s@]+)$/.exec(url.pathname);
-  return m ? m[1].toLowerCase() : null;
+  return handleFromPath(url.pathname);
 }
 
 // The path of a profile link: "/@pavel" (a trailing slash is fine). Read by

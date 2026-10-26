@@ -4,7 +4,6 @@ import { BooleanSwitch } from "./BooleanSwitch";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
 import { ShareLinkResult, useCopyLink } from "./sheet/ShareLink";
 import type { WalletClient } from "../lib/wallet/bark";
-import { useDesignVersion } from "../lib/ui/designVersion";
 import { NAME_DOMAIN, checkHandle, handleUrl, suggestHandle, type HandleProblem } from "../lib/names/handle";
 import { useT } from "../lib/i18n";
 import { fetchMyName, lookupName, releaseMyName, saveName, setMyLnAddress, type NameError } from "../lib/names/names";
@@ -18,7 +17,7 @@ import "./ProfileSheet.css";
 //
 // The registry (worker/names.ts) is the source of truth, not this component:
 // on open it asks the server which name, if any, this wallet's mailbox owns,
-// and every change goes back through the same mailbox proof. In the beta it
+// and every change goes back through the same mailbox proof. It
 // first shows the last name it saw (nameTouch.ts's getCachedName) and skips
 // the server entirely: the proof queues behind the wallet worker's post-unlock
 // work, so right after a reload the question alone took tens of seconds.
@@ -103,14 +102,9 @@ export default function ProfileSheet({
   const { closing, closeThen } = useSheetClose();
   const close = () => closeThen(onClose);
 
-  // Lightning-address opt-in is beta (docs/ln-address-plan.md section 4.3),
-  // same gate as the SendPanel shortcut and ProfilePage's LNURL QR. The name
-  // cache is beta too.
-  const isV2 = useDesignVersion() === "v2";
-
   const [phase, setPhase] = useState<Phase>("profile");
   const [mine, setMine] = useState<Mine>(() => {
-    const cached = isV2 && address ? getCachedName(address) : null;
+    const cached = address ? getCachedName(address) : null;
     return cached ? { state: "registered", ...cached } : { state: "loading" };
   });
   const [attempt, setAttempt] = useState(0);
@@ -125,7 +119,7 @@ export default function ProfileSheet({
 
   useEffect(() => {
     if (!address) return;
-    if (isV2 && attempt === 0) {
+    if (attempt === 0) {
       const cached = getCachedName(address);
       if (cached) {
         setMine({ state: "registered", ...cached });
@@ -149,7 +143,7 @@ export default function ProfileSheet({
     return () => {
       cancelled = true;
     };
-  }, [wallet, address, attempt, isV2]);
+  }, [wallet, address, attempt]);
 
   // Every answer the server gives (the read above and each change below ends
   // in setMine) is the new cached state; a loading or failed read says nothing.
@@ -519,7 +513,7 @@ export default function ProfileSheet({
     // Asking before the Lightning address goes on: the question and its two
     // buttons take the place of the QR, so they are never below the fold of a
     // phone-sized sheet, and no switch claims "on" before the server says so.
-    const confirming = isV2 && lnConfirm && !registered.lnAddress;
+    const confirming = lnConfirm && !registered.lnAddress;
     body = (
       <Screen>
         <div className="prf-body">
@@ -528,63 +522,37 @@ export default function ProfileSheet({
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-          {isV2 ? (
-            // One address in two spellings: the full "pavel@spendrr.app" is what
-            // is shown, "@pavel" is the short way to type it in Spendrr. The
-            // domain is muted and dashed while the Lightning address is off,
-            // because until then the full form only works from Spendrr; tapping
-            // it offers to turn it on, and once on, tapping copies it.
-            <div className="prf-head">
-              <Avatar seed={avatarSeed} size={88} />
-              <div className="prf-addr-card">
-                <h2 className="sht-title prf-handle prf-address">
-                  <button
-                    type="button"
-                    className={`prf-address-btn${registered.lnAddress ? " is-on" : ""}`}
-                    disabled={busy}
-                    title={registered.lnAddress ? t("Kopírovat") : t("Zapnout Lightning adresu")}
-                    onClick={() => (registered.lnAddress ? copyLnAddress() : setLnConfirm(true))}
-                  >
-                    {registered.name}
-                    <span className="prf-address-domain">@{NAME_DOMAIN}</span>
-                  </button>
-                </h2>
-                <p className="sht-sub prf-address-hint">
-                  {registered.lnAddress && lnCopied ? (
-                    t("Zkopírováno")
-                  ) : (
-                    <>
-                      {t("Ve Spendrru stačí napsat")} <strong>@{registered.name}</strong>
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="prf-head">
-              <Avatar seed={avatarSeed} size={88} />
-              <div className="prf-name">
-                <h2 className="sht-title prf-handle">@{registered.name}</h2>
+          {/* One address in two spellings: the full "pavel@spendrr.app" is what
+              is shown, "@pavel" is the short way to type it in Spendrr. The
+              domain is muted and dashed while the Lightning address is off,
+              because until then the full form only works from Spendrr; tapping
+              it offers to turn it on, and once on, tapping copies it. */}
+          <div className="prf-head">
+            <Avatar seed={avatarSeed} size={88} />
+            <div className="prf-addr-card">
+              <h2 className="sht-title prf-handle prf-address">
                 <button
                   type="button"
-                  className="prf-edit"
-                  aria-label={t("Změnit jméno")}
-                  onClick={() => {
-                    setInput(`@${registered.name}`);
-                    setTouched(false);
-                    setMessage(null);
-                    setAvailability(null);
-                    setPhase("edit");
-                  }}
+                  className={`prf-address-btn${registered.lnAddress ? " is-on" : ""}`}
+                  disabled={busy}
+                  title={registered.lnAddress ? t("Kopírovat") : t("Zapnout Lightning adresu")}
+                  onClick={() => (registered.lnAddress ? copyLnAddress() : setLnConfirm(true))}
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" />
-                    <path d="M13.5 6.5l4 4" />
-                  </svg>
+                  {registered.name}
+                  <span className="prf-address-domain">@{NAME_DOMAIN}</span>
                 </button>
-              </div>
+              </h2>
+              <p className="sht-sub prf-address-hint">
+                {registered.lnAddress && lnCopied ? (
+                  t("Zkopírováno")
+                ) : (
+                  <>
+                    {t("Ve Spendrru stačí napsat")} <strong>@{registered.name}</strong>
+                  </>
+                )}
+              </p>
             </div>
-          )}
+          </div>
           {registered.address !== address && (
             <p className="prf-preview">
               {t("Jméno ukazuje na jinou adresu, než má tahle peněženka. Lidé by ti platili jinam.")}{" "}
@@ -599,64 +567,60 @@ export default function ProfileSheet({
           <ShareLinkResult
             link={handleUrl(window.location.origin, registered.name)}
             shareText={
-              isV2 && registered.lnAddress
+              registered.lnAddress
                 ? `${t("Pošli mi bitcoin na")} ${registered.name}@${NAME_DOMAIN} (${t("ve Spendrru stačí")} @${registered.name})`
                 : t("Pošli mi bitcoin ve Spendrru")
             }
             qrSize={232}
             compact
-            hideLink={isV2}
+            hideLink
           />
-          {isV2 && (
-            <p className="prf-quiet">
-              <button type="button" onClick={startEdit}>
-                {t("Změnit jméno")}
-              </button>
-              {registered.lnAddress && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <button type="button" onClick={copyTipLink}>
-                    {tipCopied ? t("Zkopírováno") : t("Zkopírovat donate odkaz")}
-                  </button>
-                </>
-              )}
-            </p>
-          )}
+          <p className="prf-quiet">
+            <button type="button" onClick={startEdit}>
+              {t("Změnit jméno")}
+            </button>
+            {registered.lnAddress && (
+              <>
+                <span aria-hidden="true">·</span>
+                <button type="button" onClick={copyTipLink}>
+                  {tipCopied ? t("Zkopírováno") : t("Zkopírovat donate odkaz")}
+                </button>
+              </>
+            )}
+          </p>
             </>
           )}
-          {isV2 && (
-            <div className={`prf-ln${confirming ? " is-confirming" : ""}`}>
-              {!confirming && (
-                <div className="boolean-switch-row">
-                  <span className="boolean-switch-copy">{t("Lightning adresa")}</span>
-                  <BooleanSwitch
-                    checked={registered.lnAddress}
-                    disabled={busy}
-                    onChange={(v) => (v ? setLnConfirm(true) : void toggleLnAddress(false))}
-                    label={t("Lightning adresa")}
-                  />
+          <div className={`prf-ln${confirming ? " is-confirming" : ""}`}>
+            {!confirming && (
+              <div className="boolean-switch-row">
+                <span className="boolean-switch-copy">{t("Lightning adresa")}</span>
+                <BooleanSwitch
+                  checked={registered.lnAddress}
+                  disabled={busy}
+                  onChange={(v) => (v ? setLnConfirm(true) : void toggleLnAddress(false))}
+                  label={t("Lightning adresa")}
+                />
+              </div>
+            )}
+            {confirming ? (
+              <div className="prf-ln-confirm">
+                <p className="prf-ln-ask">{t("Zapnout Lightning adresu?")}</p>
+                <p className="sht-sub prf-ln-note">{t("Platby procházejí službou Spendrr. Vidí výši, utratit je nemůže.")}</p>
+                <div className="sht-actions">
+                  <button type="button" className="secondary" disabled={busy} onClick={() => setLnConfirm(false)}>
+                    {t("Teď ne")}
+                  </button>
+                  <button type="button" className="primary" disabled={busy} onClick={() => void toggleLnAddress(true)}>
+                    {t("Zapnout")}
+                  </button>
                 </div>
-              )}
-              {confirming ? (
-                <div className="prf-ln-confirm">
-                  <p className="prf-ln-ask">{t("Zapnout Lightning adresu?")}</p>
-                  <p className="sht-sub prf-ln-note">{t("Platby procházejí službou Spendrr. Vidí výši, utratit je nemůže.")}</p>
-                  <div className="sht-actions">
-                    <button type="button" className="secondary" disabled={busy} onClick={() => setLnConfirm(false)}>
-                      {t("Teď ne")}
-                    </button>
-                    <button type="button" className="primary" disabled={busy} onClick={() => void toggleLnAddress(true)}>
-                      {t("Zapnout")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                !registered.lnAddress && (
-                  <p className="sht-sub prf-ln-note">{t("Aby ti mohl poslat bitcoin kdokoli, i bez Spendrru.")}</p>
-                )
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              !registered.lnAddress && (
+                <p className="sht-sub prf-ln-note">{t("Aby ti mohl poslat bitcoin kdokoli, i bez Spendrru.")}</p>
+              )
+            )}
+          </div>
         </div>
       </Screen>
     );

@@ -3,7 +3,6 @@ import { QRCodeSVG } from "qrcode.react";
 import Avatar from "./Avatar";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
 import { useCopyLink } from "./sheet/ShareLink";
-import { useDesignVersion } from "../lib/ui/designVersion";
 import { useT } from "../lib/i18n";
 import { NAME_DOMAIN } from "../lib/names/handle";
 import { encodeLnurl } from "../lib/send/lnurl";
@@ -44,7 +43,6 @@ export default function ProfilePage({
   onDismiss: () => void;
 }) {
   const t = useT();
-  const isBeta = useDesignVersion() === "v2";
   const { closing, closeThen } = useSheetClose();
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<LookupOutcome | null>(null);
@@ -102,7 +100,7 @@ export default function ProfilePage({
             <button
               type="button"
               className="primary sht-wide"
-              onClick={() => closeThen(() => onPay(isBeta ? `@${result.name}` : result.address))}
+              onClick={() => closeThen(() => onPay(`@${result.name}`))}
             >
               {walletReady ? t("Zaplatit") : t("Odemknout a zaplatit")}
             </button>

@@ -4,7 +4,6 @@ import { loadVaultOrPrompt, missingVaultText } from "../lib/vault/vaultAccess";
 import { buildGiftUrl, generateGiftId, type GiftLinkParams } from "../lib/gift/giftLink";
 import { deleteGift, encryptGiftMnemonic, putGift, type OutgoingGift } from "../lib/gift/giftStore";
 import { reclaimGift } from "../lib/gift/giftReclaim";
-import { useDesignVersion } from "../lib/ui/designVersion";
 import {
   PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
@@ -73,7 +72,6 @@ export default function GiftComposeModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   // V2: the record of the gift just made, for "Zrušit dárek" (reclaimGift wants it), and where that tap is at.
-  const beta = useDesignVersion() === "v2";
   const [made, setMade] = useState<OutgoingGift | null>(null);
   const [cancel, setCancel] = useState<"idle" | "confirm" | "busy">("idle");
 
@@ -331,40 +329,32 @@ export default function GiftComposeModal({
       <Screen>
         <StatusMark state="sent" />
         <h2 className="sht-title">{t("Dárek je připravený")}</h2>
-        <ShareLinkResult link={link} shareText={t("Poslal jsem ti bitcoin 🎁")} compact={beta}>
+        <ShareLinkResult link={link} shareText={t("Poslal jsem ti bitcoin 🎁")} compact>
           <BigAmount sats={amountSats} rate={rate} currency={cur} fmt={fmt} />
           <p className="sht-sub">{t("Kdo odkaz otevře, ten si dárek vyzvedne. Posílej ho jen komu věříš.")}</p>
         </ShareLinkResult>
-        {beta ? (
-          <>
-            {errorMsg && <p className="sht-error">{errorMsg}</p>}
-            {cancel === "idle" ? (
-              <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
-                <button type="button" className="sht-link" onClick={close}>
-                  {t("Hotovo")}
-                </button>
-                <button type="button" className="sht-link" onClick={() => setCancel("confirm")}>
-                  {t("Zrušit dárek")}
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="sht-sub">{t("Dárek se vrátí na tvůj zůstatek a odkaz přestane fungovat.")}</p>
-                <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
-                  <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => setCancel("idle")}>
-                    {t("Ne")}
-                  </button>
-                  <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => void cancelGift()}>
-                    {cancel === "busy" ? t("Vracím…") : t("Ano, zrušit")}
-                  </button>
-                </div>
-              </>
-            )}
-          </>
+        {errorMsg && <p className="sht-error">{errorMsg}</p>}
+        {cancel === "idle" ? (
+          <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
+            <button type="button" className="sht-link" onClick={close}>
+              {t("Hotovo")}
+            </button>
+            <button type="button" className="sht-link" onClick={() => setCancel("confirm")}>
+              {t("Zrušit dárek")}
+            </button>
+          </div>
         ) : (
-          <button type="button" className="secondary sht-wide" onClick={close}>
-            {t("Hotovo")}
-          </button>
+          <>
+            <p className="sht-sub">{t("Dárek se vrátí na tvůj zůstatek a odkaz přestane fungovat.")}</p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
+              <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => setCancel("idle")}>
+                {t("Ne")}
+              </button>
+              <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => void cancelGift()}>
+                {cancel === "busy" ? t("Vracím…") : t("Ano, zrušit")}
+              </button>
+            </div>
+          </>
         )}
       </Screen>
     );
