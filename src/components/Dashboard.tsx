@@ -4935,9 +4935,26 @@ function SendPanel({
   // Only meaningful for single-destination kinds with a queryable network
   // fee (Ark/on-chain) — Lightning routing fees are per-hop and uncertain
   // ahead of time, and an invoice's own amount shouldn't be second-guessed.
-  const canSendMax =
-    (kind === "ark" || kind === "onchain") && nameQuery === null && spendable !== undefined && spendable > 0;
+  // A resolved @name is kind "ark" (null while checking), so it qualifies too.
+  const canSendMax = (kind === "ark" || kind === "onchain") && spendable !== undefined && spendable > 0;
   const [sendingMax, setSendingMax] = useState(false);
+  // The Ark fee for the whole balance does not depend on the destination, and
+  // the wallet queue can sit behind a sync for a long while, so the estimate
+  // starts as soon as Send opens and "Poslat vše" usually finds it ready.
+  const arkMaxFeeRef = useRef<{ spendable: number; estimate: Promise<{ netAmountSats: number }> } | null>(null);
+  useEffect(() => {
+    if (spendable === undefined || spendable <= 0) return;
+    const promise = wallet.estimateArkoorPaymentFee(spendable);
+    promise.catch(() => {});
+    arkMaxFeeRef.current = { spendable, estimate: promise };
+  }, [wallet, spendable]);
+
+  // The balance can move while an estimate is in flight (the refresh watcher
+  // polls every few seconds); the amount must match the balance as it is now.
+  const spendableRef = useRef(spendable);
+  useEffect(() => {
+    spendableRef.current = spendable;
+  });
 
   const sendMax = useCallback(async () => {
     const trimmed = normalizeDestination(destination);
@@ -4945,11 +4962,24 @@ function SendPanel({
     setSendingMax(true);
     setError(null);
     try {
-      const estimate =
-        kind === "ark"
-          ? await wallet.estimateArkoorPaymentFee(spendable)
-          : await wallet.estimateSendOnchainFee(trimmed, spendable);
-      if (estimate.netAmountSats <= 0) {
+      let target = spendable;
+      let estimate;
+      // One re-estimate for a balance that moved meanwhile. Nothing later
+      // compares the amount to the balance, so a second move is refused here.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const prefetched = arkMaxFeeRef.current;
+        estimate =
+          kind === "ark"
+            ? await (prefetched?.spendable === target
+                ? prefetched.estimate.catch(() => wallet.estimateArkoorPaymentFee(target))
+                : wallet.estimateArkoorPaymentFee(target))
+            : await wallet.estimateSendOnchainFee(trimmed, target);
+        const latest = spendableRef.current;
+        if (latest === undefined || latest === target) break;
+        target = latest;
+      }
+      if (spendableRef.current !== target) throw new Error(t("Zůstatek se změnil, zkus to znovu."));
+      if (!estimate || estimate.netAmountSats <= 0) {
         throw new Error(t("Zůstatek nepokryje ani poplatek za odeslání."));
       }
       setAmount(String(estimate.netAmountSats));

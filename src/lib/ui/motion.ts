@@ -122,11 +122,19 @@ export type MorphSpec = {
 // transition skips an older one, so only the newest cleans its attributes up.
 // `morph` gives the pair's group the interpolated skin (see skinOf).
 let transitionToken = 0;
+
+// No transition while a text field has focus: leaving the screen drops the
+// on-screen keyboard, the viewport resizes mid-transition and the full-page
+// snapshots flicker (system back from Send with the keyboard open).
+function textFieldFocused(): boolean {
+  const el = document.activeElement;
+  return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !/^(button|checkbox|radio|submit|range)$/.test(el.type));
+}
 export function withViewTransition(update: () => void, attrs: Record<string, string> = {}, morph?: MorphSpec): void {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => ViewTransitionHandle;
   };
-  if (!isMotionOn() || !doc.startViewTransition || document.hidden) {
+  if (!isMotionOn() || !doc.startViewTransition || document.hidden || textFieldFocused()) {
     update();
     return;
   }

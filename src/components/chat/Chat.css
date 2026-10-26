@@ -542,6 +542,16 @@ button.cht-schedule-x svg {
   min-height: 0;
 }
 
+/* Selection painted a blue box behind payment cards, which the bubble's own
+   user-select did not stop. Only the cards: other messages keep native
+   selection where they have no long-press menu to copy from. */
+.cht-money,
+.cht-money * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .cht-messages {
   overflow-x: hidden;
   flex: 1;
@@ -789,17 +799,19 @@ button.cht-e2e-info {
   background: transparent;
   box-shadow: none;
   color: inherit;
-  font-family: Georgia, serif;
-  font-size: 11px;
-  font-style: italic;
-  font-weight: 700;
-  line-height: 1;
 }
 
-button.cht-e2e-info:hover {
-  background: var(--neutral-bg);
-  box-shadow: none;
-  transform: none;
+button.cht-e2e-info svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (hover: hover) {
+  button.cht-e2e-info:hover {
+    background: var(--neutral-bg);
+    box-shadow: none;
+    transform: none;
+  }
 }
 
 .cht-e2e-mark {

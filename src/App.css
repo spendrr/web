@@ -262,9 +262,13 @@ button {
   touch-action: manipulation;
 }
 
-button:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--pop);
+/* Hover lift only for a pointer that can hover: on touch, :hover sticks to
+   the last tapped button (a row stayed tinted after system back). */
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--pop);
+  }
 }
 
 button:active:not(:disabled) {
@@ -300,8 +304,10 @@ button.small {
   box-shadow: 2.5px 2.5px 0 var(--border);
 }
 
-button.small:hover:not(:disabled) {
-  box-shadow: 3px 3px 0 var(--border);
+@media (hover: hover) {
+  button.small:hover:not(:disabled) {
+    box-shadow: 3px 3px 0 var(--border);
+  }
 }
 
 button.small:active:not(:disabled) {

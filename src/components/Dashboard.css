@@ -1187,15 +1187,20 @@
   border-bottom: none;
 }
 
-.history-item:hover:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  background: var(--surface-2);
+/* Hover only where a pointer can really hover: on touch it sticks to the
+   tapped row after the detail closes. */
+@media (hover: hover) {
+  .history-item:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: var(--surface-2);
+  }
 }
 
 .history-item:active:not(:disabled) {
   transform: none;
   box-shadow: none;
+  background: var(--surface-2);
 }
 
 /* "Zobrazit vše" groups the full history into one card per calendar day

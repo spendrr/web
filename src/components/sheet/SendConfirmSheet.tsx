@@ -218,7 +218,6 @@ export function SendConfirmSheet({
               value={password}
               onChange={(e) => onPassword(e.target.value)}
               placeholder={t("Heslo")}
-              autoFocus
               onKeyDown={(e) => e.key === "Enter" && !busy && !closing && ready && password && onConfirm()}
             />
           </label>
