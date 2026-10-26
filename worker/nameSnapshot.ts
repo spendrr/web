@@ -17,10 +17,12 @@
 // answers exactly that. A name that IS in it goes on through the per-name cache
 // and the registry as before, so nothing here decides who owns what.
 //
-// Only 32-bit hashes of the names travel (sorted, 4 bytes each, base64): a lookup
-// is a binary search, 100,000 names are ~530 KB, and a collision only sends an
-// unknown name to the registry (the answer is still the registry's). The wire
-// form never leaves the Worker and the object.
+// Only 32-bit hashes of the names travel, as raw bytes (sorted little-endian
+// uint32, 4 bytes each): a lookup is a binary search, 100,000 names are 400 KB,
+// decoding is a view over the response body (no base64, no JSON, which would cost
+// a Worker's 10 ms CPU at that size), and a collision only sends an unknown name
+// to the registry (the answer is still the registry's). The bytes never leave the
+// Worker and the object.
 //
 // Staleness, and why it is safe: a name registered, blocked or quarantined after
 // the copy in use was taken reads as "free" (or "reserved") for up to
@@ -37,12 +39,8 @@ export const NAME_SNAPSHOT_TTL_SECONDS = 60;
 // per-name path meanwhile.
 const FAILURE_MEMO_MS = 10_000;
 
-export interface NameSnapshotWire {
-  v: 1;
-  at: number;
-  count: number;
-  hashes: string;
-}
+// What the registry answers /snapshot with; anything else is not a snapshot.
+export const NAME_SNAPSHOT_CONTENT_TYPE = "application/vnd.spendrr.name-snapshot.v1";
 
 // FNV-1a over the name's UTF-16 code units (a handle is ASCII).
 export function nameHash(name: string): number {
@@ -54,15 +52,16 @@ export function nameHash(name: string): number {
   return h >>> 0;
 }
 
-export function encodeNameSnapshot(names: Iterable<string>, at: number): NameSnapshotWire {
-  const hashes = [...new Set([...names].map(nameHash))].sort((a, b) => a - b);
-  const bytes = new Uint8Array(hashes.length * 4);
+export function encodeNameHashes(hashes: Iterable<number>): Uint8Array {
+  const sorted = Uint32Array.from(new Set(hashes)).sort();
+  const bytes = new Uint8Array(sorted.length * 4);
   const view = new DataView(bytes.buffer);
-  hashes.forEach((h, i) => view.setUint32(i * 4, h, true));
-  let binary = "";
-  // Chunked: a spread of a whole large array overflows the call stack.
-  for (let i = 0; i < bytes.length; i += 0x2000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x2000));
-  return { v: 1, at, count: hashes.length, hashes: btoa(binary) };
+  sorted.forEach((h, i) => view.setUint32(i * 4, h, true));
+  return bytes;
+}
+
+export function encodeNameSnapshot(names: Iterable<string>): Uint8Array {
+  return encodeNameHashes(Array.from(names, nameHash));
 }
 
 export class NameSnapshot {
@@ -89,19 +88,21 @@ export class NameSnapshot {
   }
 }
 
-export function decodeNameSnapshot(wire: unknown): NameSnapshot | null {
-  if (typeof wire !== "object" || wire === null) return null;
-  const w = wire as Partial<NameSnapshotWire>;
-  if (w.v !== 1 || typeof w.hashes !== "string" || typeof w.count !== "number") return null;
-  let binary: string;
+export function decodeNameSnapshot(bytes: ArrayBuffer | Uint8Array): NameSnapshot | null {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (view.byteLength % 4 !== 0) return null;
+  return new NameSnapshot(view);
+}
+
+// The registry's /snapshot response, or null when it is not one (an error, or
+// a registry that answers something else).
+export async function readNameSnapshotResponse(res: Response | null | undefined): Promise<NameSnapshot | null> {
+  if (!res || !res.ok || res.headers.get("content-type") !== NAME_SNAPSHOT_CONTENT_TYPE) return null;
   try {
-    binary = atob(w.hashes);
+    return decodeNameSnapshot(await res.arrayBuffer());
   } catch {
     return null;
   }
-  if (binary.length % 4 !== 0 || binary.length / 4 !== w.count) return null;
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new NameSnapshot(bytes);
 }
 
 const cacheKey = () => new Request("https://names-cache.internal/snapshot");
@@ -121,7 +122,7 @@ export function resetNameSnapshotMemo(): void {
 // from the registry shared by every caller that arrives meanwhile.
 export async function currentNameSnapshot(
   cache: LookupCache,
-  fetchFresh: () => Promise<unknown>,
+  fetchFresh: () => Promise<Response | null>,
 ): Promise<NameSnapshot | null> {
   const now = Date.now();
   if (memo && memo.until > now) return memo.snapshot;
@@ -130,20 +131,17 @@ export async function currentNameSnapshot(
 
   inFlight = (async (): Promise<NameSnapshot | null> => {
     try {
-      const cached = await cache.match(cacheKey());
-      if (cached) {
-        const snapshot = decodeNameSnapshot(await cached.json());
-        if (snapshot) {
-          memo = { snapshot, until: Date.now() + NAME_SNAPSHOT_TTL_SECONDS * 1000 };
-          return snapshot;
-        }
+      const snapshot = await readNameSnapshotResponse(await cache.match(cacheKey()));
+      if (snapshot) {
+        memo = { snapshot, until: Date.now() + NAME_SNAPSHOT_TTL_SECONDS * 1000 };
+        return snapshot;
       }
     } catch {
       // A broken cache read is a miss.
     }
-    const wire = await fetchFresh().catch(() => null);
-    const snapshot = decodeNameSnapshot(wire);
-    if (!snapshot) {
+    const res = await fetchFresh().catch(() => null);
+    const snapshot = await readNameSnapshotResponse(res?.clone());
+    if (!res || !snapshot) {
       failedUntil = Date.now() + FAILURE_MEMO_MS;
       return null;
     }
@@ -151,8 +149,11 @@ export async function currentNameSnapshot(
     try {
       await cache.put(
         cacheKey(),
-        new Response(JSON.stringify(wire), {
-          headers: { "content-type": "application/json", "cache-control": `public, max-age=${NAME_SNAPSHOT_TTL_SECONDS}` },
+        new Response(res.body, {
+          headers: {
+            "content-type": NAME_SNAPSHOT_CONTENT_TYPE,
+            "cache-control": `public, max-age=${NAME_SNAPSHOT_TTL_SECONDS}`,
+          },
         }),
       );
     } catch {
@@ -166,7 +167,7 @@ export async function currentNameSnapshot(
 }
 
 // After this colo handled a write: the next lookup fetches a fresh copy (the
-// object rebuilds it because the write marked it dirty).
+// object already holds the write, see NameRegistry in names.ts).
 export async function invalidateNameSnapshot(cache: LookupCache): Promise<void> {
   memo = null;
   failedUntil = 0;

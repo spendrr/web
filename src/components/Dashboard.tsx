@@ -3912,7 +3912,7 @@ const NAME_REFRESH_MS = 30_000;
 // (and a slot in the per-IP miss limiter), so the lookup waits for a pause in
 // typing, not for the next keystroke. A name this wallet has paid before skips
 // the wait: it is almost certainly the whole name.
-const NAME_LOOKUP_DEBOUNCE_MS = 300;
+const NAME_LOOKUP_DEBOUNCE_MS = 400;
 // A failed first lookup is tried once more after this, before "could not
 // verify" is shown: a dropped connection or a momentary rate limit usually
 // clears in that time.
