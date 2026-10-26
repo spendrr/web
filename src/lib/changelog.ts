@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "26. 10. 2026",
+    title: "Volnější změny jména",
+    items: [
+      "Jméno můžeš změnit až 10krát za měsíc a odebrat kdykoli.",
+      "Nedávno odebrané jméno si můžeš vzít zpátky.",
+    ],
+  },
+  {
+    date: "26. 10. 2026",
     title: "Hladší ovládání",
     items: [
       "Návrat z odeslání neblikne a klepnutí už nezabarvuje řádky.",

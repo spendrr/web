@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-26: Easier name changes
+
+- Change your name up to 10 times a month, remove it anytime.
+- Take back a name you recently removed.
+
 ## 2026-10-26: Smoother controls
 
 - Leaving Send no longer flickers and tapping no longer tints rows.
