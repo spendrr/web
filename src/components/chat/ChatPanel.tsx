@@ -1243,7 +1243,10 @@ function Conversation({
           <LockGlyph />
           <span>{t("Šifrováno mezi vámi")}</span>
           <button type="button" className="cht-e2e-info" onClick={() => setCryptoInfo(true)} aria-label={t("Jak šifrování funguje")}>
-            i
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="4.6" r="1.25" fill="currentColor" />
+              <path d="M8 7.4v4.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </p>
         {bubbles.length === 0 && <p className="cht-empty">{t("Napiš první zprávu.")}</p>}

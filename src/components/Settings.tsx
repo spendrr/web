@@ -88,7 +88,6 @@ import {
   clearPendingGiftPassword,
   needsSeedBackup,
 } from "../lib/gift/giftStore";
-import BumpRecorderPage from "./BumpRecorderPage";
 import SentGiftsList from "./SentGiftsList";
 import { loadVaultOrPrompt, missingVaultText } from "../lib/vault/vaultAccess";
 import InstallAppSheet from "./InstallAppSheet";
@@ -121,7 +120,6 @@ type Section =
   | "password"
   | "biometric"
   | "gifts"
-  | "bump-lab"
   | "chat-settings";
 
 // Where the back button goes, so a leaf returns to the section that listed it
@@ -138,7 +136,6 @@ const PARENT: Record<Exclude<Section, "menu">, SectionPage> = {
   "onchain-txs": "wallet",
   "call-log": "wallet",
   gifts: "wallet",
-  "bump-lab": "appearance",
   "chat-settings": "appearance",
 };
 
@@ -242,7 +239,6 @@ export default function Settings({
       {section === "seed" && <SeedReveal />}
       {section === "password" && <ChangePassword onDone={() => setSection(parentOf("password"))} />}
       {section === "biometric" && <BiometricUnlock />}
-      {section === "bump-lab" && <BumpRecorderPage />}
       {section === "chat-settings" && <ChatSettingsPage />}
     </div>
   );
@@ -902,12 +898,6 @@ function AppearanceSection({ wallet, onNavigate }: { wallet: WalletClient; onNav
         {isBeta && chatOn && (
           <button className="settings-item" onClick={() => onNavigate("chat-settings")}>
             <span>{t("Nastavení zpráv")}</span>
-            <span className="chevron">›</span>
-          </button>
-        )}
-        {isBeta && !isBumpPayKillSwitchActive() && isBumpPaySupported() && (
-          <button className="settings-item" onClick={() => onNavigate("bump-lab")}>
-            <span>{t("Záznamník ťuknutí")}</span>
             <span className="chevron">›</span>
           </button>
         )}
