@@ -50,13 +50,16 @@ export type CachedLookup =
   | { kind: "limited" }; // a miss the caller's limiter refused
 
 // `handle` must already be normalised (checkHandle's `handle`): it is the key.
-// `allowMiss` runs only for a miss, before any Durable Object call, and once
-// for all the callers that join the same in-flight lookup.
+// `answerLocally` runs on a cache miss and may answer without the registry
+// (not cached: it is as cheap as the cache). `allowMiss` runs only when it did
+// not, before any Durable Object call, and once for all the callers that join
+// the same in-flight lookup.
 export async function cachedNameLookup(
   cache: LookupCache,
   handle: string,
   fetchFresh: () => Promise<NameLookupResult | null>,
   allowMiss: () => Promise<boolean>,
+  answerLocally: () => Promise<NameLookupResult | null> = async () => null,
   joinable: boolean = true,
 ): Promise<CachedLookup> {
   const key = cacheKey(handle);
@@ -72,6 +75,8 @@ export async function cachedNameLookup(
       } catch {
         // A broken cache read is a miss.
       }
+      const local = await answerLocally();
+      if (local) return { limited: false, fresh: local, hit: true };
       if (!(await allowMiss())) return { limited: true };
       const fresh = await fetchFresh();
       if (fresh) {
@@ -106,7 +111,7 @@ export async function cachedNameLookup(
     // attacker over their limit could otherwise keep a refused lookup of a
     // chosen name in flight and turn away everyone asking for it): it asks again
     // on its own budget, without joining.
-    if (joined) return cachedNameLookup(cache, handle, fetchFresh, allowMiss, false);
+    if (joined) return cachedNameLookup(cache, handle, fetchFresh, allowMiss, answerLocally, false);
     return { kind: "limited" };
   }
   if (!outcome.fresh) return { kind: "unavailable" };
