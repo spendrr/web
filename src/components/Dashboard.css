@@ -1200,7 +1200,6 @@
 .history-item:active:not(:disabled) {
   transform: none;
   box-shadow: none;
-  background: var(--surface-2);
 }
 
 /* "Zobrazit vše" groups the full history into one card per calendar day

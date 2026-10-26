@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { FeeEstimate, RoundFlowKind, RoundState, Vtxo, VtxoState, WalletTransaction } from "@secondts/bark";
 import {
   clearCallLog,
@@ -198,6 +198,16 @@ export default function Settings({
   useBackLayer(true, onClose);
   const t = useT();
   const [section, setSection] = useState<Section>(initialSection ?? "menu");
+  // Sections swap in place inside one scrolling page: without this a subpage
+  // opens at the menu's scroll offset, with its back button half off screen.
+  // Null at first, so opening Settings itself (it replaces the home page, whose
+  // scroll it would inherit) also starts at the top.
+  const shownSection = useRef<Section | null>(null);
+  useLayoutEffect(() => {
+    if (shownSection.current === section) return;
+    shownSection.current = section;
+    window.scrollTo(0, 0);
+  }, [section]);
   useEffect(() => {
     void probePlatformAuthenticator();
   }, []);
