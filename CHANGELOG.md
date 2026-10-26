@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-26: Smoother controls
+
+- Leaving Send no longer flickers and tapping no longer tints rows.
+- Confirming a large payment is ready sooner and Settings opens at the top.
+
 ## 2026-10-26: Send all to @names
 
 - Send all now works for an @name too and works out the amount faster.
