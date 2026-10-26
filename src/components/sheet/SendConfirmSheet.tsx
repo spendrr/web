@@ -336,6 +336,9 @@ function TitleSwap({ a, b }: { a: string; b: ReactNode }) {
 // "@") leaves the address in the card.
 const LN_TITLE_NAME_MAX = 16;
 const LN_TITLE_DOMAIN_MAX = 20;
+// An address that fills more of the title's width than this drops its domain
+// to its own line too, rather than touching the sheet's edges on one line.
+const LN_TITLE_FILL_MAX = 0.92;
 function fitsTitle(address: string): boolean {
   const at = address.lastIndexOf("@");
   return at > 0 && at <= LN_TITLE_NAME_MAX && address.length - at <= LN_TITLE_DOMAIN_MAX;
@@ -349,7 +352,11 @@ function LightningTitle({ label, value }: { label: string; value: string }) {
     if (!el) return;
     const fit = () => {
       el.classList.remove("is-stacked");
-      if (el.scrollWidth > el.clientWidth) el.classList.add("is-stacked");
+      // The text's own width: scrollWidth is never below clientWidth, so it
+      // cannot tell a short address from one that fills the line.
+      const text = document.createRange();
+      text.selectNodeContents(el);
+      if (text.getBoundingClientRect().width > el.clientWidth * LN_TITLE_FILL_MAX) el.classList.add("is-stacked");
     };
     fit();
     const ro = new ResizeObserver(fit);

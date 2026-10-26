@@ -1243,9 +1243,13 @@ function Conversation({
           <LockGlyph />
           <span>{t("Šifrováno mezi vámi")}</span>
           <button type="button" className="cht-e2e-info" onClick={() => setCryptoInfo(true)} aria-label={t("Jak šifrování funguje")}>
+            {/* Italic "i" drawn as a shape: a font's italic cannot be centred
+                the same on every phone. Placed by its measured ink bounds. */}
             <svg viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="4.6" r="1.25" fill="currentColor" />
-              <path d="M8 7.4v4.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <g transform="translate(5.371 2.139) scale(0.0381)" fill="currentColor">
+                <ellipse cx="98" cy="36" rx="36" ry="35" />
+                <path d="M4 123 C14 112 36 102 62 101 C82 100 98 104 100 126 L78 248 C80 259 94 264 110 264 C121 264 131 265 131 276 C131 291 116 304 94 306 C60 309 28 301 24 282 L50 134 L14 131 Z" />
+              </g>
             </svg>
           </button>
         </p>

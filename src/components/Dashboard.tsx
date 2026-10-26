@@ -4101,10 +4101,10 @@ export function describeSendStatus(
   };
 }
 
-// Whether a plan gets SendPanel's long confirm-arm delay: irreversible
-// on-chain, big enough to need the password, or a @name whose address changed.
+// Whether a plan gets SendPanel's long confirm-arm delay: only a @name whose
+// address changed. On-chain and password-sized sends arm as fast as any other.
 function isLongArm(plan: SendPlan): boolean {
-  return plan.kind === "onchain" || planNeedsPassword(plan) || plan.recipient?.pin === "changed";
+  return plan.recipient?.pin === "changed";
 }
 
 function SendPanel({
@@ -4789,10 +4789,7 @@ function SendPanel({
   ]);
 
   const CONFIRM_THRESHOLD_SATS = 1000;
-  // On-chain is irreversible and slower/harder to walk back than Ark/
-  // Lightning, so it gets a longer arm delay than the other kinds — as does
-  // any send big enough to already require the password re-entry above,
-  // regardless of kind.
+  // The long delay is only for a changed @name address (isLongArm).
   const CONFIRM_BUTTON_ARM_DELAY_MS = 350;
   const CONFIRM_BUTTON_ARM_DELAY_LONG_MS = 1000;
 

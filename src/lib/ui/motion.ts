@@ -116,25 +116,58 @@ export type MorphSpec = {
   requireBothEnds?: boolean;
 };
 
+// No transition while the on-screen keyboard is up, opening or closing: the
+// viewport resizes mid-transition and the full-page snapshots flicker (system
+// back from Send). The field itself can already be blurred by then (Android
+// hides the keyboard on the same back gesture), so a recent viewport resize
+// counts too, not only a focused text field.
+const KEYBOARD_SETTLE_MS = 800;
+let lastViewportChange = -Infinity;
+if (typeof window !== "undefined") {
+  const stamp = () => {
+    lastViewportChange = performance.now();
+  };
+  window.addEventListener("resize", stamp);
+  window.visualViewport?.addEventListener("resize", stamp);
+}
+
+function keyboardInTheWay(): boolean {
+  const el = document.activeElement;
+  if (el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !/^(button|checkbox|radio|submit|range)$/.test(el.type))) {
+    return true;
+  }
+  const vv = window.visualViewport;
+  if (vv && window.innerHeight - vv.height > 80) return true;
+  return performance.now() - lastViewportChange < KEYBOARD_SETTLE_MS;
+}
+
 // Runs `update` inside a View Transition when the motion pass is on and the
 // browser has the API; otherwise just runs it. `attrs` go on <html> for the
 // duration, so CSS can pick the direction and which elements morph. A newer
 // transition skips an older one, so only the newest cleans its attributes up.
 // `morph` gives the pair's group the interpolated skin (see skinOf).
 let transitionToken = 0;
-
-// No transition while a text field has focus: leaving the screen drops the
-// on-screen keyboard, the viewport resizes mid-transition and the full-page
-// snapshots flicker (system back from Send with the keyboard open).
-function textFieldFocused(): boolean {
-  const el = document.activeElement;
-  return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !/^(button|checkbox|radio|submit|range)$/.test(el.type));
-}
+let activeTransition: ViewTransitionHandle | null = null;
+let activeAttrNames: string[] = [];
+// skipTransition() does not cancel an update callback that has not run yet;
+// bumping this makes such a callback a no-op, so an older navigation cannot
+// land after the newer one that skipped it.
+let supersededEpoch = 0;
 export function withViewTransition(update: () => void, attrs: Record<string, string> = {}, morph?: MorphSpec): void {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => ViewTransitionHandle;
   };
-  if (!isMotionOn() || !doc.startViewTransition || document.hidden || textFieldFocused()) {
+  if (!isMotionOn() || !doc.startViewTransition || document.hidden || keyboardInTheWay()) {
+    // An earlier transition still running would keep its snapshots over the
+    // view this update is about to change.
+    if (activeTransition) {
+      activeTransition.skipTransition();
+      activeTransition = null;
+      supersededEpoch++;
+      transitionToken++;
+      for (const n of activeAttrNames) document.documentElement.removeAttribute(`data-${n}`);
+      document.documentElement.removeAttribute("data-morph-skin");
+    }
     update();
     return;
   }
@@ -169,8 +202,10 @@ export function withViewTransition(update: () => void, attrs: Record<string, str
   // from the first frame.
   if (fromSkin) root.setAttribute("data-morph-skin", "");
   let transition: ViewTransitionHandle;
+  const epoch = supersededEpoch;
   try {
     transition = doc.startViewTransition(() => {
+      if (epoch !== supersededEpoch) return;
       update();
       // The new state is rendered by now (update flushes synchronously).
       try {
@@ -187,6 +222,8 @@ export function withViewTransition(update: () => void, attrs: Record<string, str
     update();
     return;
   }
+  activeTransition = transition;
+  activeAttrNames = names;
   transition.updateCallbackDone
     .then(() => {
       if (missingTarget) transition.skipTransition();
@@ -206,6 +243,7 @@ export function withViewTransition(update: () => void, attrs: Record<string, str
   transition.finished
     .catch(() => {})
     .finally(() => {
+      if (activeTransition === transition) activeTransition = null;
       if (token !== transitionToken) return;
       for (const n of names) root.removeAttribute(`data-${n}`);
       root.removeAttribute("data-morph-skin");

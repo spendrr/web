@@ -299,6 +299,10 @@
 
 body {
   margin: 0;
+  /* Inherited, so it also covers what is not a <button> (chat cards) and
+     what resets itself with `all: unset` (sent gifts rows): the browser's
+     square blue tap highlight otherwise shows over them. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 ::selection {

@@ -804,6 +804,7 @@ button.cht-e2e-info {
 button.cht-e2e-info svg {
   width: 12px;
   height: 12px;
+  display: block;
 }
 
 @media (hover: hover) {

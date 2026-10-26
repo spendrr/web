@@ -142,7 +142,6 @@
 .settings-item:active:not(:disabled) {
   transform: none;
   box-shadow: none;
-  background: var(--surface-2);
 }
 
 /* Nudged in off the row's 16px padding — the glyph's own right side bearing
