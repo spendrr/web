@@ -591,7 +591,6 @@ function StorageProtectionCard({ onShowSeed }: { onShowSeed: () => void }) {
 // would kill it), then the four section rows, then the About card.
 function SettingsMenu({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const t = useT();
-  const isBeta = useDesignVersion() === "v2";
   const [showChangelog, setShowChangelog] = useState(false);
   // Hidden toggle: triple-click "Verze" to flip the background glow on/off
   // (src/lib/ui/bgGlow.ts) — always keeps a way back to the plain flat
@@ -690,19 +689,17 @@ function SettingsMenu({ onNavigate }: { onNavigate: (s: Section) => void }) {
           </span>
         </div>
         {/* The project's own tip page (worker serves it for /donate), a plain link like the rows above. */}
-        {isBeta && (
-          <div className="info-row">
-            <span className="info-row-heart">
-              {t("Podpora vývoje")}
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 5 6.6 5c2 0 3.6 1.1 5.4 3.1C13.8 6.1 15.4 5 17.4 5c3.2 0 5.1 3 3.9 6.3-1.8 4.6-9.3 9.2-9.3 9.2z" />
-              </svg>
-            </span>
-            <a className="info-row-link" href="/donate" target="_blank" rel="noopener noreferrer">
-              {t("Přispět")}
-            </a>
-          </div>
-        )}
+        <div className="info-row">
+          <span className="info-row-heart">
+            {t("Podpora vývoje")}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 5 6.6 5c2 0 3.6 1.1 5.4 3.1C13.8 6.1 15.4 5 17.4 5c3.2 0 5.1 3 3.9 6.3-1.8 4.6-9.3 9.2-9.3 9.2z" />
+            </svg>
+          </span>
+          <a className="info-row-link" href="/donate" target="_blank" rel="noopener noreferrer">
+            {t("Přispět")}
+          </a>
+        </div>
         <button className="settings-item" onClick={() => setShowChangelog(true)}>
           <span>{t("Zobrazit changelog")}</span>
           <span className="chevron">›</span>

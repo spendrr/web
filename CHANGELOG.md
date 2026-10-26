@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-25: Names and a new Receive
+
+- Pay straight to an @name, Receive shows your Lightning address.
+- Payment confirmation is clearer and a gift can be cancelled right after sending.
+
 ## 2026-10-25: Minor improvements
 
 - Emergency exit loads faster and works out fees even with a problem coin.
@@ -13,8 +18,8 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 
 ## 2026-10-24: New payment confirmation
 
-- The payment confirmation is clearer, with a large amount and the recipient. (beta)
-- For a Lightning address you see who you are paying before you send. (beta)
+- The payment confirmation is clearer, with a large amount and the recipient.
+- For a Lightning address you see who you are paying before you send.
 
 ## 2026-10-20: Open source
 
@@ -24,7 +29,7 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 ## 2026-10-19: Send: amount from invoice
 
 - An invoice with an amount fills the amount field for you.
-- The scanner also reads a QR code from a gallery image. (beta)
+- The scanner also reads a QR code from a gallery image.
 
 ## 2026-10-18: A softer look
 
@@ -39,27 +44,27 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 ## 2026-10-16: Balance: large numbers
 
 - A large balance fits the screen with its unit.
-- Unlocking sometimes greets you. (beta)
+- Unlocking sometimes greets you.
 
 ## 2026-10-14: Gifts: overview and password
 
-- A gift can be cancelled right after sending and the list shows its real status. (beta)
-- A gift recipient sets a password at the next open. (beta)
+- A gift can be cancelled right after sending and the list shows its real status.
+- A gift recipient sets a password at the next open.
 
 ## 2026-10-13: Look: softer elements
 
-- Buttons, fields and switches have a lighter outline. (beta)
-- A focused field is easy to spot. (beta)
+- Buttons, fields and switches have a lighter outline.
+- A focused field is easy to spot.
 
 ## 2026-10-13: Profile: cleaner look
 
-- Your address is bigger in the profile, with less clutter. (beta)
-- Turning on the Lightning address asks right under the address. (beta)
+- Your address is bigger in the profile, with less clutter.
+- Turning on the Lightning address asks right under the address.
 
 ## 2026-10-12: Donate page
 
-- Anyone can send you bitcoin on a page with your name. (beta)
-- In your profile you can copy the link to your donate page. (beta)
+- Anyone can send you bitcoin on a page with your name.
+- In your profile you can copy the link to your donate page.
 
 ## 2026-10-07: Coin refresh notifications
 
@@ -86,7 +91,7 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 
 ## 2026-10-05: New Receive
 
-- Receive shows your address name@spendrr.app, any wallet can pay it. (beta)
+- Receive shows your address name@spendrr.app, any wallet can pay it.
 
 ## 2026-10-05: Instant payment alerts
 
@@ -144,7 +149,7 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 ## 2026-09-30: Gifts, notifications and deleting
 
 - Sent gifts in Settings load instantly and show their real status.
-- Notifications explain privacy, deleting the wallet is confirmed by holding. (beta)
+- Notifications explain privacy, deleting the wallet is confirmed by holding.
 
 ## 2026-09-28: Faster, more accurate sending
 

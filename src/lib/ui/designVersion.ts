@@ -3,10 +3,9 @@
 // every v2 refinement (borders/shadows, toggle animations, header button
 // cluster, boolean switch, and the history list's "chunky card" restyle +
 // palette + heading) has won and ships unconditionally regardless of this
-// flag. The toggle lives on purely as the gate for still-beta features, among
-// them "Obnovit všechna VTXO" (Settings → VTXO mince), @names, tap-to-pay and
-// the Utility hub's entire swipe entry point (Dashboard.tsx/UtilityHub.tsx —
-// converter, map, POS). Check
+// flag. The toggle lives on purely as the gate for still-beta features: Zprávy
+// (chat), tap-to-pay and the Utility hub's entire swipe entry point
+// (Dashboard.tsx/UtilityHub.tsx — converter, map, POS). Check
 // getDesignVersion()/useDesignVersion() === "v2" before rendering a
 // beta-gated feature.
 //

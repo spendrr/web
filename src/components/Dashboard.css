@@ -719,21 +719,6 @@
   margin-top: 48px;
 }
 
-.subview--no-balance.subview--reserve-qr {
-  /* Lightning-before-an-invoice-exists renders no QR (there's nothing to
-     encode yet), which used to collapse that space and pull the back
-     button + mode-toggle up to sit right under the header instead of at
-     the level they'd be at with a QR above them on Ark/On-chain. Pushing
-     the whole subview (back button included, not just the panel content)
-     down by this much — instead of reserving blank space between the back
-     button and the toggle — keeps the back button directly above the
-     toggle with its normal small gap, moving as one block. 235px is ~85%
-     of the QR box's own rendered size (240px code + 16px padding + 2.5px
-     border per side = 277px), landing the block a bit higher than an exact
-     QR-height match, per explicit request. */
-  margin-top: 283px;
-}
-
 .subview-back {
   display: inline-flex;
   align-items: center;

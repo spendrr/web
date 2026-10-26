@@ -17,7 +17,6 @@ import {
   type RefObject,
 } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { QRCodeSVG } from "qrcode.react";
 import type { Balance, FeeEstimate, LightningInvoice, LightningSendStatus, Movement, OnchainBalance } from "@secondts/bark";
 import {
   closeWallet,
@@ -142,7 +141,7 @@ import { chatUsed, markChatUsed } from "../lib/chat/chatRead";
 import { useChatEnabled } from "../lib/chat/chatEnabled";
 import { useChatPayments, type ChatPaymentInfo } from "../lib/chat/chatHistory";
 import Avatar from "./Avatar";
-import { NAME_DOMAIN, handleFromPath, handleFromProfileUrl, parseHandleDestination } from "../lib/names/handle";
+import { NAME_DOMAIN, handleFromProfileUrl, parseHandleDestination } from "../lib/names/handle";
 import { cachedLookup, fetchMyName, lookupName, type LookupOutcome, type NameAbsentStatus } from "../lib/names/names";
 import { getCachedName, hasHandleFlag, maybeTouchName, setCachedName, type CachedName } from "../lib/names/nameTouch";
 import { lastLnAddressServiceOk, lnAddressServiceOk } from "../lib/names/lnAddrHealth";
@@ -166,7 +165,6 @@ import GiftPasswordModal from "./GiftPasswordModal";
 import BumpOverlay from "./BumpOverlay";
 import { isBumpPayEnabled } from "../lib/bump/bump";
 import { isBumpReceiving, isPaymentPriority } from "../lib/wallet/paymentPriority";
-import { TruncatedAddress } from "./TruncatedAddress";
 import "./Dashboard.css";
 import "../motion.css";
 
@@ -339,7 +337,7 @@ const QR_WRAP_SKIN = { background: "rgb(255, 255, 255)", borderColor: "rgb(138, 
 // component unmounted.
 // Exported so UtilityHub's Point-of-Sale tab can plug into the same watch
 // (see its own PosPanel) — it creates a Lightning invoice exactly like
-// ReceivePanel does and hands it to this same state via startLightningWatch,
+// ReceiveScreen does and hands it to this same state via startLightningWatch,
 // rather than reinventing a second poll loop for "was this invoice paid".
 export type PendingReceive =
   | { kind: "lightning"; invoice: LightningInvoice; status: "waiting" | "paid" }
@@ -780,7 +778,7 @@ export default function Dashboard({
   useEffect(() => {
     if (address) learnArkServerFrom(address);
   }, [address]);
-  // Surfaced right under the "Generuji adresu…" text in ReceivePanel, not
+  // Surfaced right under the "Generuji adresu…" text in ReceiveScreen, not
   // just the generic top-level `loadError` banner below — that banner lives
   // on the home screen and is invisible while the Receive view is open,
   // which is exactly when a stuck address load actually matters. See the
@@ -821,7 +819,7 @@ export default function Dashboard({
   // scanner the next time Send is entered normally.
   const [sendAutoScan, setSendAutoScan] = useState(false);
   // The two flows behind the Home buttons' hold-menus. They live here, not
-  // in SendPanel/ReceivePanel, because the buttons that open them are on the
+  // in SendPanel/ReceiveScreen, because the buttons that open them are on the
   // home screen — the gift composer used to be mounted inside SendPanel
   // purely because that is where its entry point happened to sit.
   const [giftOpen, setGiftOpen] = useState(false);
@@ -952,13 +950,13 @@ export default function Dashboard({
   // While an exit runs, on-chain money here is mostly the change of its own
   // CPFP transactions, not an incoming payment: the notices below say so.
   const exitLive = exitTracker.loaded ? exitOverview.live : exitMayBeLive();
-  // Lifted out of ReceivePanel (rather than kept local + reported up via an
+  // Lifted out of ReceiveScreen (rather than kept local + reported up via an
   // effect) so receiveNeedsQrGap below can be derived synchronously in the
   // same render that changes it — an effect-based round trip caused a
   // one-frame flash of the mode-toggle at its old (no-gap) position before
   // the parent re-rendered with the margin applied.
   // v2 adds "ln", the Lightning address, as its default (ReceiveScreen).
-  const [receiveMode, setReceiveMode] = useState<ReceiveFormat>(() => (designVersion === "v2" ? "ln" : "ark"));
+  const [receiveMode, setReceiveMode] = useState<ReceiveFormat>("ln");
   // Lifted for the same reason as receiveMode: confirmBoard() below needs to
   // reset this to null on a successful board so the next tab-open fetches a
   // fresh address instead of reusing one that's already received funds.
@@ -972,7 +970,7 @@ export default function Dashboard({
   // whatever's persisted alongside onchainAddress; doesn't need to be React
   // state since nothing renders off it directly.
   const onchainReceiveBaselineRef = useRef<string[]>(loadStoredReceiveAddress()?.baseline ?? []);
-  // Guards against ReceivePanel's tab-open effect firing this twice
+  // Guards against ReceiveScreen's tab-open effect firing this twice
   // concurrently — e.g. the user flips Ark -> Onchain -> Ark -> Onchain fast
   // enough that onchainAddress is still null (first newAddress() not
   // resolved yet) when the effect re-runs. Without this, both calls would
@@ -981,7 +979,7 @@ export default function Dashboard({
   const onchainAddressFetchInFlightRef = useRef(false);
   // Derives a fresh onchain receive address and persists it (with its
   // baseline) so it survives a restart — see onchainReceiveAddress.ts.
-  // Called from ReceivePanel's tab-open effect below. Fire-and-forget by
+  // Called from ReceiveScreen's tab-open effect below. Fire-and-forget by
   // design, like the call it replaces: a failure just leaves onchainAddress
   // null (no error state of its own), same as before this was lifted here.
   const requestOnchainAddress = useCallback(() => {
@@ -1018,7 +1016,7 @@ export default function Dashboard({
   // Once per wallet, and again after a payment or a board clears the address.
   // The short wait keeps it out of the way of the unlock's own calls; the
   // worker queue would serialise it anyway. A failed attempt is retried by
-  // ReceivePanel's own effect when it opens. The baseline taken with it is safe
+  // ReceiveScreen's own effect when it opens. The baseline taken with it is safe
   // before the first on-chain scan has finished, see evaluateReceiveAddressUsage.
   // Not while the wallet's one-time initial on-chain scan is still running (a
   // recovery can take minutes on the same worker queue): the request would wait
@@ -1985,7 +1983,7 @@ export default function Dashboard({
   // re-runs both the Ark refresh() and an immediate onchain balance poll so
   // the sticky notification clears and the boarded amount shows up in the
   // regular balance, instead of waiting for either's next scheduled tick.
-  // Also clears onchainAddress so ReceivePanel's tab-open effect fetches a
+  // Also clears onchainAddress so ReceiveScreen's tab-open effect fetches a
   // fresh receive address next time — this one has already received funds
   // and been boarded, no reason to hand it out again.
   const confirmBoard = useCallback(async () => {
@@ -2234,10 +2232,10 @@ export default function Dashboard({
   // picked once must not stick. An invoice still waiting to be paid keeps
   // its screen.
   useEffect(() => {
-    if (designVersion !== "v2" || view === "receive") return;
+    if (view === "receive") return;
     const invoiceWaiting = pendingReceive?.kind === "lightning" && pendingReceive.status === "waiting";
     setReceiveMode(invoiceWaiting ? "lightning" : "ln");
-  }, [designVersion, view, pendingReceive]);
+  }, [view, pendingReceive]);
 
   // The name and whether its Lightning address is on: from the profile's own
   // cache (nameTouch.ts), so opening Receive costs no request. Read again
@@ -2245,7 +2243,7 @@ export default function Dashboard({
   // knows there is a name but has no cached record asks once.
   const [myName, setMyName] = useState<CachedName | null>(null);
   useEffect(() => {
-    if (designVersion !== "v2" || view !== "receive" || profileOpen || !address) return;
+    if (view !== "receive" || profileOpen || !address) return;
     const cached = getCachedName(address);
     setMyName(cached);
     if (cached || !hasHandleFlag()) return;
@@ -2261,7 +2259,7 @@ export default function Dashboard({
     return () => {
       cancelled = true;
     };
-  }, [designVersion, view, profileOpen, address, wallet]);
+  }, [view, profileOpen, address, wallet]);
 
   const [lnServiceOk, setLnServiceOk] = useState(lastLnAddressServiceOk);
   const myLnAddressOn = myName?.lnAddress === true;
@@ -2806,13 +2804,6 @@ export default function Dashboard({
     );
   }
 
-  // Lightning before an invoice exists is the one Receive tab with no QR to
-  // show — pushes the Zpět button down with the mode-toggle (subview--reserve-qr
-  // in Dashboard.css) instead of leaving it pinned above an empty gap.
-  // Derived directly from lifted state (not reported up via a child effect)
-  // so it's correct in the very same render that changes receiveMode.
-  const receiveNeedsQrGap = designVersion !== "v2" && receiveMode === "lightning" && pendingReceive?.kind !== "lightning";
-
   return (
     <div className="dashboard">
       {toast && (
@@ -2857,15 +2848,13 @@ export default function Dashboard({
           <span className="accent-r r2">r</span>
         </span>
         <div className="header-actions">
-          {designVersion === "v2" && (
-            <button
-              className="secondary small icon-btn icon-btn-profile"
-              onClick={() => setProfileOpen(true)}
-              aria-label={t("Profil")}
-            >
-              <AtIcon />
-            </button>
-          )}
+          <button
+            className="secondary small icon-btn icon-btn-profile"
+            onClick={() => setProfileOpen(true)}
+            aria-label={t("Profil")}
+          >
+            <AtIcon />
+          </button>
           {chatOn && (
             <ChatButton
               onOpen={() => {
@@ -3300,9 +3289,7 @@ export default function Dashboard({
         </>
       ) : (
         <div
-          className={`subview${view === "receive" ? " subview--no-balance" : ""}${
-            view === "receive" && receiveNeedsQrGap ? " subview--reserve-qr" : ""
-          }${receiveDissolving ? " subview--dissolving" : ""}`}
+          className={`subview${view === "receive" ? " subview--no-balance" : ""}${receiveDissolving ? " subview--dissolving" : ""}`}
         >
           <button
             type="button"
@@ -3314,7 +3301,7 @@ export default function Dashboard({
             {t("Zpět")}
           </button>
           <div key={`${view}:${sendPrefill?.nonce ?? 0}`} className="panel-transition">
-            {view === "receive" && designVersion === "v2" && (
+            {view === "receive" && (
               <ReceiveScreen
                 wallet={wallet}
                 format={receiveMode}
@@ -3332,26 +3319,6 @@ export default function Dashboard({
                 rates={rates}
                 currency={currency}
                 onQrCopied={() => showToast(t("Zkopírováno do schránky"), "neutral")}
-                dissolving={receiveDissolving}
-              />
-            )}
-            {view === "receive" && designVersion !== "v2" && (
-              <ReceivePanel
-                wallet={wallet}
-                address={address}
-                // Retried in a loop, so it stays inline (a toast per retry
-                // would nag), in Czech rather than the SDK's words.
-                addressError={addressError !== null ? describeError(new Error(addressError), t, lang).text : null}
-                pendingReceive={pendingReceive}
-                onInvoiceCreated={startLightningWatch}
-                onCancelLightningWatch={cancelLightningWatch}
-                rates={rates}
-                currency={currency}
-                onQrCopied={() => showToast(t("Zkopírováno do schránky"), "neutral")}
-                mode={receiveMode === "ln" ? "ark" : receiveMode}
-                onModeChange={setReceiveMode}
-                onchainAddress={onchainAddress}
-                onRequestOnchainAddress={requestOnchainAddress}
                 dissolving={receiveDissolving}
               />
             )}
@@ -3411,7 +3378,7 @@ export default function Dashboard({
       {requestOpen && (
         <PaymentRequestModal wallet={wallet} address={address} rates={rates} onClose={() => setRequestOpen(false)} />
       )}
-      {profileOpen && designVersion === "v2" && (
+      {profileOpen && (
         <ProfileSheet wallet={wallet} address={address} onClose={() => setProfileOpen(false)} />
       )}
       {chatOpen && chatOn && (
@@ -3731,26 +3698,6 @@ function HistoryIcon() {
   );
 }
 
-function LightningIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13 3 5 13h5l-1 8 8-10h-5l1-8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// "Waiting for a Lightning payment" indicator — a solid bolt that strikes
-// (a quick double-flash with a small punch of scale, then a pause) instead
-// of a generic pulsing dot, closer to how lightning actually looks than a
-// smooth breathing animation.
-function LightningWaitIcon() {
-  return (
-    <svg className="lightning-wait-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <path d="M13 3 5 13h5l-1 8 8-10h-5l1-8Z" />
-    </svg>
-  );
-}
-
 function GiftIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -3836,22 +3783,6 @@ function GearIcon() {
   );
 }
 
-// "Ark" as a small boat (hull + mast + flag) — the previous circle-with-plus
-// read as a generic "add" icon, unrelated to what Ark actually is.
-function ArkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M6 17h12l-2-7H8l-2 7Z M12 10V4 M12 5h3l-3 2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // The on-chain (vs. Ark/Lightning) receive tab. Used to be a chain-link
 // glyph (two linked ovals), which at this icon size read as a generic "∞"
 // rather than anything on-chain/Bitcoin-specific, then a circle with a
@@ -3872,432 +3803,6 @@ function OnchainIcon() {
 }
 
 /* ---------- Receive ---------- */
-
-type ReceiveMode = "ark" | "lightning" | "onchain";
-
-// A QR code that also acts as a big "copy" button — clicking it copies
-// whatever it encodes and plays a brief shrink/grow pulse as feedback,
-// instead of requiring a trip down to the separate copy icon next to the
-// truncated address/invoice text.
-function CopyableQr({
-  value,
-  onCopy,
-  onCopied,
-  label,
-  hintRef,
-}: {
-  value: string;
-  onCopy: () => void;
-  onCopied: () => void;
-  label: string;
-  hintRef?: RefObject<HTMLButtonElement | null>;
-}) {
-  const [pulsing, setPulsing] = useState(false);
-  const pulseTimerRef = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (pulseTimerRef.current !== null) window.clearTimeout(pulseTimerRef.current);
-  }, []);
-  return (
-    <button
-      ref={hintRef}
-      type="button"
-      className={`qr-wrap qr-wrap-button${pulsing ? " qr-pulse" : ""}`}
-      onClick={() => {
-        onCopy();
-        onCopied();
-        if (pulseTimerRef.current !== null) window.clearTimeout(pulseTimerRef.current);
-        setPulsing(true);
-        pulseTimerRef.current = window.setTimeout(() => setPulsing(false), 280);
-      }}
-      aria-label={label}
-    >
-      <QRCodeSVG value={value} size={240} />
-    </button>
-  );
-}
-
-function ReceivePanel({
-  wallet,
-  address,
-  addressError,
-  pendingReceive,
-  onInvoiceCreated,
-  onCancelLightningWatch,
-  rates,
-  currency,
-  onQrCopied,
-  mode,
-  onModeChange,
-  onchainAddress,
-  onRequestOnchainAddress,
-  dissolving = false,
-}: {
-  wallet: WalletClient;
-  address: string | null;
-  addressError: string | null;
-  pendingReceive: PendingReceive | null;
-  onInvoiceCreated: (invoice: LightningInvoice) => void;
-  onCancelLightningWatch: () => void;
-  rates: Record<FiatCurrency, number> | null;
-  currency: FiatCurrency;
-  onQrCopied: () => void;
-  mode: ReceiveMode;
-  onModeChange: (mode: ReceiveMode) => void;
-  onchainAddress: string | null;
-  onRequestOnchainAddress: () => void;
-  // Motion design: the paid invoice's QR stays up to dissolve (see
-  // Dashboard's receiveDissolving) instead of being swapped for the banner.
-  dissolving?: boolean;
-}) {
-  const t = useT();
-  const lang = useLang();
-  const setMode = onModeChange;
-
-  // One-time notice, shown the first time the Onchain tab is ever opened,
-  // explaining that these funds wait outside the normal balance until
-  // explicitly boarded — after "Chápu" it never shows again (same
-  // hasSeenHint/markHintSeen flag pattern as the QR-copy hint below), rather
-  // than sitting there permanently taking up space on every visit.
-  const [showOnchainInfo, setShowOnchainInfo] = useState(() => !hasSeenHint("onchain-info"));
-  const dismissOnchainInfo = useCallback(() => {
-    markHintSeen("onchain-info");
-    setShowOnchainInfo(false);
-  }, []);
-
-  // One-time hint shown the first time the user ever opens this panel with
-  // an Ark address ready to show — explains that the QR itself is tappable
-  // to copy, not just scannable.
-  const qrHintRef = useRef<HTMLButtonElement>(null);
-  const [showQrHint, setShowQrHint] = useState(() => !hasSeenHint("qr-copy"));
-  const dismissQrHint = useCallback(() => {
-    markHintSeen("qr-copy");
-    setShowQrHint(false);
-  }, []);
-
-  const [arkAmount, setArkAmount] = useState("");
-  const [arkCopied, setArkCopied] = useState(false);
-  const arkAmountSats = arkAmount ? Number(arkAmount) : undefined;
-  const arkHasAmount = arkAmountSats !== undefined && Number.isInteger(arkAmountSats) && arkAmountSats > 0;
-  // No standard URI format for Ark addresses exists yet, so this mirrors the
-  // bitcoin: convention (scheme + address + amount query param) — recognized
-  // by this app's own QR scanner (parseScannedPayload), though not
-  // necessarily by other Ark wallets.
-  const arkQrValue = address && arkHasAmount ? `ark:${address}?amount=${arkAmountSats}` : address;
-  const copyArk = useCallback(() => {
-    if (!arkQrValue) return;
-    navigator.clipboard.writeText(arkQrValue);
-    setArkCopied(true);
-    setTimeout(() => setArkCopied(false), 1200);
-  }, [arkQrValue]);
-
-  // Dashboard already asks for the address shortly after unlock; this is the
-  // fallback for an attempt that failed or has not run yet (a Receive opened in
-  // the first seconds). Asked when the panel opens, not only when the tab is
-  // picked: with no stored address the first pick used to show a one-line
-  // placeholder while the worker derived one and the panel collapsed and jumped
-  // back. Mode stays a dependency so a failed attempt is retried when the tab is
-  // switched. requestOnchainAddress ignores a call while one is in flight.
-  // Lifted to Dashboard (passed down as onchainAddress/onRequestOnchainAddress)
-  // rather than kept local, so both a successful board and Dashboard's own
-  // "has this address been paid yet" poll (see onchainReceiveAddress.ts) can
-  // reset onchainAddress to null and have this effect fetch a fresh one next
-  // time the tab is (re)opened — and so onchainAddress survives a restart
-  // instead of this effect deriving a new one every time the app reloads.
-  useEffect(() => {
-    if (onchainAddress) return;
-    onRequestOnchainAddress();
-  }, [mode, onchainAddress, onRequestOnchainAddress]);
-  const [onchainAmount, setOnchainAmount] = useState("");
-  const [onchainCopied, setOnchainCopied] = useState(false);
-  const onchainAmountSats = onchainAmount ? Number(onchainAmount) : undefined;
-  const onchainHasAmount =
-    onchainAmountSats !== undefined && Number.isInteger(onchainAmountSats) && onchainAmountSats > 0;
-  // bitcoin: URIs (BIP21) are the actual standard here, unlike the ad-hoc
-  // "ark:" scheme above invented for the Ark tab. Plain division (sats/1e8)
-  // switches to exponential notation below 100 sats (e.g. "1e-8"), which
-  // isn't valid BIP21 decimal — toFixed(8) keeps it a plain decimal string
-  // for every amount, trimming trailing zeros the same way a hand-typed BTC
-  // amount would.
-  const onchainQrValue =
-    onchainAddress && onchainHasAmount
-      ? `bitcoin:${onchainAddress}?amount=${(onchainAmountSats / 1e8).toFixed(8).replace(/\.?0+$/, "")}`
-      : onchainAddress;
-  const copyOnchain = useCallback(() => {
-    if (!onchainQrValue) return;
-    navigator.clipboard.writeText(onchainQrValue);
-    setOnchainCopied(true);
-    setTimeout(() => setOnchainCopied(false), 1200);
-  }, [onchainQrValue]);
-
-  const pending = pendingReceive?.kind === "lightning" ? pendingReceive : null;
-
-  const [lnAmount, setLnAmount] = useState("");
-  const [lnDescription, setLnDescription] = useState("");
-  const [lnBusy, setLnBusy] = useState(false);
-  const [lnError, setLnError] = useState<string | null>(null);
-  const [lnCopied, setLnCopied] = useState(false);
-
-  const createInvoice = useCallback(async () => {
-    setLnBusy(true);
-    setLnError(null);
-    try {
-      const amountSats = Number(lnAmount);
-      if (!Number.isInteger(amountSats) || amountSats <= 0) {
-        throw new Error(t("Zadej platnou částku v satoshi (celé číslo)."));
-      }
-      const inv = await wallet.bolt11Invoice({
-        amountSats,
-        description: lnDescription.trim() || undefined,
-      });
-      onInvoiceCreated(inv);
-    } catch (e) {
-      surfaceError(e, setLnError);
-    } finally {
-      setLnBusy(false);
-    }
-  }, [wallet, lnAmount, lnDescription, onInvoiceCreated, t]);
-
-  const resetLn = useCallback(() => {
-    onCancelLightningWatch();
-    setLnAmount("");
-    setLnDescription("");
-    setLnError(null);
-  }, [onCancelLightningWatch]);
-
-  const copyLn = useCallback(() => {
-    if (!pending) return;
-    navigator.clipboard.writeText(pending.invoice.invoice);
-    setLnCopied(true);
-    setTimeout(() => setLnCopied(false), 1200);
-  }, [pending]);
-
-  let qrSection: ReactNode = null;
-  let detailsSection: ReactNode = null;
-
-  if (mode === "ark") {
-    if (!address) {
-      qrSection = (
-        <>
-          <p className="muted">{t("Generuji adresu…")}</p>
-          {addressError && (
-            <p className="muted small">
-              {tf(t("Zkouším znovu… ({error})"), { error: addressError })}
-            </p>
-          )}
-        </>
-      );
-    } else {
-      qrSection = (
-        <CopyableQr
-          value={arkQrValue as string}
-          onCopy={copyArk}
-          onCopied={onQrCopied}
-          label={arkHasAmount ? t("Kopírovat adresu s částkou") : t("Kopírovat adresu")}
-          hintRef={qrHintRef}
-        />
-      );
-      detailsSection = (
-        <>
-          <div className="copy-value address-copy-row">
-            <code className="address">
-              <TruncatedAddress value={address} />
-            </code>
-            <button
-              type="button"
-              className="copy-btn"
-              aria-label={arkHasAmount ? t("Kopírovat adresu s částkou") : t("Kopírovat adresu")}
-              onClick={copyArk}
-            >
-              {arkCopied ? <CopiedIcon /> : <CopyIcon />}
-            </button>
-          </div>
-          <AmountInput
-            label={t("Požadovaná částka (nepovinné)")}
-            sats={arkAmount}
-            onSatsChange={setArkAmount}
-            rates={rates}
-            currency={currency}
-            placeholder="21000"
-          />
-        </>
-      );
-    }
-  } else if (mode === "onchain") {
-    if (!onchainAddress) {
-      // The QR's own frame with the same words the Ark tab shows: the panel
-      // keeps its height while the address is derived instead of collapsing to
-      // one line and jumping back.
-      qrSection = (
-        <div className="qr-wrap qr-wrap-placeholder" role="status">
-          <div className="qr-placeholder-inner">{t("Generuji adresu…")}</div>
-        </div>
-      );
-    } else {
-      qrSection = (
-        <CopyableQr
-          value={onchainQrValue as string}
-          onCopy={copyOnchain}
-          onCopied={onQrCopied}
-          label={onchainHasAmount ? t("Kopírovat adresu s částkou") : t("Kopírovat adresu")}
-        />
-      );
-      detailsSection = (
-        <>
-          <div className="copy-value address-copy-row">
-            <code className="address">
-              <TruncatedAddress value={onchainAddress} />
-            </code>
-            <button
-              type="button"
-              className="copy-btn"
-              aria-label={onchainHasAmount ? t("Kopírovat adresu s částkou") : t("Kopírovat adresu")}
-              onClick={copyOnchain}
-            >
-              {onchainCopied ? <CopiedIcon /> : <CopyIcon />}
-            </button>
-          </div>
-          <AmountInput
-            label={t("Požadovaná částka (nepovinné)")}
-            sats={onchainAmount}
-            onSatsChange={setOnchainAmount}
-            rates={rates}
-            currency={currency}
-            placeholder="21000"
-          />
-          {showOnchainInfo && (
-            <div className="banner banner-warning onchain-info-banner">
-              <WarningIcon />
-              <div>
-                {/* Button first in the DOM so its CSS float pulls the text up
-                    alongside it instead of the text wrapping first and
-                    pushing the button onto its own row below. */}
-                <button type="button" className="secondary small" onClick={dismissOnchainInfo}>
-                  {t("Chápu")}
-                </button>
-                <span>
-                  {t("Platbu je nutné ručně přijmout, než se přičte k tvému zůstatku.")}
-                </span>
-              </div>
-            </div>
-          )}
-        </>
-      );
-    }
-  } else if (pending) {
-    const { invoice, status } = pending;
-    qrSection =
-      status === "paid" && !dissolving ? (
-        <div className="paid-banner">
-          <span className="check-badge">
-            <CheckIcon />
-          </span>
-          {t("Faktura zaplacena")}
-        </div>
-      ) : (
-        <CopyableQr value={invoice.invoice} onCopy={copyLn} onCopied={onQrCopied} label={t("Kopírovat fakturu")} />
-      );
-    detailsSection = (
-      <>
-        <div className="copy-value address-copy-row">
-          <code className="address address-ln">
-            <TruncatedAddress value={invoice.invoice} head={14} />
-          </code>
-          <button type="button" className="copy-btn" aria-label={t("Kopírovat fakturu")} onClick={copyLn}>
-            {lnCopied ? <CopiedIcon /> : <CopyIcon />}
-          </button>
-        </div>
-        <p className="muted small">
-          {invoice.amountSats.toLocaleString(localeFor(lang))} sats
-          {status === "waiting" && <LightningWaitIcon />}
-          {status === "waiting" ? ` · ${t("čeká se na platbu…")}` : ""}
-        </p>
-        <div className="stack">
-          <button className="secondary" onClick={resetLn}>
-            {status === "paid" ? t("Nová faktura") : t("Zrušit")}
-          </button>
-        </div>
-      </>
-    );
-  } else {
-    detailsSection = (
-      <>
-        <AmountInput
-          label={t("Částka")}
-          sats={lnAmount}
-          onSatsChange={setLnAmount}
-          rates={rates}
-          currency={currency}
-          placeholder="21000"
-        />
-        <div className="field">
-          <label className="field-label">{t("Popis (nepovinné)")}</label>
-          <input value={lnDescription} onChange={(e) => setLnDescription(e.target.value)} placeholder={t("Za kávu")} />
-        </div>
-        {lnError && <p className="error">{lnError}</p>}
-        <button disabled={lnBusy || !lnAmount} onClick={createInvoice}>
-          {lnBusy ? t("Vytvářím fakturu…") : t("Vytvořit Lightning fakturu")}
-        </button>
-      </>
-    );
-  }
-
-  return (
-    <div className={`panel receive-panel${qrSection ? " receive-panel--has-qr" : " receive-panel--no-qr"}`}>
-      {/* Keyed by mode: Ark and Onchain render the exact same shape (a
-          CopyableQr, then an address-copy-row + AmountInput), so without a
-          key React reconciles them as the *same* elements and just patches
-          props in place — the QR code's own SVG redraws its cells with no
-          clean transition, and any leftover pulse/copy animation state
-          carries over from whichever tab was open before. Lightning's tree
-          shape differs, so it already remounted cleanly; this makes all
-          three consistent. */}
-      <div key={`qr-${mode}`} className="receive-qr-transition">
-        {qrSection}
-      </div>
-      <div className="mode-toggle">
-        <button type="button" className={mode === "ark" ? "active" : ""} onClick={() => setMode("ark")}>
-          <ArkIcon />
-          {t("Ark adresa")}
-        </button>
-        <button type="button" className={mode === "lightning" ? "active" : ""} onClick={() => setMode("lightning")}>
-          <LightningIcon />
-          Lightning
-        </button>
-        <button type="button" className={mode === "onchain" ? "active" : ""} onClick={() => setMode("onchain")}>
-          <OnchainIcon />
-          {t("On-chain")}
-        </button>
-      </div>
-      <div key={`details-${mode}`} className="receive-details-transition">
-        {detailsSection}
-      </div>
-      {/* Step 4 of the post-onboarding tour (see Dashboard's own
-          currentTourStepBase for steps 1-3) — gated on "lock-gesture"
-          already being seen so it can't show out of order ahead of that
-          step if the user reaches Receive before finishing the Home ones. */}
-      {showQrHint && mode === "ark" && address && hasSeenHint("lock-gesture") && (
-        <Coachmark targetRef={qrHintRef} text={t("Klepnutím na QR kód zkopíruješ adresu do schránky.")} onDismiss={dismissQrHint} />
-      )}
-    </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle className="check-ring" cx="12" cy="12" r="10.5" stroke="currentColor" strokeWidth="1.6" pathLength={1} />
-      <path
-        className="check-mark"
-        d="M6.5 12.5l3.7 3.7 7.3-8.4"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        pathLength={1}
-      />
-    </svg>
-  );
-}
 
 // Beta (v2) toast: the amount travels separately from the sentence, so the
 // island can show it as the headline instead of burying it mid-message.
@@ -4720,12 +4225,11 @@ function SendPanel({
   // The 🎁 "send bitcoin as a link" entry point moved to the home screen's
   // Odeslat hold-menu (ActionMenu.tsx) — it was a third icon in the address
   // row here, next to a field it had nothing to do with.
-  const designVersion = useDesignVersion();
   const motionOn = useMotionOn();
   // Motion design: marks the destination field as the landing spot of the
   // scanner's lock frame for one View Transition (motion.css, scan-lock).
   const [justScanned, setJustScanned] = useState(false);
-  // Beta: the scan button first asks camera or gallery.
+  // The scan button first asks camera or gallery.
   const [pickingSource, setPickingSource] = useState(false);
   useEffect(() => {
     if (!justScanned) return;
@@ -4740,12 +4244,9 @@ function SendPanel({
     shake(errorRef.current);
     hapticError();
   }, [error, motionOn]);
-  // Only the @name lookup below is still beta. The deny-by-default destination
-  // validation ("invalid" kind) was too, and is now for everyone.
-  const isV2 = designVersion === "v2";
-  // Beta: "@pavel" / "pavel@spendrr.app" resolve through the name registry
+  // "@pavel" / "pavel@spendrr.app" resolve through the name registry
   // instead of being read as a Lightning address at a domain with no LNURL.
-  const nameQuery = useMemo(() => (isV2 ? parseHandleDestination(destination) : null), [destination, isV2]);
+  const nameQuery = useMemo(() => parseHandleDestination(destination), [destination]);
   const [nameResolution, setNameResolution] = useState<NameResolution | null>(null);
   // Handles paid before, offered while one is being typed: local, so they show
   // from the first letter, before any lookup could answer. Not tied to the
@@ -5404,7 +4905,7 @@ function SendPanel({
       const url = new URL(raw);
       if (
         url.origin === window.location.origin &&
-        (isGiftPath(url.pathname) || isRequestPath(url.pathname) || (!isV2 && handleFromPath(url.pathname) !== null))
+        (isGiftPath(url.pathname) || isRequestPath(url.pathname))
       ) {
         setScanning(false);
         window.location.href = raw;
@@ -5415,7 +4916,7 @@ function SendPanel({
       // address/invoice) — falls through to the normal destination parse.
     }
     // A scanned profile link ("https://spendrr.app/@pavel"): pay the handle.
-    const scannedHandle = isV2 ? handleFromProfileUrl(raw, window.location.origin) : null;
+    const scannedHandle = handleFromProfileUrl(raw, window.location.origin);
     if (scannedHandle) {
       setDestination(`@${scannedHandle}`);
       setResolvedKind(null);
@@ -5429,7 +4930,7 @@ function SendPanel({
     setJustScanned(true);
     if (amountSats !== undefined) setAmount(String(amountSats));
     setScanning(false);
-  }, [isV2]);
+  }, []);
 
   // Only meaningful for single-destination kinds with a queryable network
   // fee (Ark/on-chain) — Lightning routing fees are per-hop and uncertain
@@ -5509,114 +5010,8 @@ function SendPanel({
     };
   }, [plan, wallet]);
 
-  // V2 confirms in a sheet over the form (below); V1 swaps the panel.
-  if (plan && !isV2) {
-    const needsPassword = planNeedsPassword(plan) || spendLimitReached;
-    // Motion design: the button fills over exactly the arm delay above.
-    const armStyle = motionOn
-      ? ({
-          "--arm-ms": `${isLongArm(plan) ? CONFIRM_BUTTON_ARM_DELAY_LONG_MS : CONFIRM_BUTTON_ARM_DELAY_MS}ms`,
-        } as CSSProperties)
-      : undefined;
-    return (
-      <div className="panel">
-        {/* Every row below reads off `plan` — the same object send() is
-            handed on confirmation. Nothing here re-reads the input state or
-            re-classifies the destination, so what is displayed and what is
-            sent cannot drift apart. */}
-        <div className="confirm-summary">
-          {plan.recipient ? (
-            <>
-              <div className="info-row">
-                <span>{t("Komu")}</span>
-                <span className="recipient-chip">
-                  <Avatar seed={plan.recipient.address} size={32} />
-                  <strong className="recipient-chip-name">
-                    {plan.recipient.name}
-                    <span className="recipient-chip-domain">@{NAME_DOMAIN}</span>
-                  </strong>
-                </span>
-              </div>
-              <CopyRow label={t("Adresa")} value={plan.destination} />
-            </>
-          ) : (
-            <CopyRow label={t("Komu")} value={plan.destination} />
-          )}
-          {plan.effectiveAmountSats !== undefined && (
-            <div className="info-row">
-              <span>{t("Částka")}</span>
-              <strong>{plan.effectiveAmountSats.toLocaleString(localeFor(lang))} sats</strong>
-            </div>
-          )}
-          <div className="info-row">
-            <span>{t("Typ")}</span>
-            <code>{t(KIND_LABELS[plan.kind])}</code>
-          </div>
-          {feeEstimate && (
-            <div className="info-row">
-              <span>{t("Odhadovaný poplatek")}</span>
-              <strong>{feeEstimate.feeSats.toLocaleString(localeFor(lang))} sats</strong>
-            </div>
-          )}
-        </div>
-        {plan.recipient?.pin === "changed" && (
-          <div className="banner banner-danger">
-            <ErrorCircleIcon />
-            <span>
-              {t("Adresa u tohoto jména je jiná než při tvé poslední platbě. Než pošleš, ověř s příjemcem, že si ji opravdu změnil/a.")}
-            </span>
-          </div>
-        )}
-        <div className="banner banner-warning">
-          <WarningIcon />
-          <span>{t("Platbu nelze po odeslání vzít zpět. Zkontroluj adresu a částku.")}</span>
-        </div>
-        {needsPassword && (
-          <div className="field">
-            <label className="field-label">{t("Potvrď heslo pro odeslání velké částky")}</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder={t("Heslo")}
-              autoFocus
-              onKeyDown={(e) => e.key === "Enter" && !busy && confirmReady && confirmPassword && send(plan)}
-            />
-          </div>
-        )}
-        {error && (
-          <div className="banner banner-danger" ref={errorRef}>
-            <ErrorCircleIcon />
-            <span>{error}</span>
-          </div>
-        )}
-        <div className="stack">
-          <button
-            className={motionOn ? `confirm-arm${confirmReady ? " armed" : ""}${busy ? " sending" : ""}` : undefined}
-            style={armStyle}
-            disabled={busy || !confirmReady || (needsPassword && !confirmPassword)}
-            onClick={() => send(plan)}
-          >
-            {busy ? t("Odesílám…") : t("Potvrdit a odeslat")}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => {
-              setPlan(null);
-              setConfirmPassword("");
-            }}
-          >
-            {t("Zpět")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const confirmSheet =
-    plan && isV2 ? (
+    plan ? (
         <SendConfirmSheet
           plan={{
             onchain: plan.kind === "onchain",
@@ -5681,7 +5076,7 @@ function SendPanel({
           <button
             type="button"
             className="secondary scan-btn"
-            onClick={() => (isV2 ? setPickingSource(true) : setScanning(true))}
+            onClick={() => setPickingSource(true)}
             aria-label={t("Naskenovat QR kód")}
           >
             <ScanIcon />
@@ -6157,8 +5552,8 @@ const HistoryPanel = memo(function HistoryPanel({
         <div className="history-info">
           <div className="history-kind">
             {isRefreshMovement(m) ? t("Obnova mincí") : historyKindName(movementKind(m), t)}
-            {isBeta && !isRefreshMovement(m) && !LIGHTNING_KINDS.has(movementKind(m)) && !m.lightningInvoice && (() => {
-              const n = (positive ? null : nameForPayment(m)) ?? chatPayments.get(m.id)?.name ?? null;
+            {!isRefreshMovement(m) && !LIGHTNING_KINDS.has(movementKind(m)) && !m.lightningInvoice && (() => {
+              const n = (positive ? null : nameForPayment(m)) ?? (isBeta ? chatPayments.get(m.id)?.name : null) ?? null;
               // A long name would crowd the amount out of the row; the detail still shows it.
               return n && n.length <= HISTORY_ROW_HANDLE_MAX ? <span className="history-handle"> @{n}</span> : null;
             })()}
@@ -6505,7 +5900,7 @@ function TxDetailModal({
         </div>
       )}
       {(() => {
-        const n = isBeta && m.effectiveBalanceSats < 0 ? nameForPayment(m) : null;
+        const n = m.effectiveBalanceSats < 0 ? nameForPayment(m) : null;
         if (!n) return null;
         // The avatar is a checksum of the address, so it is drawn from where the
         // money actually went, never from what the name points at today.

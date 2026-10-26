@@ -182,6 +182,11 @@ describe("handleFromProfileUrl", () => {
     expect(handleFromProfileUrl("https://localhost:5173/@pavel", "https://localhost:5173")).toBe("pavel");
   });
 
+  it("accepts a trailing slash and an encoded @", () => {
+    expect(handleFromProfileUrl("https://spendrr.app/@pavel/", "https://localhost:5173")).toBe("pavel");
+    expect(handleFromProfileUrl("https://spendrr.app/%40pavel", "https://localhost:5173")).toBe("pavel");
+  });
+
   it("refuses other sites, extra path, query and fragment", () => {
     const own = "https://localhost:5173";
     for (const raw of [
