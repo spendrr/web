@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "26. 10. 2026",
+    title: "Poslat vše pro @jména",
+    items: [
+      "Poslat vše teď funguje i u @jména a částku spočítá rychleji.",
+      "Opraveno blikání po návratu z odeslání a přilepené podbarvení řádků.",
+    ],
+  },
+  {
     date: "25. 10. 2026",
     title: "Jména a nový Přijmout",
     items: [

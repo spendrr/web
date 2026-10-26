@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-10-26: Send all to @names
+
+- Send all now works for an @name too and works out the amount faster.
+- Fixed flicker when leaving Send and rows staying tinted.
+
 ## 2026-10-25: Names and a new Receive
 
 - Pay straight to an @name, Receive shows your Lightning address.
