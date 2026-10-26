@@ -9,10 +9,12 @@ import {
   decodeNameSnapshot,
   encodeNameSnapshot,
   invalidateNameSnapshot,
+  NAME_SNAPSHOT_CONTENT_TYPE,
   NAME_SNAPSHOT_TTL_SECONDS,
+  readNameSnapshotResponse,
   resetNameSnapshotMemo,
 } from "../worker/nameSnapshot";
-import { NAME_QUARANTINE_MS, NameRegistry, NameRegistryCore, type NameStorage } from "../worker/names";
+import { NAME_QUARANTINE_MS, NameRegistry, NameRegistryCore, SNAPSHOT_MAX_AGE_MS, type NameStorage } from "../worker/names";
 
 class MemoryStorage implements NameStorage {
   readonly data = new Map<string, unknown>();
@@ -68,7 +70,7 @@ describe("encode / decode", () => {
   it("has() is true for every encoded name (no false negatives)", () => {
     fc.assert(
       fc.property(fc.array(fc.stringMatching(/^[a-z0-9_-]{3,20}$/), { maxLength: 200 }), (names) => {
-        const snapshot = decodeNameSnapshot(encodeNameSnapshot(names, 1));
+        const snapshot = decodeNameSnapshot(encodeNameSnapshot(names));
         expect(snapshot).not.toBeNull();
         for (const n of names) expect(snapshot!.has(n)).toBe(true);
       }),
@@ -77,35 +79,41 @@ describe("encode / decode", () => {
 
   it("names that were not encoded are (almost always) absent", () => {
     const known = Array.from({ length: 500 }, (_, i) => `known${i}`);
-    const snapshot = decodeNameSnapshot(encodeNameSnapshot(known, 1))!;
+    const snapshot = decodeNameSnapshot(encodeNameSnapshot(known))!;
     let falsePositives = 0;
     for (let i = 0; i < 5000; i++) if (snapshot.has(`stranger${i}`)) falsePositives++;
     expect(falsePositives).toBeLessThanOrEqual(1);
   });
 
   it("an empty snapshot is valid and has nothing", () => {
-    const snapshot = decodeNameSnapshot(encodeNameSnapshot([], 1))!;
+    const snapshot = decodeNameSnapshot(encodeNameSnapshot([]))!;
     expect(snapshot.has("pavel")).toBe(false);
   });
 
   it("duplicates are harmless", () => {
-    const snapshot = decodeNameSnapshot(encodeNameSnapshot(["pavel", "pavel", "jana"], 1))!;
+    const snapshot = decodeNameSnapshot(encodeNameSnapshot(["pavel", "pavel", "jana"]))!;
     expect(snapshot.has("pavel")).toBe(true);
     expect(snapshot.has("jana")).toBe(true);
   });
 
   it("a large registry encodes and decodes (no call-stack overflow, exact membership)", () => {
     const names = Array.from({ length: 150_000 }, (_, i) => `n${i.toString(36)}x`);
-    const snapshot = decodeNameSnapshot(encodeNameSnapshot(names, 1))!;
+    const snapshot = decodeNameSnapshot(encodeNameSnapshot(names))!;
     expect(snapshot.count).toBeGreaterThan(149_000); // a few 32-bit collisions at most
     for (let i = 0; i < names.length; i += 997) expect(snapshot.has(names[i])).toBe(true);
     expect(snapshot.has("definitely-not-there")).toBe(false);
   });
 
-  it("garbage does not decode", () => {
-    for (const bad of [null, undefined, "x", 1, {}, { v: 2, at: 1, count: 0, hashes: "" }, { v: 1, at: 1, count: 1, hashes: "AAA" }, { v: 1, at: 1, count: 0, hashes: 5 }]) {
-      expect(decodeNameSnapshot(bad as never)).toBeNull();
-    }
+  it("garbage does not decode", async () => {
+    expect(decodeNameSnapshot(new Uint8Array(5))).toBeNull();
+    const typed = (body: BodyInit, type: string, status = 200) =>
+      new Response(body, { status, headers: { "content-type": type } });
+    expect(await readNameSnapshotResponse(null)).toBeNull();
+    expect(await readNameSnapshotResponse(Response.json({ status: "free" }))).toBeNull();
+    expect(await readNameSnapshotResponse(typed(new Uint8Array(4), NAME_SNAPSHOT_CONTENT_TYPE, 500))).toBeNull();
+    expect(await readNameSnapshotResponse(typed(new Uint8Array(6), NAME_SNAPSHOT_CONTENT_TYPE))).toBeNull();
+    expect(await readNameSnapshotResponse(typed(encodeNameSnapshot(["pavel"]), "application/octet-stream"))).toBeNull();
+    expect((await readNameSnapshotResponse(typed(encodeNameSnapshot(["pavel"]), NAME_SNAPSHOT_CONTENT_TYPE)))!.has("pavel")).toBe(true);
   });
 });
 
@@ -127,12 +135,14 @@ describe("NameRegistryCore.snapshotNames", () => {
     expect(names).toEqual(["badname", "jana", "pavel"]);
   });
 
-  it("a quarantine that has ended is no longer in it", async () => {
-    const { core, advance } = setup();
+  it("a quarantine that has ended is no longer in it, and is deleted", async () => {
+    const { core, storage, advance } = setup();
     await core.set({ name: "jana", mailboxId: MB2, address: A });
     await core.release(MB2);
     advance(NAME_QUARANTINE_MS + 1);
     expect(await core.snapshotNames()).toEqual([]);
+    expect(storage.data.has("q:jana")).toBe(false);
+    expect(await core.lookup("jana")).toEqual({ status: "free" });
   });
 
   it("an alias is in it", async () => {
@@ -152,7 +162,7 @@ describe("NameRegistry /snapshot (the Durable Object)", () => {
   const post = (registry: NameRegistry, path: string, body: unknown) =>
     registry.fetch(new Request(`https://name-registry.internal${path}`, { method: "POST", body: JSON.stringify(body) }));
   const snapshotOf = async (registry: NameRegistry) =>
-    decodeNameSnapshot(await (await post(registry, "/snapshot", {})).json())!;
+    (await readNameSnapshotResponse(await post(registry, "/snapshot", {})))!;
 
   it("is rebuilt only after a write, not on every call", async () => {
     const storage = new MemoryStorage();
@@ -188,13 +198,62 @@ describe("NameRegistry /snapshot (the Durable Object)", () => {
     await snapshotOf(registry);
     storage.data.set("n:sneaky", {}); // a write that bypassed the tracker
     expect((await snapshotOf(registry)).has("sneaky")).toBe(false);
-    vi.setSystemTime(1_000_000 + 11 * 60 * 1000);
+    vi.setSystemTime(1_000_000 + SNAPSHOT_MAX_AGE_MS + 1);
     expect((await snapshotOf(registry)).has("sneaky")).toBe(true);
+  });
+
+  it("a new name is added without a rebuild", async () => {
+    const storage = new MemoryStorage();
+    const registry = new NameRegistry({ storage }, null);
+    await snapshotOf(registry);
+    const before = storage.lists;
+    await post(registry, "/set", { name: "pavel", mailboxId: MB1, address: A });
+    await post(registry, "/admin/block", { name: "badname" });
+    const snapshot = await snapshotOf(registry);
+    expect(snapshot.has("pavel")).toBe(true);
+    expect(snapshot.has("badname")).toBe(true);
+    expect(storage.lists).toBe(before);
+  });
+
+  it("a sign of life, an address change or a setting on a held name costs no rebuild", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const storage = new MemoryStorage();
+    const registry = new NameRegistry({ storage }, null);
+    await post(registry, "/set", { name: "pavel", mailboxId: MB1, address: A });
+    vi.setSystemTime(1_000_000 + 2 * 24 * 60 * 60 * 1000); // past the sign-of-life throttle
+    await snapshotOf(registry);
+    const before = storage.lists;
+    const seen = (storage.data.get("n:pavel") as { lastSeenAt: number }).lastSeenAt;
+    await post(registry, "/mine", { mailboxId: MB1 });
+    expect((storage.data.get("n:pavel") as { lastSeenAt: number }).lastSeenAt).toBeGreaterThan(seen);
+    await post(registry, "/set", { name: "pavel", mailboxId: MB1, address: "ark1" + "z".repeat(60) });
+    await post(registry, "/ln-address/set", { mailboxId: MB1, enabled: true });
+    expect((await snapshotOf(registry)).has("pavel")).toBe(true);
+    expect(storage.lists).toBe(before);
+  });
+
+  it("a delete is rebuilt, so a name that is gone leaves it", async () => {
+    const storage = new MemoryStorage();
+    const registry = new NameRegistry({ storage }, null);
+    await post(registry, "/admin/block", { name: "badname" });
+    expect((await snapshotOf(registry)).has("badname")).toBe(true);
+    await post(registry, "/admin/unblock", { name: "badname" });
+    expect((await snapshotOf(registry)).has("badname")).toBe(false);
+  });
+
+  it("a release keeps the name in it (quarantined)", async () => {
+    const storage = new MemoryStorage();
+    const registry = new NameRegistry({ storage }, null);
+    await post(registry, "/set", { name: "pavel", mailboxId: MB1, address: A });
+    await post(registry, "/release", { mailboxId: MB1 });
+    expect((await snapshotOf(registry)).has("pavel")).toBe(true);
   });
 });
 
 describe("currentNameSnapshot (edge cache and memo)", () => {
-  const wire = () => encodeNameSnapshot(["pavel"], 1);
+  const wire = () =>
+    new Response(encodeNameSnapshot(["pavel"]), { headers: { "content-type": NAME_SNAPSHOT_CONTENT_TYPE } });
 
   it("200 callers cost one fetch", async () => {
     const cache = makeCache();
@@ -249,7 +308,7 @@ describe("currentNameSnapshot (edge cache and memo)", () => {
 
   it("garbage from the source is a failure, not a snapshot", async () => {
     const cache = makeCache();
-    expect(await currentNameSnapshot(cache, async () => ({ status: "free" }) as never)).toBeNull();
+    expect(await currentNameSnapshot(cache, async () => Response.json({ status: "free" }))).toBeNull();
   });
 
   it("invalidate makes the next caller fetch again", async () => {
@@ -283,7 +342,9 @@ function makeEnv(opts: { known?: string[]; snapshotFails?: boolean; missBudget?:
           const body = JSON.parse(String(init.body)) as { name?: string };
           calls.push({ path, name: body.name });
           if (path === "/snapshot") {
-            return opts.snapshotFails ? new Response("no", { status: 500 }) : Response.json(encodeNameSnapshot(known, 1));
+            return opts.snapshotFails
+              ? new Response("no", { status: 500 })
+              : new Response(encodeNameSnapshot(known), { headers: { "content-type": NAME_SNAPSHOT_CONTENT_TYPE } });
           }
           if (path === "/lookup") {
             return known.includes(body.name ?? "")
@@ -333,6 +394,15 @@ describe("public lookups with a snapshot", () => {
       expect(await res.json()).toEqual({ name: "pavel", address: A, lnAddress: true });
     }
     expect(t.lookups()).toHaveLength(1);
+  });
+
+  it("a name in its own cache does not wait for a snapshot", async () => {
+    const t = makeEnv({ known: ["pavel"] });
+    await get(t.env, "/api/names/pavel");
+    resetNameSnapshotMemo();
+    await caches.default.delete(new Request("https://names-cache.internal/snapshot"));
+    for (let i = 0; i < 5; i++) expect((await get(t.env, "/api/names/pavel")).status).toBe(200);
+    expect(t.calls.filter((c) => c.path === "/snapshot")).toHaveLength(1);
   });
 
   it("a blocked or quarantined name (in the snapshot) is asked at the registry", async () => {

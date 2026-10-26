@@ -78,7 +78,7 @@ import { networkPrefix, guardPrefix, bumpRateLimitKey } from "./bump";
 import { isCanonicalBase64, readBodyCapped } from "./requestGuard";
 import { getSliding, putSliding, touchSliding, type SlidingRead } from "./kvSliding";
 import { cachedNameLookup, invalidateNameLookup } from "./nameLookupCache";
-import { currentNameSnapshot, invalidateNameSnapshot, type NameSnapshotWire } from "./nameSnapshot";
+import { currentNameSnapshot, invalidateNameSnapshot } from "./nameSnapshot";
 import { cachedUpstream, type CachedResult } from "./upstreamCache";
 import { upstreamSignal } from "./upstream";
 import { relayConfigured, relayHealthy, verifyHook } from "./pushRelay";
@@ -2218,16 +2218,6 @@ async function callNameRegistry<T>(env: Env, path: string, body: unknown): Promi
 // costs a Durable Object request, so only a miss is charged to the stricter
 // per-source limiter.
 async function lookupNameCached(env: Env, request: Request, handle: string, nameForRegistry: string) {
-  // A name the registry knows nothing about is answered here, exactly as it
-  // would answer (`reserved` for the static list, else `free`), and costs no
-  // Durable Object request however many such names are asked (nameSnapshot.ts).
-  // No snapshot at hand: the per-name path below, as it was before.
-  const snapshot = await currentNameSnapshot(caches.default, () =>
-    callNameRegistry<NameSnapshotWire>(env, "/snapshot", {}),
-  );
-  if (snapshot && !snapshot.has(handle)) {
-    return { kind: "result", result: { status: isReservedName(handle) ? "reserved" : "free" }, hit: true } as const;
-  }
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   const source = bumpRateLimitKey(ip);
   return cachedNameLookup(
@@ -2242,6 +2232,20 @@ async function lookupNameCached(env: Env, request: Request, handle: string, name
         ? await env.NAME_MISS_RATE_LIMITER.limit({ key: source })
         : await env.NAME_LOOKUP_RATE_LIMITER.limit({ key: `miss:${source}` })
       ).success,
+    // Asked only when the name's own cache entry missed, so a name in use never
+    // waits for a snapshot. A name the registry knows nothing about is answered
+    // here, exactly as it would answer (`reserved` for the static list, else
+    // `free`), and costs no Durable Object request however many such names are
+    // asked (nameSnapshot.ts). No snapshot at hand: the registry, as before it.
+    async () => {
+      const snapshot = await currentNameSnapshot(caches.default, () =>
+        nameRegistryStub(env)
+          .fetch("https://name-registry.internal/snapshot", { method: "POST", body: "{}" })
+          .catch(() => null),
+      );
+      if (!snapshot || snapshot.has(handle)) return null;
+      return { status: isReservedName(handle) ? "reserved" : "free" };
+    },
   );
 }
 
@@ -2440,7 +2444,7 @@ async function handleNameRelease(request: Request, env: Env): Promise<Response> 
     { mailboxId },
   );
   if (!result) return jsonError(502, "Name registry unavailable.");
-  if (!result.ok) return jsonError(result.error === "not-found" ? 404 : 429, result.error);
+  if (!result.ok) return jsonError(404, result.error);
   await invalidateNameLookup(caches.default, result.name);
   await invalidateNameSnapshot(caches.default);
   return new Response(null, { status: 204 });

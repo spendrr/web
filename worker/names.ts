@@ -32,18 +32,20 @@
 //     not the mailbox's name: it does not count as it, never lapses, and cannot
 //     be changed from the app, only by the admin.
 //
-// A mailbox owns at most one name. Changing the name or the address counts
-// against NAME_MAX_CHANGES per NAME_CHANGE_WINDOW_MS, and so does releasing,
-// so release + claim can't be used to hop names around the limit. A name a
+// A mailbox owns at most one name. Claiming or renaming counts against
+// NAME_MAX_CHANGES per NAME_CHANGE_WINDOW_MS; releasing never does, so a
+// mailbox at the limit can always give its name up. Release + claim is still
+// bounded, because the claim is what counts. Changing only the address behind
+// the name the mailbox holds is not limited: the user does not choose it. A name a
 // mailbox gives up is quarantined for NAME_QUARANTINE_MS: nobody else can take
 // it, so a payment meant for the old owner never lands with a stranger. The
 // mailbox that gave it up may take it back.
-import { encodeNameSnapshot } from "./nameSnapshot";
+import { NAME_SNAPSHOT_CONTENT_TYPE, encodeNameHashes, nameHash } from "./nameSnapshot";
 import { checkHandle, isReservedName, type HandleProblem } from "../src/lib/names/handle";
 
 export const NAME_QUARANTINE_MS = 30 * 24 * 60 * 60 * 1000;
 export const NAME_CHANGE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-export const NAME_MAX_CHANGES = 5;
+export const NAME_MAX_CHANGES = 10;
 // A name nobody has vouched for in this long may be taken over. Long on
 // purpose: a taken-over name pays whoever now holds it, so this is about
 // abandoned names, not sleepy ones.
@@ -177,7 +179,7 @@ interface Banned {
 
 interface MailboxRecord {
   name: string | null;
-  // Timestamps (ms) of name/address changes and releases, pruned to the window.
+  // Timestamps (ms) of claims and renames, pruned to the window.
   changes: number[];
 }
 
@@ -200,7 +202,7 @@ export type SetResult =
       error: "invalid" | "reserved" | "bad-address" | "taken" | "quarantined" | "rate-limited" | "banned" | "closed";
     };
 
-export type ReleaseResult = { ok: true; name: string } | { ok: false; error: "not-found" | "rate-limited" };
+export type ReleaseResult = { ok: true; name: string } | { ok: false; error: "not-found" };
 
 export type MineResult = { name: string; address: string; lnAddress: boolean; chatPubkey?: string } | null;
 
@@ -296,23 +298,31 @@ export class NameRegistryCore {
   // reserved-list "reserved"): records (aliases included), admin blocks and
   // quarantines still running. The edge keeps only hashes of these
   // (nameSnapshot.ts): a name outside the set needs no Durable Object request.
+  // A quarantine that has ended is deleted here: it decides nothing any more,
+  // and every later rebuild would read it again.
   async snapshotNames(): Promise<string[]> {
     const now = this.now();
     const names: string[] = [];
-    const collect = async (prefix: string, keep: (value: unknown) => boolean) => {
+    const expired: string[] = [];
+    const collect = async (prefix: string, keep: (key: string, value: unknown) => boolean) => {
       let after: string | undefined;
       for (;;) {
         const page = await this.storage.list<unknown>({ prefix, limit: SNAPSHOT_LIST_PAGE, startAfter: after });
         for (const [key, value] of page) {
           after = key;
-          if (keep(value)) names.push(key.slice(prefix.length));
+          if (keep(key, value)) names.push(key.slice(prefix.length));
         }
         if (page.size < SNAPSHOT_LIST_PAGE) return;
       }
     };
     await collect("n:", () => true);
     await collect("b:", () => true);
-    await collect("q:", (value) => typeof value === "object" && value !== null && (value as Quarantine).until > now);
+    await collect("q:", (key, value) => {
+      if (typeof value === "object" && value !== null && (value as Quarantine).until > now) return true;
+      expired.push(key);
+      return false;
+    });
+    await Promise.all(expired.map((key) => this.storage.delete(key)));
     return names;
   }
 
@@ -353,11 +363,7 @@ export class NameRegistryCore {
         await this.touchRecord(existing);
         return { ok: true, action: "unchanged", name, address };
       }
-      if (recent.length >= NAME_MAX_CHANGES) return { ok: false, error: "rate-limited" };
-      await Promise.all([
-        this.storage.put(nameKey(name), { ...existing, address, updatedAt: now, lastSeenAt: now }),
-        this.storage.put(mailboxKey(mailboxId), { name, changes: [...recent, now] }),
-      ]);
+      await this.storage.put(nameKey(name), { ...existing, address, updatedAt: now, lastSeenAt: now });
       return { ok: true, action: "address-updated", name, address };
     }
 
@@ -408,13 +414,11 @@ export class NameRegistryCore {
     const m = await this.storage.get<MailboxRecord>(mailboxKey(mailboxId));
     if (!m || !m.name) return { ok: false, error: "not-found" };
     const now = this.now();
-    const recent = this.recentChanges(m);
-    if (recent.length >= NAME_MAX_CHANGES) return { ok: false, error: "rate-limited" };
     await Promise.all([
       this.storage.delete(nameKey(m.name)),
       this.storage.put(quarantineKey(m.name), { until: now + NAME_QUARANTINE_MS, mailboxId } satisfies Quarantine),
-      // Keep the history: releasing must count toward the change limit.
-      this.storage.put(mailboxKey(mailboxId), { name: null, changes: [...recent, now] } satisfies MailboxRecord),
+      // Keep the history of claims and renames, so claiming again stays limited.
+      this.storage.put(mailboxKey(mailboxId), { name: null, changes: this.recentChanges(m) } satisfies MailboxRecord),
     ]);
     return { ok: true, name: m.name };
   }
@@ -627,28 +631,35 @@ function json(body: unknown, status = 200): Response {
 }
 
 const SNAPSHOT_LIST_PAGE = 1000;
-// A snapshot is rebuilt when a name, block or quarantine was written, and
-// otherwise at most this often: the writes are tracked at the storage layer, so
-// this only bounds the damage of a write path that ever bypasses it.
-const SNAPSHOT_MAX_AGE_MS = 10 * 60 * 1000;
+// A full rebuild reads every name, block and quarantine. It happens when the
+// object starts, after something was deleted, and otherwise at most this often:
+// that only drops quarantines that have ended (harmless while they stay, such a
+// name is just asked at the registry) and bounds the damage of a write path
+// that ever bypasses the tracking below.
+export const SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
-// Tells the snapshot that something it holds may have changed: any write to a
-// name (`n:`), an admin block (`b:`) or a quarantine (`q:`). At the storage
-// layer on purpose, so a new write path in the core cannot forget it.
-function trackNameChanges(storage: NameStorage, onChange: () => void): NameStorage {
-  const relevant = (key: string) => key.startsWith("n:") || key.startsWith("b:") || key.startsWith("q:");
+const SNAPSHOT_PREFIXES = ["n:", "b:", "q:"];
+const snapshotName = (key: string): string | null =>
+  SNAPSHOT_PREFIXES.some((p) => key.startsWith(p)) ? key.slice(2) : null;
+
+// Tells the snapshot what was written to a name (`n:`), an admin block (`b:`) or
+// a quarantine (`q:`). At the storage layer on purpose, so a new write path in
+// the core cannot forget it. Called after the write, when a rebuild would see it.
+function trackNameChanges(
+  storage: NameStorage,
+  on: { put: (name: string) => void; delete: () => void },
+): NameStorage {
   return {
     get: (key) => storage.get(key),
     list: (options) => storage.list(options),
     async put(key, value) {
-      if (relevant(key)) onChange();
       await storage.put(key, value);
-      if (relevant(key)) onChange();
+      const name = snapshotName(key);
+      if (name !== null) on.put(name);
     },
     async delete(key) {
-      if (relevant(key)) onChange();
       const existed = await storage.delete(key);
-      if (relevant(key)) onChange();
+      if (snapshotName(key) !== null) on.delete();
       return existed;
     },
   };
@@ -656,14 +667,55 @@ function trackNameChanges(storage: NameStorage, onChange: () => void): NameStora
 
 export class NameRegistry {
   private readonly core: NameRegistryCore;
-  private snapshotDirty = true;
-  private snapshot: { wire: ReturnType<typeof encodeNameSnapshot>; builtAt: number } | null = null;
+  // The hashes the snapshot holds. A put only ever adds a name to the set, so it
+  // is applied here and costs no rebuild (most puts are a sign of life or a
+  // setting on a name already in it, and change nothing). A delete may remove
+  // one, which only a rebuild can tell (hashes collide), so it marks the set
+  // stale, and so does a put that lands while a rebuild is reading.
+  private hashes: Set<number> | null = null;
+  private stale = true;
+  private rebuilding = false;
+  private builtAt = 0;
+  private bytes: Uint8Array | null = null;
 
   constructor(state: NameState, env: { RESERVED_NAME_OWNERS?: string } | null) {
-    const tracked = trackNameChanges(state.storage, () => {
-      this.snapshotDirty = true;
+    const tracked = trackNameChanges(state.storage, {
+      put: (name) => {
+        const hash = nameHash(name);
+        if (this.rebuilding) this.stale = true;
+        else if (this.hashes && !this.hashes.has(hash)) {
+          this.hashes.add(hash);
+          this.bytes = null;
+        }
+      },
+      delete: () => {
+        this.stale = true;
+      },
     });
     this.core = new NameRegistryCore(tracked, Date.now, parseReservedOwners(env?.RESERVED_NAME_OWNERS));
+  }
+
+  private async snapshotBytes(): Promise<Uint8Array> {
+    const now = Date.now();
+    if (this.hashes === null || this.stale || now - this.builtAt > SNAPSHOT_MAX_AGE_MS) {
+      // Cleared before reading: a write that lands meanwhile marks it again.
+      this.stale = false;
+      this.rebuilding = true;
+      // Deleting the quarantines that have ended marks it stale again, so the
+      // next call after one rebuilds once more and finds none.
+      try {
+        this.hashes = new Set((await this.core.snapshotNames()).map(nameHash));
+      } catch (err) {
+        this.stale = true;
+        throw err;
+      } finally {
+        this.rebuilding = false;
+      }
+      this.builtAt = now;
+      this.bytes = null;
+    }
+    this.bytes ??= encodeNameHashes(this.hashes);
+    return this.bytes;
   }
 
   // Internal only: index.ts is the one caller, and has already validated and
@@ -688,13 +740,7 @@ export class NameRegistry {
       return json(await this.core.lookup(name));
     }
     if (path === "/snapshot") {
-      const now = Date.now();
-      if (this.snapshot === null || this.snapshotDirty || now - this.snapshot.builtAt > SNAPSHOT_MAX_AGE_MS) {
-        // Cleared before reading: a write that lands meanwhile marks it again.
-        this.snapshotDirty = false;
-        this.snapshot = { wire: encodeNameSnapshot(await this.core.snapshotNames(), now), builtAt: now };
-      }
-      return json(this.snapshot.wire);
+      return new Response(await this.snapshotBytes(), { headers: { "content-type": NAME_SNAPSHOT_CONTENT_TYPE } });
     }
     if (path === "/set") {
       const name = str("name");

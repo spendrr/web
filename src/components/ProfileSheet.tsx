@@ -7,6 +7,7 @@ import type { WalletClient } from "../lib/wallet/bark";
 import { NAME_DOMAIN, checkHandle, handleUrl, suggestHandle, type HandleProblem } from "../lib/names/handle";
 import { useT } from "../lib/i18n";
 import { fetchMyName, lookupName, releaseMyName, saveName, setMyLnAddress, type NameError } from "../lib/names/names";
+import { forgetReleasedName, rememberReleasedName, wasReleasedBy } from "../lib/names/releasedNames";
 import { getCachedName, setCachedName, setHasHandle } from "../lib/names/nameTouch";
 import { invalidateChatNameBinding } from "../lib/chat/chatClient";
 import { reportError } from "../lib/appErrors";
@@ -64,7 +65,7 @@ function errorText(error: NameError, t: (cs: string) => string): string {
     case "quarantined":
       return t("Tohle jméno se teď nedá použít. Zkus jiné.");
     case "rate-limited":
-      return t("Jméno jsi měnil/a příliš často. Zkus to později, limit je 5 změn za 30 dní.");
+      return t("Jméno jsi měnil/a příliš často. Zkus to později, limit je 10 změn za 30 dní.");
     case "throttled":
       return t("Moc požadavků najednou. Zkus to za chvíli.");
     case "invalid":
@@ -86,7 +87,7 @@ function errorText(error: NameError, t: (cs: string) => string): string {
 
 // What the live check in the edit screen knows about the typed name.
 type Availability =
-  | { query: string; state: "free" | "yours" | "taken" | "quarantined" | "reserved" | "invalid" | "unknown" }
+  | { query: string; state: "free" | "yours" | "taken" | "quarantined" | "released" | "reserved" | "invalid" | "unknown" }
   | null;
 
 export default function ProfileSheet({
@@ -174,7 +175,8 @@ export default function ProfileSheet({
         const own = mine.state === "registered" && mine.name === result.name;
         setAvailability({ query: typed, state: own ? "yours" : "taken" });
       } else if (result.kind === "absent") {
-        setAvailability({ query: typed, state: result.status });
+        const released = result.status === "quarantined" && wasReleasedBy(typed, address);
+        setAvailability({ query: typed, state: released ? "released" : result.status });
       } else {
         setAvailability({ query: typed, state: "unknown" });
       }
@@ -184,7 +186,7 @@ export default function ProfileSheet({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [phase, typed, mine]);
+  }, [phase, typed, mine, address]);
 
   const currentAvailability = availability && availability.query === typed ? availability.state : null;
 
@@ -200,6 +202,7 @@ export default function ProfileSheet({
     for (let i = 0; i < SUGGESTION_ATTEMPTS; i++) {
       const result = await saveName(wallet, suggestHandle(address, i), address);
       if (result.ok) {
+        forgetReleasedName(result.name);
         setHasHandle(true);
         invalidateChatNameBinding();
         setMine({ state: "registered", name: result.name, address: result.address, lnAddress: false });
@@ -228,6 +231,8 @@ export default function ProfileSheet({
       fail(result.error);
       return;
     }
+    if (mine.state === "registered" && mine.name !== result.name) rememberReleasedName(mine.name, address);
+    forgetReleasedName(result.name);
     setHasHandle(true);
     invalidateChatNameBinding();
     setMine({
@@ -282,6 +287,7 @@ export default function ProfileSheet({
       fail(result.error);
       return;
     }
+    if (mine.state === "registered" && address) rememberReleasedName(mine.name, address);
     setHasHandle(false);
     invalidateChatNameBinding();
     setMine({ state: "none" });
@@ -364,7 +370,9 @@ export default function ProfileSheet({
           ? t("Tohle jméno už máš.")
           : currentAvailability === "taken"
             ? t("Tohle jméno už má někdo jiný.")
-            : currentAvailability === "quarantined"
+            : currentAvailability === "released"
+              ? t("Tvoje, jde vzít zpět.")
+              : currentAvailability === "quarantined"
               ? t("Tohle jméno se teď nedá použít.")
               : currentAvailability === "reserved"
                 ? t("Vyhrazené jméno. Uložit ho jde jen jeho majiteli.")

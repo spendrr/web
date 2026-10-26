@@ -1101,8 +1101,9 @@ const DICT: Record<string, string> = {
   "Pošli mi bitcoin ve Spendrru": "Send me bitcoin on Spendrr",
   "Tohle jméno už má někdo jiný.": "Someone else already has this name.",
   "Tohle jméno se teď nedá použít. Zkus jiné.": "This name can't be used right now. Try another.",
-  "Jméno jsi měnil/a příliš často. Zkus to později, limit je 5 změn za 30 dní.":
-    "You've changed your name too often. Try later, the limit is 5 changes per 30 days.",
+  "Jméno jsi měnil/a příliš často. Zkus to později, limit je 10 změn za 30 dní.":
+    "You've changed your name too often. Try later, the limit is 10 changes per 30 days.",
+  "Tvoje, jde vzít zpět.": "Yours, take it back.",
   "Moc požadavků najednou. Zkus to za chvíli.": "Too many requests at once. Try again shortly.",
   "Neplatné jméno.": "Invalid name.",
   "Adresa peněženky není platná.": "The wallet address isn't valid.",

@@ -142,6 +142,15 @@ describe("set", () => {
     expect(await core.lookup("pavel")).toMatchObject({ address: B });
   });
 
+  it("does not spend the change budget on an address change", async () => {
+    const { core } = setup();
+    await core.set({ name: "pavel", mailboxId: MB1, address: A });
+    for (let i = 0; i < NAME_MAX_CHANGES + 3; i++) {
+      expect(await core.set({ name: "pavel", mailboxId: MB1, address: i % 2 ? A : B })).toMatchObject({ ok: true });
+    }
+    expect(await core.set({ name: "other", mailboxId: MB1, address: A })).toMatchObject({ ok: true, action: "renamed" });
+  });
+
   it("cannot take over another mailbox's address by naming the same name", async () => {
     const { core } = setup();
     await core.set({ name: "pavel", mailboxId: MB1, address: A });
@@ -186,10 +195,6 @@ describe("set", () => {
       ok: false,
       error: "rate-limited",
     });
-    expect(await core.set({ name: `name_${NAME_MAX_CHANGES}`, mailboxId: MB1, address: B })).toEqual({
-      ok: false,
-      error: "rate-limited",
-    });
     advance(NAME_CHANGE_WINDOW_MS + 1);
     expect(await core.set({ name: "one_too_many", mailboxId: MB1, address: A })).toMatchObject({ ok: true });
   });
@@ -213,7 +218,7 @@ describe("release", () => {
     expect(await core.release(MB1)).toEqual({ ok: false, error: "not-found" });
   });
 
-  it("counts toward the change limit, so release + claim cannot hop names for free", async () => {
+  it("is never limited, but the claims after it are", async () => {
     const { core } = setup();
     await core.set({ name: "name_0", mailboxId: MB1, address: A });
     let claimed = 0;
@@ -224,7 +229,18 @@ describe("release", () => {
       if (!s.ok) break;
       claimed++;
     }
-    expect(claimed).toBeLessThanOrEqual(NAME_MAX_CHANGES);
+    expect(claimed).toBe(NAME_MAX_CHANGES);
+  });
+
+  it("lets a mailbox at the limit release, and take its own quarantined name back", async () => {
+    const { core } = setup();
+    await core.set({ name: "name_0", mailboxId: MB1, address: A });
+    for (let i = 1; i <= NAME_MAX_CHANGES; i++) await core.set({ name: `name_${i}`, mailboxId: MB1, address: A });
+    expect(await core.release(MB1)).toMatchObject({ ok: true });
+    expect(await core.set({ name: `name_${NAME_MAX_CHANGES}`, mailboxId: MB1, address: A })).toEqual({
+      ok: false,
+      error: "rate-limited",
+    });
   });
 
   it("does not let a stranger release or read someone else's name", async () => {
