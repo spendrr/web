@@ -7,6 +7,10 @@ User-visible changes, newest first. "(beta)" marks what is behind the beta switc
 - Change your name up to 10 times a month, remove it anytime.
 - Take back a name you recently removed.
 
+## 2026-10-26: Pay to ₿names
+
+- Pay to ₿name@domain; the record is verified through DNS. (beta)
+
 ## 2026-10-26: Smoother controls
 
 - Leaving Send no longer flickers and tapping no longer tints rows.

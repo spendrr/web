@@ -56,6 +56,11 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     date: "26. 10. 2026",
+    title: "Platba na ₿jména",
+    items: [{ text: "Platíš na ₿jméno@doména a záznam se ověří přes DNS.", beta: true }],
+  },
+  {
+    date: "26. 10. 2026",
     title: "Hladší ovládání",
     items: [
       "Návrat z odeslání neblikne a klepnutí už nezabarvuje řádky.",

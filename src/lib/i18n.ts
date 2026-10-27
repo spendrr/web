@@ -1134,6 +1134,14 @@ const DICT: Record<string, string> = {
   "Opravit adresu": "Fix address",
   "Ověřuji jméno, chvíli počkej.": "Checking the name, one moment.",
   "Ověřuji jméno…": "Checking name…",
+  "Jméno nemá platební záznam.": "This name has no payment record.",
+  "Platba na ₿jména": "Pay to ₿names",
+  "Platíš na ₿jméno@doména a záznam se ověří přes DNS.": "Pay to ₿name@domain; the record is verified through DNS.",
+  "Záznam nemá podporovaný způsob platby.": "The record has no supported way to pay.",
+  "Podpis záznamu je mimo platnost. Zkontroluj čas v zařízení.": "The record's signature is out of date. Check the time on your device.",
+  "Záznam není jednoznačný. Platbu jsem zastavil.": "The record is ambiguous. Payment stopped.",
+  "Záznam vyžaduje nepodporovanou funkci.": "The record requires an unsupported feature.",
+  "Záznam se nepodařilo ověřit. Platbu jsem zastavil.": "The record could not be verified. Payment stopped.",
   "Dříve placená jména": "Names you paid before",
   "Tvoje adresa": "Your address",
   "Zapnout Lightning adresu": "Turn on Lightning address",
@@ -1194,6 +1202,7 @@ const DICT: Record<string, string> = {
   "Platíš z Ark peněženky? Ukázat Ark adresu": "Paying from an Ark wallet? Show Ark address",
   "Tohle jméno ukazuje na neplatnou adresu. Platbu jsem zastavil.":
     "This name points to an invalid address. I stopped the payment.",
+  "Ověření jména vypršelo. Chvíli počkej a zkus znovu.": "Name verification expired. Wait a moment and try again.",
   "Jméno se nepodařilo ověřit. Zkus to za chvíli znovu.": "Couldn't verify the name. Try again shortly.",
   "Takové jméno nikdo nemá. Zkontroluj překlepy.": "Nobody has that name. Check for typos.",
   "Adresa u tohoto jména je jiná než při tvé poslední platbě. Než pošleš, ověř s příjemcem, že si ji opravdu změnil/a.":

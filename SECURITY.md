@@ -18,6 +18,9 @@ Useful in a report: what is affected, steps to reproduce (a signet or regtest wa
 - Ways around the network allowlists (`public/fetch-guard.js`, `src/lib/wallet/walletWorkerGuard.ts`) or
   the Content Security Policy.
 - Ways to make the send flow pay somewhere other than what the confirm screen showed.
+- The BIP 353 resolver (`src/lib/bip353/`, `worker/bip353.ts`): any way to get a payment sent somewhere other
+  than what a validly signed DNS record says (a forged or replayed proof, a weakness in the DNSSEC checks, the
+  trust anchors in `trustAnchors.ts`).
 - A served file that does not match its tagged build (see [VERIFY.md](VERIFY.md)).
 - The Worker: authorization of @names and mailboxes, the backup store, the Lightning address callback.
 

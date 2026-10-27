@@ -212,6 +212,8 @@ export const NAME_DOMAIN = "spendrr.app";
 const HANDLE_DESTINATION = /^(?:@([^\s@]+)|([^\s@]+)@spendrr\.app)$/i;
 
 export function parseHandleDestination(input: string): string | null {
+  // "₿" marks a BIP 353 name; it is never part of a handle.
+  if (input.trim().startsWith("\u20bf")) return null;
   const m = HANDLE_DESTINATION.exec(input.trim());
   if (!m) return null;
   return (m[1] ?? m[2]).toLowerCase();
