@@ -110,6 +110,9 @@ import { decodeBolt11Amount, normalizeDestination } from "../lib/send/destinatio
 import { classifyStatic, isArkAddressShape, parseScannedPayload } from "../lib/send/destinationCheck";
 import { isKnownValidArkAddress, learnArkServerFrom, rememberValidArkAddress } from "../lib/send/validArkAddresses";
 import { isValidMainnetBitcoinAddress } from "../lib/send/bitcoinAddress";
+import { resolveBip353 } from "../lib/bip353/client";
+import type { Bip353ErrorCode } from "../lib/bip353/errors";
+import { bip353Expired, bip353Target, pickBip353Method, type Bip353Pick } from "../lib/send/bip353Destination";
 import { formatAddressValue } from "../lib/send/movementAddress";
 import {
   withTimeout,
@@ -3904,7 +3907,37 @@ type SendPlan = {
   // is for AND where it is really going. `pin` is what this wallet remembers
   // about the handle from earlier payments.
   recipient?: { name: string; address: string; pin: PinCheck };
+  // Set when the destination was typed as a BIP 353 name (user@domain). The
+  // DNSSEC-validated record it resolved to is frozen in `destination`/`kind`
+  // above; `name` is what the confirm screen shows as the payee, `validUntil`
+  // (unix seconds) the end of the DNSSEC proof it was resolved from. Past it the
+  // plan is refused, not sent: "verified" must not outlive the proof.
+  bip353?: { name: string; validUntil: number };
 };
+
+// A BIP 353 name is looked up through our Worker and validated here against the
+// DNS root. Only the explicit "₿user@domain" form counts: a plain user@domain
+// stays a Lightning address, with no extra wait and no request to our Worker.
+// Set true to try every user@domain as a BIP 353 name first (falling back to the
+// Lightning address when it has no record); that costs one Worker request and a
+// short wait per address typed.
+const BIP353_BARE_NAMES = false;
+// A fresh answer is asked for again this often while the form is open, like the
+// @handle lookup: the plan freezes whatever this last said.
+const BIP353_REFRESH_MS = 60_000;
+const BIP353_LOOKUP_DEBOUNCE_MS = 400;
+
+// How the send field's BIP 353 lookup stands, keyed by the name it was made for.
+type Bip353Resolution = { query: string } & (
+  | { state: "found"; pick: Bip353Pick; validUntil: number }
+  // A bare user@domain with no record (or no way to ask): the Lightning
+  // address path takes over, exactly as without BIP 353.
+  | { state: "fallback" }
+  | { state: "absent" }
+  | { state: "invalid"; code: Bip353ErrorCode }
+  | { state: "unsupported" }
+  | { state: "error" }
+);
 
 // How often an open send form re-checks the address behind a typed @handle.
 const NAME_REFRESH_MS = 30_000;
@@ -4270,11 +4303,22 @@ function SendPanel({
       ),
     [nameSuggestions, currentNameResolution],
   );
+  // BIP 353 (beta): user@domain resolved through DNS, validated on this side.
+  const bip353On = useDesignVersion() === "v2";
+  const bipTarget = useMemo(
+    () => (bip353On && nameQuery === null ? bip353Target(destination, BIP353_BARE_NAMES) : null),
+    [bip353On, nameQuery, destination],
+  );
+  const [bipResolution, setBipResolution] = useState<Bip353Resolution | null>(null);
+  const currentBip = bipTarget !== null && bipResolution?.query === bipTarget.name ? bipResolution : null;
+  // True while the name is being resolved, and once it has resolved to
+  // anything but "use the Lightning address instead".
+  const bipActive = bipTarget !== null && currentBip?.state !== "fallback";
   const staticKind = useMemo(() => {
-    if (nameQuery !== null) return null;
+    if (nameQuery !== null || bipActive) return null;
     const trimmed = normalizeDestination(destination);
     return trimmed ? classifyStatic(trimmed) : null;
-  }, [destination, nameQuery]);
+  }, [destination, nameQuery, bipActive]);
   // A resolved handle is an Ark destination; while the lookup is in flight the
   // kind stays null (Send disabled), and a failed one is "invalid".
   const nameKind: DestinationKind =
@@ -4289,17 +4333,22 @@ function SendPanel({
   // only as a second opinion that can turn "ark" into "invalid" (an address
   // for another server); a slow or failed answer leaves it "ark".
   const localKind: DestinationKind = useMemo(() => {
-    if (nameQuery !== null) return null;
+    if (nameQuery !== null || bipActive) return null;
     if (staticKind) return staticKind;
     const trimmed = normalizeDestination(destination);
     return trimmed && isArkAddressShape(trimmed) ? "ark" : null;
-  }, [destination, nameQuery, staticKind]);
+  }, [destination, nameQuery, staticKind, bipActive]);
+  // A BIP 353 name is "ark" / "lightning-offer" / "onchain" by the method its
+  // record resolved to; while resolving it is null (Send disabled).
+  const bipKind: DestinationKind = !bipActive || currentBip === null ? null : currentBip.state === "found" ? currentBip.pick.kind : "invalid";
   const kind: DestinationKind =
     nameQuery !== null
       ? nameKind
-      : localKind === "ark" && resolvedKind === "invalid"
-        ? "invalid"
-        : (localKind ?? resolvedKind);
+      : bipActive
+        ? bipKind
+        : localKind === "ark" && resolvedKind === "invalid"
+          ? "invalid"
+          : (localKind ?? resolvedKind);
 
   useEffect(() => {
     if (nameQuery === null) return;
@@ -4403,6 +4452,99 @@ function SendPanel({
     };
   }, [nameQuery, wallet]);
 
+  // BIP 353 lookup. The Worker only carries the DNSSEC proof; resolveBip353
+  // validates it against the DNS root, and a record that fails is never worked
+  // around (not even for a bare user@domain, which would otherwise fall back to
+  // the Lightning address). Only "no record" and "could not ask" fall back.
+  const bipName = bipTarget?.name ?? null;
+  const bipExplicit = bipTarget?.explicit ?? false;
+  useEffect(() => {
+    if (bipName === null) return;
+    const name = bipName;
+    const explicit = bipExplicit;
+    let cancelled = false;
+    const controller = new AbortController();
+    // End (unix seconds) of the last validated answer; 0 until there is one.
+    let goodUntil = 0;
+    let refreshable = true;
+    // Numbered when they start: a slow older answer must not land over a newer one.
+    let seq = 0;
+    const resolve = async () => {
+      const mine = ++seq;
+      const outcome = await resolveBip353(name, { signal: controller.signal });
+      if (cancelled || mine !== seq) return;
+      // After a validated answer, a later "no record" or failed refresh does not
+      // flip the form to another destination under the user's hands, but only
+      // while that answer's proof is still valid.
+      if ((outcome.kind === "error" || outcome.kind === "absent") && goodUntil * 1000 > Date.now()) return;
+      if (outcome.kind === "found") {
+        const pick = await pickBip353Method(outcome.instruction, {
+          arkAddress: async (address) => {
+            if (isKnownValidArkAddress(address)) return true;
+            try {
+              const valid = await withTimeout(wallet.validateArkoorAddress(address), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE);
+              if (valid) rememberValidArkAddress(address);
+              return valid;
+            } catch {
+              return false;
+            }
+          },
+          // The Base58 check awaits Web Crypto; a rejection there means "not usable",
+          // not an unhandled one that would leave the lookup unanswered.
+          onchainAddress: async (address) => {
+            try {
+              return await isValidMainnetBitcoinAddress(address);
+            } catch {
+              return false;
+            }
+          },
+        });
+        if (cancelled || mine !== seq) return;
+        goodUntil = outcome.validUntil;
+        setBipResolution(pick ? { query: name, state: "found", pick, validUntil: outcome.validUntil } : { query: name, state: "unsupported" });
+        return;
+      }
+      if (outcome.kind === "invalid") {
+        refreshable = false;
+        setBipResolution({ query: name, state: "invalid", code: outcome.code });
+        return;
+      }
+      // absent / error: nothing was decided. An explicit "₿name" says so; a bare
+      // name goes on as the Lightning address it may also be. A transport error on
+      // an explicit name keeps refreshing: nothing was decided, retrying is safe.
+      refreshable = explicit && outcome.kind === "error";
+      setBipResolution({ query: name, state: explicit ? (outcome.kind === "absent" ? "absent" : "error") : "fallback" });
+    };
+    const timer = setTimeout(() => void resolve(), BIP353_LOOKUP_DEBOUNCE_MS);
+    const refresh = setInterval(() => {
+      if (refreshable) void resolve();
+    }, BIP353_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+      clearInterval(refresh);
+      setBipResolution(null);
+    };
+  }, [bipName, bipExplicit, wallet]);
+
+  // A record that names an amount fills the empty field, once per resolved name.
+  const bipAmount = currentBip?.state === "found" ? currentBip.pick.amountSats : undefined;
+  // Only a value this effect filled is ever replaced or cleared again; a typed
+  // amount survives a change of name.
+  const bipFilledAmountRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = bipFilledAmountRef.current;
+    if (bipAmount !== undefined) {
+      const filled = String(bipAmount);
+      bipFilledAmountRef.current = filled;
+      setAmount((cur) => (cur && cur !== prev ? cur : filled));
+    } else if (prev !== null) {
+      bipFilledAmountRef.current = null;
+      setAmount((cur) => (cur === prev ? "" : cur));
+    }
+  }, [bipAmount]);
+
   // Everything that is not a Lightning kind or a well-formed Ark address is
   // on-chain or nothing, and that is decided locally too
   // (isValidMainnetBitcoinAddress, src/lib/send/bitcoinAddress.ts: bech32/bech32m
@@ -4413,7 +4555,7 @@ function SendPanel({
   // "invalid" when that call timed out.
   useEffect(() => {
     const trimmed = normalizeDestination(destination);
-    if (!trimmed || staticKind || nameQuery !== null || localKind === "ark") return;
+    if (!trimmed || staticKind || nameQuery !== null || bipActive || localKind === "ark") return;
     let cancelled = false;
     void isValidMainnetBitcoinAddress(trimmed).then((looksOnchain) => {
       if (!cancelled) setResolvedKind(looksOnchain ? "onchain" : "invalid");
@@ -4421,7 +4563,7 @@ function SendPanel({
     return () => {
       cancelled = true;
     };
-  }, [destination, staticKind, nameQuery, localKind]);
+  }, [destination, staticKind, nameQuery, bipActive, localKind]);
 
   // The SDK's opinion on a well-formed Ark address, debounced. Only "no" is
   // acted on. Bounded by withTimeout for the reason it always was: the worker
@@ -4482,6 +4624,9 @@ function SendPanel({
         return nameProblemText(currentNameResolution, t);
       }
     }
+    if (bipActive && currentBip?.state !== "found") {
+      return currentBip === null ? t("Ověřuji jméno, chvíli počkej.") : bip353ProblemText(currentBip, t);
+    }
     if (kind === null) {
       return t("Ještě ověřuji cílovou adresu, chvíli počkej.");
     }
@@ -4512,7 +4657,7 @@ function SendPanel({
       }
     }
     return null;
-  }, [amount, amountRequired, destination, kind, lang, t, nameQuery, currentNameResolution]);
+  }, [amount, amountRequired, destination, kind, lang, t, nameQuery, currentNameResolution, bipActive, currentBip]);
 
   // Takes the plan as an argument rather than reading component state, so
   // the values sent are provably the values that were confirmed.
@@ -4527,6 +4672,11 @@ function SendPanel({
     // behind the confirm screen. Nothing has left yet: keep the plan and say so.
     if (isOffline()) {
       surfaceError(new Error(t("Jsi offline. Platbu pošleš, až se připojíš.")), setError);
+      return;
+    }
+    if (plan.bip353 && bip353Expired(plan.bip353.validUntil, Date.now())) {
+      setPlan(null);
+      surfaceError(new Error(t("Ověření jména vypršelo. Chvíli počkej a zkus znovu.")), setError);
       return;
     }
     setBusy(true);
@@ -4813,7 +4963,10 @@ function SendPanel({
     // resolved to, frozen here with everything else. validationError() only
     // lets a resolved handle through as "ark", so `found` is guaranteed.
     const resolved = nameQuery !== null && currentNameResolution?.state === "found" ? currentNameResolution : null;
-    const destinationArg = resolved ? resolved.address : normalizeDestination(destination);
+    // Same for a BIP 353 name: the destination is the method picked from the
+    // validated record. validationError() lets it through only as "found".
+    const bipFound = bipActive && bipTarget !== null && currentBip?.state === "found" ? currentBip : null;
+    const destinationArg = resolved ? resolved.address : bipFound ? bipFound.pick.destination : normalizeDestination(destination);
     const typedAmountSats = amount ? Number(amount) : undefined;
     const invoiceAmountSats = planKind === "lightning-invoice" ? decodeBolt11Amount(destinationArg) : null;
     // validationError() above already refused to build a plan at all when a
@@ -4836,8 +4989,9 @@ function SendPanel({
       resolved && nameQuery !== null
         ? { name: nameQuery, address: resolved.address, pin: checkNamePin(nameQuery, resolved.address) }
         : undefined;
-    return { kind: planKind, destination: destinationArg, amountSats, effectiveAmountSats, recipient };
-  }, [validationError, kind, destination, amount, nameQuery, currentNameResolution]);
+    const bip353 = bipFound && bipTarget ? { name: bipTarget.name, validUntil: bipFound.validUntil } : undefined;
+    return { kind: planKind, destination: destinationArg, amountSats, effectiveAmountSats, recipient, bip353 };
+  }, [validationError, kind, destination, amount, nameQuery, currentNameResolution, bipActive, bipTarget, currentBip]);
 
   useEffect(() => {
     if (!plan) {
@@ -4862,6 +5016,10 @@ function SendPanel({
       }
       return;
     }
+    if (built.bip353 && bip353Expired(built.bip353.validUntil, Date.now())) {
+      surfaceError(new Error(t("Ověření jména vypršelo. Chvíli počkej a zkus znovu.")), setError);
+      return;
+    }
     // Small payments go straight through; anything above the threshold (or
     // an amount we can't see yet, e.g. embedded in a Lightning invoice)
     // gets a review step first, since sends can't be undone. On-chain always
@@ -4883,6 +5041,7 @@ function SendPanel({
       // Paying a name always gets the review step: it is the one place a
       // look-alike or a changed address can be caught before the money moves.
       built.recipient === undefined &&
+      built.bip353 === undefined &&
       built.amountSats !== undefined &&
       built.amountSats <= CONFIRM_THRESHOLD_SATS
     ) {
@@ -4954,7 +5113,8 @@ function SendPanel({
   });
 
   const sendMax = useCallback(async () => {
-    const trimmed = normalizeDestination(destination);
+    // A BIP 353 name pays the address its record resolved to, not the typed name.
+    const trimmed = bipActive && currentBip?.state === "found" ? currentBip.pick.destination : normalizeDestination(destination);
     if (!trimmed || spendable === undefined || (kind !== "ark" && kind !== "onchain")) return;
     setSendingMax(true);
     setError(null);
@@ -4985,7 +5145,7 @@ function SendPanel({
     } finally {
       setSendingMax(false);
     }
-  }, [wallet, destination, kind, spendable, t]);
+  }, [wallet, destination, kind, spendable, t, bipActive, currentBip]);
 
   // Best-effort fee preview for the confirm screen — onchain sends here go
   // through the Ark wallet's own onchain payout (wallet.sendOnchain), which
@@ -5050,6 +5210,7 @@ function SendPanel({
               address: plan.recipient.address,
               changed: plan.recipient.pin === "changed",
             },
+            bip353: plan.bip353,
           }}
           feeSats={feeEstimate ? feeEstimate.feeSats : null}
           feePending={
@@ -5140,6 +5301,8 @@ function SendPanel({
             currentNameResolution?.state === "checking") && (
             <NameLookupStatus query={nameQuery} resolution={currentNameResolution} />
           )
+        ) : bipTarget !== null && bipActive ? (
+          <Bip353LookupStatus name={bipTarget.name} resolution={currentBip} />
         ) : (
           <>
             {kind && kind !== "invalid" && <span className="kind-badge">{t(KIND_LABELS[kind])}</span>}
@@ -5222,6 +5385,51 @@ function SendPanel({
     {confirmSheet}
     </>
   );
+}
+
+// What to tell the person when a BIP 353 name can't be paid.
+function bip353ProblemText(resolution: Bip353Resolution, t: (cs: string) => string): string {
+  switch (resolution.state) {
+    case "found":
+    case "fallback":
+      return "";
+    case "absent":
+      return t("Jméno nemá platební záznam.");
+    case "unsupported":
+      return t("Záznam nemá podporovaný způsob platby.");
+    case "error":
+      return t("Jméno se nepodařilo ověřit. Zkus to za chvíli znovu.");
+    case "invalid":
+      if (resolution.code === "expired") return t("Podpis záznamu je mimo platnost. Zkontroluj čas v zařízení.");
+      if (resolution.code === "ambiguous") return t("Záznam není jednoznačný. Platbu jsem zastavil.");
+      if (resolution.code === "unsupported") return t("Záznam vyžaduje nepodporovanou funkci.");
+      return t("Záznam se nepodařilo ověřit. Platbu jsem zastavil.");
+  }
+}
+
+// The line under the send field for a BIP 353 name: who it is (avatar drawn from
+// the address the record resolved to, so a changed record is a visibly different
+// picture) and by which method it will be paid, or why it can't be.
+function Bip353LookupStatus({ name, resolution }: { name: string; resolution: Bip353Resolution | null }) {
+  const t = useT();
+  if (resolution === null) return <span className="kind-badge">{t("Ověřuji jméno…")}</span>;
+  if (resolution.state === "found") {
+    const { pick } = resolution;
+    const at = name.lastIndexOf("@");
+    return (
+      <>
+        <span className="recipient-chip">
+          <Avatar seed={pick.destination} size={24} />
+          <span className="recipient-chip-name">
+            {name.slice(0, at)}
+            <span className="recipient-chip-domain">{name.slice(at)}</span>
+          </span>
+        </span>
+        <span className="kind-badge">{t(KIND_LABELS[pick.kind])}</span>
+      </>
+    );
+  }
+  return <span className="kind-badge kind-badge-invalid">{bip353ProblemText(resolution, t)}</span>;
 }
 
 // What to tell the person when a typed @handle can't be paid.

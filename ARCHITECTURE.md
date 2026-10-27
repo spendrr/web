@@ -58,6 +58,11 @@ The build must stay reproducible (no timestamps or machine values).
   same-origin write from the worker ever. The main thread is same-origin only, except one exact URL, GET only
   (`PUBLIC_PRICE_URL`, the public price copy); never widen that to a host or a prefix. New arbitrary-domain methods go in `ARBITRARY_DOMAIN_METHODS`, not
   the host allowlist. Derive the checked URL via `new Request(input, init).url`.
+- BIP 353 send (`src/lib/bip353/`, `worker/bip353.ts`): `/api/bip353` is untrusted transport, ALL DNSSEC validation
+  is in the client against `ROOT_ANCHORS` (take values only from IANA root-anchors; keep both KSKs during a rollover).
+  A record that fails validation never falls back to another destination (not to a Lightning address); only "no
+  record" or "could not ask" may. Only the explicit `₿user@domain` form is resolved. Positive answers only (absence is
+  not proven), no wildcard expansion, no SHA-1, and the Worker stays dumb (a miss is at most 44 DoH subrequests: 22 queries, each retried once on the fallback; limit 50).
 - Dependencies are pinned exactly, `.npmrc` has `ignore-scripts=true`; read diffs on bumps. An SDK bump means
   rebuilding the E2E server from the matching bark tag (`e2e/README.md`).
 - bark locks an issued delegated round's inputs itself (checked lock): never leave a lock of ours on a

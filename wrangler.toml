@@ -60,6 +60,14 @@ type = "ratelimit"
 namespace_id = "1014"
 simple = { limit = 60, period = 60 }
 
+# BIP 353 DNSSEC proof relay (worker/bip353.ts). Per source, spent only on an
+# edge-cache miss; a miss costs up to 44 DoH subrequests (22 queries, each retried once on the fallback), so keep it modest.
+[[unsafe.bindings]]
+name = "BIP353_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1017"
+simple = { limit = 20, period = 60 }
+
 # Money chat push (worker/chatPush.ts). Per source: a phone sending messages
 # to many contacts. Per slot (one conversation): at most a few pushes a minute
 # whatever the sender does, so a contact holding a token cannot flood anyone.
