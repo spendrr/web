@@ -91,9 +91,13 @@
   cursor: pointer;
   padding: 4px 0 4px 10px;
 }
+/* Restated over App.css's button:disabled, which outranks `all: unset` and
+   would give the busy "Vracím…" its offset shadow. */
 .sgv-link:disabled {
   opacity: 0.5;
   cursor: default;
+  transform: none;
+  box-shadow: none;
 }
 .sgv-link:focus-visible {
   outline: 2px solid var(--accent);
