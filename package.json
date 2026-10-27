@@ -40,7 +40,7 @@
     "typescript": "6.0.3",
     "vite": "8.2.2",
     "vite-plugin-mkcert": "2.1.0",
-    "vitest": "4.1.11",
+    "vitest": "4.1.12",
     "wrangler": "4.137.0"
   }
 }
