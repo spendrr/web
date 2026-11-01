@@ -1,6 +1,6 @@
 // src/lib/appErrors.ts: which errors get a Czech sentence, and that only the
 // unrecognised ones carry raw text for the toast's copy button.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import fc from "fast-check";
 import { describeError } from "../src/lib/appErrors";
 import { __I18N_DICT, tf } from "../src/lib/i18n";
@@ -69,6 +69,26 @@ describe("describeError", () => {
   it("translates an app message that is a dictionary key", () => {
     const key = "Nesprávné heslo.";
     expect(describeError(new Error(key), en, "en")).toEqual({ text: __I18N_DICT[key], raw: null });
+  });
+
+  it("says the Ark server is not answering, not 'check your internet', for the SDK's full connect failure", () => {
+    const raw =
+      "error creating new wallet: Failed to connect to provided server: Failed to connect to Ark server: handshake request failed: code: 'Unknown error', message: \"JS API error: TypeError: Failed to fetch\"";
+    expect(d(new Error(raw))).toEqual({
+      text: "Ark server teď neodpovídá. Zkus to za chvíli.",
+      raw: null,
+    });
+  });
+
+  it("keeps the generic sentence for the same failure when the browser is offline", () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    try {
+      expect(d(new Error("Failed to connect to Ark server: handshake request failed")).text).toBe(
+        "Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("names a wallet-call timeout instead of showing 'Počkej chvíli…'", async () => {

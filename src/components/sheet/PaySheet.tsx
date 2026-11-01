@@ -123,8 +123,8 @@ export function Sheet({
 }
 
 // The vertical stack every screen's content sits in.
-export function Screen({ children }: { children: ReactNode }) {
-  return <div className="sht-stack">{children}</div>;
+export function Screen({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={className ? `sht-stack ${className}` : "sht-stack"}>{children}</div>;
 }
 
 // Plays the sheet's exit animation before running `then`. Returned `closing`

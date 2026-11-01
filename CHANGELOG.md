@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-01: An easier start
+
+- A new wallet starts with a password and you can postpone the word backup.
+- You find a missing backup under the balance and can add it anytime.
+
 ## 2026-10-26: Easier name changes
 
 - Change your name up to 10 times a month, remove it anytime.

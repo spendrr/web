@@ -99,7 +99,8 @@ import { exitNotificationHint, exitPushWatchHeight, writeExitNotificationHint } 
 import ExitSheet from "./ExitSheet";
 import { writeExpiryCopy } from "../lib/expiryCopy";
 import { localeFor, tf, useLang, useT, type Lang } from "../lib/i18n";
-import { loadVaultOrPrompt, missingVaultText } from "../lib/vault/vaultAccess";
+import { loadVault } from "../lib/vault/crypto";
+import { loadVaultOrPrompt, missingVaultText, requestPasswordSetup } from "../lib/vault/vaultAccess";
 import {
   PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
@@ -125,6 +126,7 @@ import { isOffline, netState, reportNetworkTrouble, useNetState } from "../lib/c
 import GiftComposeModal from "./GiftComposeModal";
 import RefreshInfoSheet from "./RefreshInfoSheet";
 import InstallAppSheet from "./InstallAppSheet";
+import SeedBackupSheet from "./SeedBackupSheet";
 import { neverShowInstallHint, shouldAutoShowInstallHint, snoozeInstallHint } from "../lib/vault/storageProtection";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
 import { SendConfirmSheet } from "./sheet/SendConfirmSheet";
@@ -156,7 +158,7 @@ import {
   type PinCheck,
 } from "../lib/names/namePins";
 import ActionMenuButton, { type ActionMenuItem } from "./ActionMenu";
-import { getPendingGiftPassword, hasClaimedGift, needsSeedBackup } from "../lib/gift/giftStore";
+import { SEED_BACKUP_CHANGED_EVENT, getPendingGiftPassword, hasClaimedGift, needsSeedBackup } from "../lib/gift/giftStore";
 import { isGiftPath, type GiftLinkParams } from "../lib/gift/giftLink";
 import GiftClaimModal from "./GiftClaimModal";
 import { isRequestPath } from "../lib/send/paymentRequest";
@@ -526,6 +528,17 @@ export default function Dashboard({
   // in state (not read live) so revealing it in Settings and coming back
   // re-checks and the banner disappears.
   const [showSeedBackupBanner, setShowSeedBackupBanner] = useState(() => needsSeedBackup());
+  const [seedBackupSheet, setSeedBackupSheet] = useState(false);
+  // A password wallet asks for it in a sheet; a passwordless one first sets one (App's sheet).
+  const startSeedBackup = () => {
+    if (loadVault()) setSeedBackupSheet(true);
+    else requestPasswordSetup("backup");
+  };
+  useEffect(() => {
+    const sync = () => setShowSeedBackupBanner(needsSeedBackup());
+    window.addEventListener(SEED_BACKUP_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(SEED_BACKUP_CHANGED_EVENT, sync);
+  }, []);
   // The auto-generated vault password for a fresh gift-link recipient —
   // shown 7s after the wallet opens so it doesn't slam a modal over the
   // balance landing. Held in the clear (giftStore) until confirmed; without
@@ -2699,7 +2712,8 @@ export default function Dashboard({
     !showWhatsNew &&
     !showBoardConfirm &&
     !showPriceEasterEgg &&
-    !installSheet;
+    !installSheet &&
+    !seedBackupSheet;
   useEffect(() => {
     if (balance === null) return;
     if (balance.pendingInRoundSats === 0) {
@@ -2886,25 +2900,6 @@ export default function Dashboard({
         </div>
       )}
 
-      {showSeedBackupBanner && !giftRevealHold && (
-        <div className="banner banner-warning gift-seed-banner">
-          <div className="gift-seed-head">
-            <WarningIcon />
-            <strong>{t("Zálohuj si seed frázi")}</strong>
-          </div>
-          <button
-            type="button"
-            className="secondary small gift-seed-btn"
-            onClick={() => {
-              setSettingsInitialSection("seed");
-              openSettings();
-            }}
-          >
-            {t("Zálohovat")}
-          </button>
-        </div>
-      )}
-
       {view !== "receive" && (
         <div
           className="balance-card"
@@ -3024,6 +3019,19 @@ export default function Dashboard({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {showSeedBackupBanner && !giftRevealHold && view !== "receive" && (
+        <div className="gift-seed-banner">
+          <strong>{t("Chybí záloha")}</strong>
+          <button
+            type="button"
+            className="secondary small gift-seed-btn"
+            onClick={startSeedBackup}
+          >
+            {t("Zálohovat")}
+          </button>
         </div>
       )}
       {netIsland && !toast && (
@@ -3439,6 +3447,7 @@ export default function Dashboard({
           }}
         />
       )}
+      {seedBackupSheet && <SeedBackupSheet onClose={() => setSeedBackupSheet(false)} />}
       {installSheet && (
         <InstallAppSheet
           variant="wallet"
@@ -3446,8 +3455,7 @@ export default function Dashboard({
           onShowSeed={() => {
             snoozeInstallHint();
             setInstallSheet(false);
-            setSettingsInitialSection("seed");
-            openSettings();
+            startSeedBackup();
           }}
           onNever={() => {
             neverShowInstallHint();

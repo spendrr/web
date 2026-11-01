@@ -67,6 +67,7 @@ describe("translation dictionary integrity", () => {
       "Bitcoin.",
       "Beta: Utility hub — Point of Sale",
       "Motion design (beta)",
+      "Tip",
     ]);
     const identical = Object.entries(__I18N_DICT).filter(
       ([k, v]) => k === v && !intentionallyIdentical.has(k),

@@ -34,9 +34,9 @@ export function passwordProblem(password: string): string | null {
     case "common":
       return "Tohle heslo obsahuje běžné slovo, které crackery zkoušejí jako první. Přidej něco nečekaného.";
     case "keyboard":
-      return "Tohle je souvislá cesta po klávesnici — crackery ji projdou během chvilky. Zkus něco jiného.";
+      return "Tohle je souvislá cesta po klávesnici. Crackery ji projdou během chvilky. Zkus něco jiného.";
     case "sequence":
-      return "Tohle je posloupnost (abc, 1234) — patří k prvním věcem, které se zkoušejí.";
+      return "Tohle je posloupnost (abc, 1234). Patří k prvním věcem, které se zkoušejí.";
     case "repeat":
       return "Opakující se část heslo prakticky neprodlouží. Zkus víc různých slov.";
     case "date":

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { bip39UniqueMatch, isBip39Word } from "../lib/vault/bip39Wordlist";
-import { ErrorCircleIcon, EyeIcon, EyeOffIcon } from "./BannerIcons";
+import { ErrorCircleIcon, EyeIcon } from "./BannerIcons";
 import { tf, useT } from "../lib/i18n";
 
 type WordCount = 12 | 24;
@@ -167,7 +167,7 @@ export default function ImportSeedForm({
     <div className="centered-screen">
       <div className="auth-card">
         <h1>{t("Import peněženky")}</h1>
-        <p className="muted">{t("Zadej svou seed phrase — každé slovo do vlastního políčka.")}</p>
+        <p className="muted">{t("Zadej svou seed phrase, každé slovo do vlastního políčka.")}</p>
 
         <div className="word-count-toggle">
           <button
@@ -194,6 +194,8 @@ export default function ImportSeedForm({
               <div key={i} className={`mnemonic-input-word state-${state}${autocompleted ? " autocompleted" : ""}`}>
                 <span className="idx">{i + 1}</span>
                 <input
+                  // A class takes it out of the v2 "bare field" rule (min-height 48px), which would double the cell.
+                  className="mnemonic-input-cell"
                   ref={(el) => {
                     inputRefs.current[i] = el;
                   }}
@@ -228,7 +230,7 @@ export default function ImportSeedForm({
             {tf(t("Vyplněno {filled}/{total}"), { filled: filledCount, total: wordCount })}
           </span>
           <button type="button" className="icon-toggle" onClick={() => setRevealed((r) => !r)} aria-label={t("Zobrazit/skrýt slova")}>
-            {revealed ? <EyeOffIcon /> : <EyeIcon />}
+            <EyeIcon crossed={revealed} />
           </button>
         </div>
 

@@ -213,6 +213,15 @@
   gap: 14px;
 }
 
+/* .ex-check carries a margin-top for the sheets it came from; inside this card that stacks on top of the card's
+   own gap, so the checkbox row sat 10px lower than every other row.
+   The indent is the field's own inner padding: it puts the box under the fields' lock icons and the label under
+   their placeholder text, rather than against the fields' border. */
+.auth-card .ex-check {
+  margin-top: 0;
+  padding-left: 14px;
+}
+
 .auth-card h1 {
   text-align: center;
 }
@@ -445,6 +454,63 @@ textarea:focus {
   user-select: none;
 }
 
+/* Tiles: one per word, two columns like the import form's cells, so showing the phrase and entering it look the
+   same. The box around the list goes; each word carries its own outline. */
+.mnemonic-grid.is-tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.is-tiles .mnemonic-word {
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 15px;
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+/* The index is a label, not part of the phrase: the app's own sans, medium weight, tabular so 1 and 10 line up,
+   rather than the thin mono the words use. */
+.is-tiles .mnemonic-word .idx {
+  min-width: 18px;
+  /* Nudged left of the right-aligned column: a transform, so the words and the box widths stay where they are
+     and 1 to 12 all move the same distance. Flush left (text-align: left) was too far. */
+  transform: translateX(-5px);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The words in the app's own sans, bold: Space Mono's w and a run their strokes together at this size, which is
+   the last thing you want in a phrase being copied by hand. Self-hosted, so it looks the same on every device,
+   unlike a system monospace. A word that has just been revealed fades in rather than snapping in place. */
+.is-tiles .mnemonic-w {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  animation: mnemonic-reveal 260ms var(--ease-out) both;
+}
+
+@keyframes mnemonic-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-tiles .mnemonic-w {
+    animation: none;
+  }
+}
+
 .mnemonic-input {
   font-family: var(--mono);
   resize: vertical;
@@ -489,6 +555,7 @@ textarea:focus {
 
 .mnemonic-input-word input {
   flex: 1;
+  min-height: 0;
   min-width: 0;
   border: none;
   background: transparent;
@@ -554,6 +621,21 @@ textarea:focus {
 .icon-toggle svg {
   width: 18px;
   height: 18px;
+}
+
+/* The generic button hover (1px lift + the full --pop shadow) is built for wide buttons; on a 32px icon it reads
+   as a white block. Hover only tints, press only shrinks. */
+@media (hover: hover) {
+  .icon-toggle:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: var(--surface-2);
+  }
+}
+
+.icon-toggle:active:not(:disabled) {
+  transform: scale(0.92);
+  box-shadow: none;
 }
 
 .banner {
@@ -834,4 +916,19 @@ textarea:focus {
   .unlock-progress::after {
     animation: none;
   }
+}
+
+/* The one button under the seed words: it steps through them ("Zobrazit další") and then becomes the way on. Colour,
+   outline and shadow ease over, the label fades in. */
+.mnemonic-next {
+  transition:
+    background-color 0.35s var(--ease-out),
+    color 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.mnemonic-next-label {
+  display: inline-block;
+  animation: mnemonic-reveal 300ms var(--ease-out) both;
 }

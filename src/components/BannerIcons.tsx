@@ -23,38 +23,18 @@ export function ErrorCircleIcon() {
   );
 }
 
-export function EyeIcon() {
+// One eye for every password/word reveal. `crossed` is the "currently shown, tap to hide" state.
+export function EyeIcon({ crossed }: { crossed: boolean }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"
+        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
         stroke="currentColor"
         strokeWidth="1.8"
-        strokeLinecap="round"
         strokeLinejoin="round"
       />
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-export function EyeOffIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M2 12s3.5-7 10-7c2.06 0 3.78.6 5.19 1.42M22 12s-3.5 7-10 7c-2.06 0-3.78-.6-5.19-1.42M4 4l16 16"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {crossed && <path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
     </svg>
   );
 }

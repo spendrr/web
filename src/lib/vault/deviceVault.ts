@@ -7,13 +7,15 @@
 // vault string, not against hostile code on the main thread (see the threat-model note in walletSession.ts). The
 // wallet opens through the existing "bioVault" prepare source, so the worker's seed handling is unchanged.
 //
-// Never created for a wallet the user made themselves; only a gift link made by a V2 sender asks for it.
+// Two ways in: a gift link, and a user who ticks "Přeskočit heslo" while creating a wallet (onboarding). Only the gift wallet is nagged for a password on every open; a wallet whose owner chose to go without
+// asks for one only when a payment needs it (PASSWORD_SETUP_EVENT, reason "spend").
 import { fromB64, toB64, zeroBytes } from "./vaultCrypto";
 
 const VAULT_KEY = "btc-wallet-device-vault";
 const DB_NAME = "btc-wallet-device-key";
 const STORE = "keys";
 const KEY_ID = "main";
+const CHOSEN_KEY = "btc-wallet-device-vault-chosen";
 
 interface DeviceVault {
   ivB64: string;
@@ -71,6 +73,23 @@ function readVault(): DeviceVault | null {
   }
 }
 
+// The owner skipped the password on purpose (as opposed to a gift recipient who never got the choice).
+export function markDeviceVaultChosen(): void {
+  try {
+    localStorage.setItem(CHOSEN_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+export function deviceVaultChosen(): boolean {
+  try {
+    return localStorage.getItem(CHOSEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function hasDeviceVault(): boolean {
   return readVault() !== null;
 }
@@ -121,6 +140,7 @@ export async function decryptDeviceVaultBytes(): Promise<Uint8Array> {
 export async function clearDeviceVault(): Promise<void> {
   try {
     localStorage.removeItem(VAULT_KEY);
+    localStorage.removeItem(CHOSEN_KEY);
   } catch {
     /* ignore */
   }

@@ -6,8 +6,10 @@ import { hasDeviceVault } from "./deviceVault";
 
 export const PASSWORD_SETUP_EVENT = "spendrr:password-setup";
 
-export function requestPasswordSetup(): void {
-  window.dispatchEvent(new Event(PASSWORD_SETUP_EVENT));
+export type PasswordSetupReason = "gift" | "spend" | "backup";
+
+export function requestPasswordSetup(reason: PasswordSetupReason = "spend"): void {
+  window.dispatchEvent(new CustomEvent<PasswordSetupReason>(PASSWORD_SETUP_EVENT, { detail: reason }));
 }
 
 // The password vault, or null. With no password vault but a device vault the setup sheet is requested first.

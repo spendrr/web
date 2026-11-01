@@ -2779,16 +2779,18 @@ button.qr-torch-a11y {
   color: var(--text-h);
 }
 
+/* The "no backup yet" line: it sits under the balance as one more line of that block (state in muted text, one pill
+   in the fixed fee-medium amber, since the red and teal themes push the accent close to danger/success), not as a
+   framed strip of its own between the header and the balance. A gentle slide-in: it appears the moment the user
+   taps "Přijmout dárek" or leaves the onboarding, so it should not just pop. */
 .gift-seed-banner {
-  /* Single row (overrides .banner's icon-beside-text-block layout): icon +
-     title on the left, the button pinned right. A gentle slide-in — it
-     appears the moment the user taps "Přijmout dárek", so it shouldn't
-     just pop. */
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
+  justify-content: center;
+  gap: 10px;
+  /* The balance card carries a 42px bottom margin of its own; pull the line up into it so it reads as part of the
+     balance block (about 16px under the fiat line) and keep a normal gap above the action buttons. */
+  margin: -26px 0 22px;
   animation: gift-seed-banner-in 0.28s ease both;
 }
 
@@ -2805,23 +2807,54 @@ button.qr-torch-a11y {
   }
 }
 
-.gift-seed-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* The fixed amber is too pale on the cream background; darken it toward the heading colour there only. */
+.gift-seed-banner {
+  --seed-amber: var(--fee-medium);
+}
+
+:root[data-theme="light"] .gift-seed-banner {
+  --seed-amber: color-mix(in srgb, var(--fee-medium) 62%, var(--text-h));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .gift-seed-banner {
+    --seed-amber: color-mix(in srgb, var(--fee-medium) 62%, var(--text-h));
+  }
+}
+
+.gift-seed-banner strong {
   min-width: 0;
-}
-.gift-seed-head svg {
-  margin-top: 0;
-  flex-shrink: 0;
-}
-.gift-seed-head strong {
-  font-size: 13.5px;
-  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
   white-space: nowrap;
 }
-.gift-seed-btn {
+
+/* Flat amber pill (the long selector outranks `:root button.small:not(.icon-btn)`, whose cream outline and 2px pop
+   shadow are built for a button that stands on its own). */
+:root .gift-seed-banner button.gift-seed-btn.small {
   flex-shrink: 0;
+  min-height: 0;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  color: var(--seed-amber);
+  background: transparent;
+  border: var(--border-w) solid var(--seed-amber);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  :root .gift-seed-banner button.gift-seed-btn.small:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: color-mix(in srgb, var(--fee-medium) 14%, transparent);
+  }
+}
+
+:root .gift-seed-banner button.gift-seed-btn.small:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: none;
 }
 
 /* A @handle resolved in the send field, or shown as the recipient on the

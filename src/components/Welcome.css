@@ -1,0 +1,573 @@
+.wl {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  /* The auto margin would otherwise switch off the flex parent's stretch and size this to its content,
+     which the sideways card scroller blows past. */
+  margin: 0 auto;
+  min-height: 100svh;
+  padding: 28px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* A minimum: space-between hands the slack to taller screens, so this only bites on a short phone. */
+  gap: 22px;
+  text-align: left;
+}
+
+.wl-top {
+  display: flex;
+  align-items: center;
+}
+
+.wl-mark {
+  font-size: 30px;
+}
+
+.wl-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wl-kicker {
+  margin: 0 0 -14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: wl-rise 600ms 150ms var(--ease-out) forwards;
+}
+
+.wl-title {
+  margin: 0;
+  /* Sized from the column, not the viewport: the column stops growing at 440px, so a viewport-based size kept
+     growing past it and the longer English second line wrapped. 10 is the widest line's length in em, with margin. */
+  font-size: calc((min(100vw, 440px) - 48px) / 10);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--text-h);
+}
+
+/* Each word rises straight out of its line's clip, a beat after the one before it. No tilt: a rotated word is
+   cut diagonally by the clip and reads as broken text while it travels. */
+.wl-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+
+.wl-w {
+  display: inline-block;
+  /* Parked further down than the deepest clip (the accent line's is 1.32em), or its tops show before it moves. */
+  transform: translateY(180%);
+  /* Transparent as well as parked: the clip alone is geometry a browser can round differently, and a sliver of
+     a word showing before it arrives reads as a glitch. */
+  opacity: 0;
+  animation: wl-word-up 780ms calc(320ms + var(--w) * 85ms) cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+@keyframes wl-word-up {
+  from {
+    transform: translateY(180%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.wl-accent .wl-w {
+  color: var(--accent);
+}
+
+/* The line clips its own overflow for the slide-up reveal, and that clip cut the rule below off entirely. Deepen
+   the clip on this line only and take the extra height back with a negative margin, so spacing is unchanged. */
+.wl-accent {
+  padding-bottom: 0.3em;
+  margin-bottom: -0.22em;
+}
+
+/* A hand-drawn underline: one pen stroke that overshoots at the end and curls back, the way a hand lifts off.
+   Not text-decoration-style: wavy, whose even zigzag reads as machine-made.
+   Drawn as a mask over a solid var(--accent) fill, not as a coloured SVG: the accent is a different colour in each
+   of the app's colour themes, and a colour baked into the data URI would be stuck on one of them.
+   The inline-block is what keeps the stroke as wide as the words; both the Czech and the English line are sized to
+   fit on one line, so it never has to span a wrapped box. */
+.wl-rule {
+  position: relative;
+  display: inline-block;
+}
+
+/* English sets a "g" in the underlined line; its descender reaches below where the pen line sits for the Czech text,
+   which has none, so the line goes lower there. */
+.wl.is-en .wl-rule::after {
+  bottom: -0.32em;
+}
+
+.wl-rule::after {
+  content: "";
+  position: absolute;
+  left: -1%;
+  right: -1%;
+  bottom: -0.17em;
+  height: 0.3em;
+  background: var(--accent);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 16' preserveAspectRatio='none'%3E%3Cpath d='M6 10.1C36 6.4 66 4.8 100 5.1 134 5.4 164 7.1 194 5.6 188 7.9 176 9.4 160 9.9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 16' preserveAspectRatio='none'%3E%3Cpath d='M6 10.1C36 6.4 66 4.8 100 5.1 134 5.4 164 7.1 194 5.6 188 7.9 176 9.4 160 9.9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* Revealed by a wipe, not scaled in: scaling squashes the pen's round ends while it travels, a wipe draws it. */
+  clip-path: inset(0 100% 0 0);
+  animation: wl-sweep 650ms 1250ms cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+
+@keyframes wl-sweep {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Cards, scrolled sideways: at phone height three stacked cards would push the buttons off screen. */
+.wl-cards {
+  list-style: none;
+  display: flex;
+  gap: 12px;
+  margin: 0 -24px;
+  padding: 4px 24px 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* Without this the snap target ignores the gutter and the first card parks against the screen edge. */
+  scroll-padding-inline: 24px;
+  scrollbar-width: none;
+}
+
+.wl-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.wl-card {
+  position: relative;
+  flex: none;
+  width: min(70vw, 240px);
+  height: 186px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--pop);
+}
+
+.wl-card-ico {
+  display: block;
+  color: var(--accent);
+}
+
+.wl-card-ico svg {
+  width: 38px;
+  height: 38px;
+}
+
+/* Both faces are laid out on top of each other so the card keeps its height when it opens. */
+.wl-card-faces {
+  position: relative;
+  flex: 1;
+}
+
+.wl-card-face {
+  position: absolute;
+  inset: 0;
+  transition: opacity 220ms var(--ease-out);
+}
+
+.wl-card-face h3 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--accent);
+}
+
+.wl-card-face p {
+  margin: 2px 0 0;
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.wl-card-back {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wl-card-back p {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.wl-card.is-open .wl-card-face {
+  opacity: 0;
+}
+
+.wl-card.is-open .wl-card-back {
+  opacity: 1;
+}
+
+/* The open state turns the plus into a cross by rotating it. The app's generic button:hover / :active set their
+   own `transform`, which would wipe that rotation out mid-gesture, so the angle lives in a custom property and
+   every state composes with it instead of replacing it. The flat circle also opts out of the generic pop shadow. */
+.wl-card-more {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--border-soft);
+  box-shadow: none;
+  color: var(--text-h);
+  transform: rotate(var(--plus-rot, 0deg));
+  transition: transform 220ms var(--ease-out), background 160ms ease;
+}
+
+.wl-card-more svg {
+  width: 17px;
+  height: 17px;
+}
+
+.wl-card.is-open .wl-card-more {
+  --plus-rot: 45deg;
+}
+
+@media (hover: hover) {
+  .wl-card-more:hover:not(:disabled) {
+    transform: rotate(var(--plus-rot, 0deg));
+    background: var(--border-soft);
+    box-shadow: none;
+  }
+}
+
+.wl-card-more:active:not(:disabled) {
+  transform: rotate(var(--plus-rot, 0deg)) scale(0.9);
+  box-shadow: none;
+}
+
+.wl-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Things a skeptic can open and check, not claims. */
+.wl-proof {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.wl-proof a {
+  color: var(--text);
+  opacity: 0.75;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wl-proof a:hover {
+  opacity: 1;
+}
+
+.wl-rise {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: wl-rise 520ms calc(900ms + var(--i) * 110ms) var(--ease-out) forwards;
+}
+
+/* The cards rise one after another, the buttons last. Vertical and short on purpose: the cards sit in a sideways
+   scroller with scroll-snap, and a horizontal offset widens its scrollable area, so the snap pulled the whole row
+   across (scrollLeft ran 40 to 0) while it played. 8px stays inside the scroller's own bottom padding (10px), so it
+   adds no overflow either. */
+.wl-card.wl-rise {
+  transform: translateY(8px);
+  animation-name: wl-card-in;
+  animation-duration: 640ms;
+  animation-delay: calc(950ms + var(--i) * 90ms);
+}
+
+.wl-actions.wl-rise {
+  animation-delay: 1500ms;
+}
+
+@keyframes wl-card-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wl-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-kicker,
+  .wl-rise,
+  .wl-card.wl-rise,
+  .wl-w {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .wl-rule::after {
+    animation: none;
+    clip-path: none;
+  }
+}
+
+/* The welcome brings its own padding and height; drop the generic centered-screen frame around it. */
+.onboarding-screen.wl-host {
+  max-width: none;
+  padding: 0;
+  gap: 0;
+  /* clip, not hidden: the background glows overflow sideways, and a hidden box is still a scroll container,
+     so focusing a card's button scrolled the whole screen across. An older engine drops this and keeps the
+     base rule's overflow: hidden. */
+  overflow: clip;
+}
+
+/* The sheets' status mark, centred above the password card's title. */
+/* Asterisks: body-text grey at rest, green one by one as the password earns them. The colour change is slow and
+   eased, and the one that just lit takes a small breath, so the hand-off to the next reads as a move rather than
+   a flip. --d staggers several that light at once (a pasted password); it applies only when turning on. */
+.pw-ast {
+  fill: var(--text);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: fill 420ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pw-ast.on {
+  fill: var(--success);
+  transition-delay: var(--d, 0ms);
+  animation: pw-lit 460ms var(--d, 0ms) var(--ease-out) both;
+}
+
+@keyframes pw-lit {
+  45% {
+    transform: scale(1.12);
+  }
+}
+
+.pw-line {
+  fill: var(--text);
+  transition: fill 420ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* All three lit: the baseline joins them. A wrong confirmation (declared after) still wins. */
+.pw-mark.is-strong .pw-line {
+  fill: var(--success);
+  transition-delay: 220ms;
+}
+
+.pw-mark.is-bad .pw-line {
+  fill: var(--danger);
+  transition-delay: 0ms;
+}
+
+/* Submit: each asterisk pops in turn, then the baseline goes green behind the last one. */
+.pw-mark.is-done .pw-ast {
+  fill: var(--success);
+  animation: pw-pop 360ms var(--ease-out) both;
+  animation-delay: calc(var(--k) * 80ms);
+}
+
+.pw-mark.is-done .pw-line {
+  fill: var(--success);
+  transition-delay: 240ms;
+}
+
+@keyframes pw-pop {
+  40% {
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pw-ast,
+  .pw-line {
+    transition: none;
+  }
+
+  .pw-ast.on {
+    animation: none;
+  }
+}
+
+.pw-mark {
+  align-self: center;
+  /* Wider than the sheets' round mark: the box follows the drawing's 46 x 20 proportion. */
+  width: 92px;
+  height: 40px;
+  color: var(--text);
+}
+
+/* Advice and the skip warning share the fields' outline, dimmer, with a small tab sitting on the border. No pop
+   shadow and no fill: a boxed banner with a shadow read as something to press. The warning's amber is the fixed
+   fee-medium one, not the theme accent, which the red and teal themes push close to danger/success. */
+.pw-note {
+  position: relative;
+  margin: 6px 0 0;
+  padding: 12px 14px 11px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.pw-note-tab {
+  position: absolute;
+  top: -9px;
+  left: 14px;
+  padding: 0 7px;
+  /* Hides the border behind it; has to match the card behind the note. */
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  color: var(--text-h);
+}
+
+.pw-note.is-warn {
+  border-color: color-mix(in srgb, var(--fee-medium) 60%, var(--border-soft));
+}
+
+/* Pure amber is 2.3:1 on the white light-theme card at this size; mixing in the heading colour keeps it amber
+   but lets it follow the theme (paler in dark, deeper in light). */
+.pw-note.is-warn .pw-note-tab {
+  color: color-mix(in srgb, var(--fee-medium) 55%, var(--text-h));
+}
+
+.backup-intro {
+  text-align: center;
+}
+
+/* The backup key: a bare grey icon like the password screen's, not a framed accent tile. Keeps the sheets' mark
+   entrance (sht-mark) but not its round 76px box. */
+.bk-mark {
+  align-self: center;
+  width: 56px;
+  height: 58px;
+  color: var(--text);
+}
+
+/* In a sheet the stack centres its children; the skip box belongs under the fields, in line with their text. */
+.sht-stack .ex-check.pw-skip {
+  align-self: stretch;
+  margin-top: 0;
+  /* The fields' padding (14px) plus their 2px border, so the box sits under the placeholder text. */
+  padding-left: 16px;
+}
+
+/* The set-password sheet in three groups instead of one even column: the header (mark, title, text) with the
+   mark set well apart, the form (both fields and the skip box close together), then the button on its own. */
+.sht-stack.pw-sheet {
+  gap: 10px;
+}
+
+.pw-sheet .pw-mark {
+  margin-bottom: 18px;
+}
+
+.pw-sheet .sht-title + .sht-sub {
+  margin-top: -4px;
+  margin-bottom: 14px;
+}
+
+.pw-sheet .sht-wide {
+  margin-top: 14px;
+}
+
+/* The words in a sheet: the stack centres its children, which shrank the tiles to their content. */
+.sht-stack .mnemonic-grid.is-tiles {
+  align-self: stretch;
+}
+
+/* The quill and the scroll above the seed words. The drawing is animated from QuillMark.tsx (the nib rides the curve
+   being drawn), so only the look is here. The quill's origin is its nib, in the SVG's own units. */
+.qm-mark {
+  align-self: center;
+  width: 112px;
+  height: 112px;
+  color: var(--text);
+}
+
+.qm-mark svg {
+  overflow: visible;
+}
+
+.qm-feather {
+  fill: currentColor;
+}
+
+/* Lucide's 2-unit line on its 24 grid, scaled by 10.667: .75 comes out as the 8 units the wave lines use. */
+.qm-scroll {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qm-under {
+  fill: var(--surface);
+  stroke: var(--surface);
+  stroke-width: 11;
+  stroke-linejoin: round;
+}
+
+/* The thin feather is scaled down to .34, which would leave its line a fraction of the paper's; the stroke (13.5 in
+   the icon's own units, so about 4.5 after scaling) brings it level. */
+.qm-feather {
+  stroke: currentColor;
+  stroke-width: 13.5;
+  stroke-linejoin: round;
+}
+
+.qm-dash {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+}
