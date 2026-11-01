@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-01: Password anytime
+
+- You can set a wallet password anytime in settings.
+- A wallet without a password now locks behind a screen with an unlock button.
+
 ## 2026-11-01: An easier start
 
 - A new wallet starts with a password and you can postpone the word backup.

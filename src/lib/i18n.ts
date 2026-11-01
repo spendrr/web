@@ -62,6 +62,9 @@ const DICT: Record<string, string> = {
   // App.tsx
   "Načítám": "Loading",
   "Snazší start": "An easier start",
+  "Heslo kdykoli": "Password anytime",
+  "Heslo k peněžence si můžeš nastavit kdykoli v nastavení.": "You can set a wallet password anytime in settings.",
+  "Peněženka bez hesla se zamyká obrazovkou s tlačítkem odemknout.": "A wallet without a password now locks behind a screen with an unlock button.",
   "Nová peněženka začíná heslem a zálohu slov můžeš odložit.": "A new wallet starts with a password and you can postpone the word backup.",
   "Chybějící zálohu najdeš pod zůstatkem a doplníš ji kdykoli.": "You find a missing backup under the balance and can add it anytime.",
   "SELF CUSTODIAL": "SELF CUSTODIAL",

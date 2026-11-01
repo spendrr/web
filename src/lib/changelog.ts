@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "1. 11. 2026",
+    title: "Heslo kdykoli",
+    items: [
+      "Heslo k peněžence si můžeš nastavit kdykoli v nastavení.",
+      "Peněženka bez hesla se zamyká obrazovkou s tlačítkem odemknout.",
+    ],
+  },
+  {
+    date: "1. 11. 2026",
     title: "Snazší start",
     items: [
       "Nová peněženka začíná heslem a zálohu slov můžeš odložit.",
