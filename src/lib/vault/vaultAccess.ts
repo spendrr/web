@@ -6,7 +6,10 @@ import { hasDeviceVault } from "./deviceVault";
 
 export const PASSWORD_SETUP_EVENT = "spendrr:password-setup";
 
-export type PasswordSetupReason = "gift" | "spend" | "backup";
+export type PasswordSetupReason = "gift" | "spend" | "backup" | "settings";
+
+// Fired once a passwordless wallet got its password, so a screen that already rendered (Settings) can re-read it.
+export const VAULT_PASSWORD_SET_EVENT = "btc-wallet-vault-password-set";
 
 export function requestPasswordSetup(reason: PasswordSetupReason = "spend"): void {
   window.dispatchEvent(new CustomEvent<PasswordSetupReason>(PASSWORD_SETUP_EVENT, { detail: reason }));

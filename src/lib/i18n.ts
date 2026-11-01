@@ -150,6 +150,7 @@ const DICT: Record<string, string> = {
   "Dobrý večer": "Good evening",
   "Odemykám…": "Unlocking…",
   "Odemknout": "Unlock",
+  "Nastavit heslo": "Set password",
   "Odemknout otiskem": "Unlock with fingerprint",
   "Skrýt heslo": "Hide password",
   "Zobrazit heslo": "Show password",

@@ -14,10 +14,12 @@ import {
   decryptMnemonic,
   decryptVaultBytes,
   encryptVaultBytes,
+  loadVault,
   saveVault,
   zeroBytes,
 } from "../lib/vault/crypto";
 import { rekeyStoredExitDestination } from "../lib/exit/emergencyExit";
+import { hasDeviceVault } from "../lib/vault/deviceVault";
 import {
   clearBiometricUnlock,
   enrollBiometricUnlock,
@@ -89,7 +91,7 @@ import {
   needsSeedBackup,
 } from "../lib/gift/giftStore";
 import SentGiftsList from "./SentGiftsList";
-import { loadVaultOrPrompt, missingVaultText } from "../lib/vault/vaultAccess";
+import { VAULT_PASSWORD_SET_EVENT, loadVaultOrPrompt, missingVaultText, requestPasswordSetup } from "../lib/vault/vaultAccess";
 import InstallAppSheet from "./InstallAppSheet";
 import {
   getStorageProtection,
@@ -766,6 +768,13 @@ function NavRow({
 
 function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const t = useT();
+  // A wallet without a password has nothing to change: the row sets one instead (the same sheet as everywhere else).
+  const [passwordless, setPasswordless] = useState(() => loadVault() === null && hasDeviceVault());
+  useEffect(() => {
+    const reread = () => setPasswordless(loadVault() === null && hasDeviceVault());
+    window.addEventListener(VAULT_PASSWORD_SET_EVENT, reread);
+    return () => window.removeEventListener(VAULT_PASSWORD_SET_EVENT, reread);
+  }, []);
   const [bioAvailable, setBioAvailable] = useState(() => hasBiometricUnlock() || platformAuthCache === true);
   useEffect(() => {
     if (bioAvailable) return;
@@ -781,8 +790,11 @@ function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
   return (
     <div className="settings-body">
       <div className="settings-group">
-        <button className="settings-item" onClick={() => onNavigate("password")}>
-          <span>{t("Změnit heslo")}</span>
+        <button
+          className="settings-item"
+          onClick={() => (passwordless ? requestPasswordSetup("settings") : onNavigate("password"))}
+        >
+          <span>{passwordless ? t("Nastavit heslo") : t("Změnit heslo")}</span>
           <span className="chevron">›</span>
         </button>
         {bioAvailable && (
