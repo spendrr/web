@@ -4,7 +4,7 @@ import { clearDeviceVault, decryptDeviceVaultBytes, markDeviceVaultChosen } from
 import { isPasswordStrong, passwordProblem, passwordStrengthLevel } from "../lib/vault/password";
 import { markNeedsSeedBackup } from "../lib/gift/giftStore";
 import { useT } from "../lib/i18n";
-import type { PasswordSetupReason } from "../lib/vault/vaultAccess";
+import { VAULT_PASSWORD_SET_EVENT, type PasswordSetupReason } from "../lib/vault/vaultAccess";
 import { SeedWordsScreen } from "./SeedBackupSheet";
 import { PasswordMark } from "./PasswordMark";
 import { UNLOCK_SHAKE } from "../lib/ui/shake";
@@ -46,7 +46,7 @@ export default function PasswordSetupSheet({ reason, onDone }: { reason: Passwor
   }, [bad]);
 
   const submitPassword = async () => {
-    if (!ok || busy) return;
+    if (!ok || busy || closing) return;
     setBusy(true);
     setError(null);
     try {
@@ -79,6 +79,7 @@ export default function PasswordSetupSheet({ reason, onDone }: { reason: Passwor
         zeroBytes(bytes);
       }
       await clearDeviceVault();
+      window.dispatchEvent(new Event(VAULT_PASSWORD_SET_EVENT));
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setDone(true);
         await new Promise((r) => setTimeout(r, 520));
@@ -109,9 +110,11 @@ export default function PasswordSetupSheet({ reason, onDone }: { reason: Passwor
         <p className="sht-sub">
           {reason === "gift"
             ? t("Tahle peněženka vznikla z dárku. Zatím ji nic nechrání.")
-            : reason === "backup"
-              ? t("Nastav si heslo a zapiš si 12 slov.")
-              : t("Větší platby se potvrzují heslem. Nastav si ho a platbu pak zopakuj.")}
+            : reason === "settings"
+              ? t("Zašifruje peněženku v tomto zařízení. Nikdo ho za tebe neobnoví.")
+              : reason === "backup"
+                ? t("Nastav si heslo a zapiš si 12 slov.")
+                : t("Větší platby se potvrzují heslem. Nastav si ho a platbu pak zopakuj.")}
         </p>
         {!skip && (
           <>
@@ -139,7 +142,7 @@ export default function PasswordSetupSheet({ reason, onDone }: { reason: Passwor
             {!mismatch && problem && <p className="sht-sub">{t(problem)}</p>}
           </>
         )}
-        {reason !== "spend" && (
+        {reason !== "spend" && reason !== "settings" && (
           <label className="ex-check pw-skip">
             <input type="checkbox" checked={skip} onChange={(e) => setSkip(e.target.checked)} />
             {t("Přeskočit heslo")}
@@ -166,7 +169,10 @@ export default function PasswordSetupSheet({ reason, onDone }: { reason: Passwor
   return (
     <Sheet
       closing={closing}
-      onBackdrop={reason === "backup" ? () => closeThen(onDone) : undefined}
+      // Not while the password is being saved: the save would finish behind a closed sheet and the words never show.
+      onBackdrop={
+        !busy && !closing && (reason === "backup" || reason === "settings") ? () => closeThen(onDone) : undefined
+      }
       screenKey={stage}
     >
       {body}

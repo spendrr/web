@@ -128,10 +128,10 @@ export default function Welcome({
           <a href="https://github.com/spendrr/web" target="_blank" rel="noopener">
             {t("Zdrojový kód")}
           </a>
-          <a href="/learn" target="_blank" rel="noopener">
+          <a href={lang === "en" ? "/learn/en" : "/learn?lang=cs"} target="_blank" rel="noopener">
             {t("Jak to funguje")}
           </a>
-          <a href="/privacy" target="_blank" rel="noopener">
+          <a href={lang === "en" ? "/privacy/en" : "/privacy"} target="_blank" rel="noopener">
             {t("Soukromí")}
           </a>
         </nav>

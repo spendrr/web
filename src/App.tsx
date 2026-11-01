@@ -955,6 +955,7 @@ function App() {
   // dashboard crossfades into a padlock that closes. A plain swap with reduced
   // motion.
   const lockByHand = useCallback(() => {
+    if (loadVault() === null && hasDeviceVault()) setDeviceLocked(true);
     const plain = () => setScreen({ kind: "unlock" });
     if (prefersReducedMotion() || document.hidden) {
       plain();
@@ -1102,16 +1103,23 @@ function App() {
   // A passwordless wallet opens by itself on the unlock screen. One attempt per visit to that screen, so a failure shows
   // its error with a retry button instead of looping; a claim in progress opens the wallet itself (GiftClaimModal).
   const deviceAttemptRef = useRef(false);
+  // Set by a deliberate lock of a passwordless wallet: it waits for a tap on its lock screen instead of reopening by
+  // itself (which also raced the tab lock the closing session still held, and showed the "open elsewhere" sheet).
+  const [deviceLocked, setDeviceLocked] = useState(false);
+  // Keyed on the screen alone: a lock sets the flag while the screen is still "ready", and that must not clear it.
+  useEffect(() => {
+    if (screen.kind === "ready") setDeviceLocked(false);
+  }, [screen.kind]);
   useEffect(() => {
     if (screen.kind === "ready") {
       deviceAttemptRef.current = false;
       return;
     }
-    if (screen.kind !== "unlock" || giftClaim || deviceAttemptRef.current) return;
+    if (screen.kind !== "unlock" || giftClaim || deviceLocked || deviceAttemptRef.current) return;
     if (loadVault() !== null || !hasDeviceVault()) return;
     deviceAttemptRef.current = true;
     void unlockDevice();
-  }, [screen.kind, giftClaim, unlockDevice]);
+  }, [screen.kind, giftClaim, deviceLocked, unlockDevice]);
 
   // Anything that needs a password when there is none yet (a larger payment, the exit, Settings) asks for the sheet.
   useEffect(() => {
@@ -1439,6 +1447,39 @@ function App() {
     );
   }
 
+  // setupReason keeps this screen up while the password sheet runs: it saves the vault before it shows the words.
+  if (screen.kind === "unlock" && deviceLocked && (setupReason !== null || (loadVault() === null && hasDeviceVault()))) {
+    return (
+      <>
+        <DeviceLockScreen
+          opened={unlockOpened}
+          // While the setup sheet is up or closing (setupReason is cleared only when it is gone) nothing may open a
+          // session: the sheet's own release of the wallet lock would drop that session's lock.
+          disabled={setupReason !== null}
+          onUnlock={() => setDeviceLocked(false)}
+          onSetPassword={() => {
+            // The locked session let go of the wallet lock; hold it until the sheet is done, or a second tab could set
+            // a different password at the same time and the later save would win over the first.
+            void walletTabLock.acquire().then((held) => {
+              if (held) setSetupReason("settings");
+              else setOpenElsewhere(true);
+            });
+          }}
+        />
+        {setupReason && (
+          <PasswordSetupSheet
+            reason={setupReason}
+            onDone={() => {
+              setSetupReason(null);
+              walletTabLock.release();
+            }}
+          />
+        )}
+        {openElsewhere && <WalletOpenElsewhereSheet onClose={() => setOpenElsewhere(false)} />}
+      </>
+    );
+  }
+
   if (screen.kind === "unlock" && loadVault() === null && hasDeviceVault()) {
     return (
       <>
@@ -1549,7 +1590,7 @@ function SetPasswordForm({
   const problem = passwordProblem(password);
   const [skip, setSkip] = useState(false);
   const strong = isPasswordStrong(password);
-  const canSubmit = skip || (strong && !mismatch);
+  const canSubmit = skip || (strong && password === confirmPw);
   // The mark: three asterisks turn green exactly when the password passes the gate, so the estimator's own verdict
   // is what the third one means; below it the coarse level caps at two.
   const level = strong ? 3 : Math.min(2, passwordStrengthLevel(password));
@@ -1705,6 +1746,43 @@ function unlockHeading(): UnlockHeading {
   if (h >= 5 && h < 10) return { text: "Dobré ráno", emoji: "☀️" };
   if (h >= 18 && h < 23) return { text: "Dobrý večer", emoji: "🌙" };
   return welcome;
+}
+
+// The unlock screen of a passwordless wallet after a deliberate lock: the same padlock and heading as UnlockForm, with
+// no password field and one button. (A cold start opens such a wallet by itself, see the deviceAttemptRef effect.)
+function DeviceLockScreen({
+  opened,
+  disabled,
+  onUnlock,
+  onSetPassword,
+}: {
+  opened: boolean;
+  disabled: boolean;
+  onUnlock: () => void;
+  onSetPassword: () => void;
+}) {
+  const t = useT();
+  const [heading] = useState<UnlockHeading>(() => unlockHeading());
+  return (
+    <div className="centered-screen unlock-v2">
+      <Brand />
+      <UnlockLock state={opened ? "open" : "idle"} />
+      <div className="auth-card">
+        <h1>
+          {t(heading.text)}
+          {heading.emoji ? ` ${heading.emoji}` : ""}
+        </h1>
+        <div className="stack">
+          <button type="button" disabled={disabled} onClick={onUnlock}>
+            {t("Odemknout")}
+          </button>
+        </div>
+      </div>
+      <button type="button" className="forgot-password-link" disabled={disabled} onClick={onSetPassword}>
+        {t("Nastavit heslo")}
+      </button>
+    </div>
+  );
 }
 
 function UnlockForm({
