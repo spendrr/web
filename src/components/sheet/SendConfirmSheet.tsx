@@ -28,7 +28,7 @@ export function SendGlyph({ flying = false }: { flying?: boolean }) {
     >
       <g className="sht-send-plane">
         <path d="M21.5 2.5l-6.5 19-3.6-8.4L3 9.5l18.5-7z" />
-        <path d="M17.6 6.4L11.4 13.1" />
+        <path d="M21.5 2.5L11.4 13.1" />
       </g>
       <path className="sht-send-trail sht-send-trail--a" d="M2.5 21.5L7 17" />
       <path className="sht-send-trail sht-send-trail--b" d="M3.5 16.5L6 14" />

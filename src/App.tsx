@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
 import "./App.css";
 import { encryptMnemonic, loadVault, saveVault } from "./lib/vault/crypto";
@@ -24,9 +24,20 @@ import {
   type PrepareSource,
 } from "./lib/wallet/walletSession";
 import { hasBiometricUnlock, unlockWithBiometric } from "./lib/vault/webauthn";
-import { DEVICE_KEY_MISSING, hasDeviceVault, loadDeviceUnwrap } from "./lib/vault/deviceVault";
-import { PASSWORD_SETUP_EVENT } from "./lib/vault/vaultAccess";
+import {
+  DEVICE_KEY_MISSING,
+  createDeviceVault,
+  deviceVaultChosen,
+  hasDeviceVault,
+  loadDeviceUnwrap,
+  markDeviceVaultChosen,
+} from "./lib/vault/deviceVault";
+import { PASSWORD_SETUP_EVENT, type PasswordSetupReason } from "./lib/vault/vaultAccess";
 import PasswordSetupSheet from "./components/PasswordSetupSheet";
+import { PasswordMark } from "./components/PasswordMark";
+import { QuillMark } from "./components/QuillMark";
+import { UNLOCK_SHAKE } from "./lib/ui/shake";
+import { COARSE_POINTER } from "./lib/ui/touch";
 import { isAutoLockEnabled } from "./lib/vault/autoLock";
 import { clearAllLocalWalletState } from "./lib/vault/resetLocalState";
 import { clearStoredReceiveAddress } from "./lib/wallet/onchainReceiveAddress";
@@ -47,26 +58,34 @@ import {
   waitForLocalStateToSettle,
 } from "./lib/backup/backup";
 
-import BitcoinMark from "./components/BitcoinMark";
 import MnemonicGrid from "./components/MnemonicGrid";
 import ImportSeedForm from "./components/ImportSeedForm";
 import Dashboard from "./components/Dashboard";
 import GiftClaimModal from "./components/GiftClaimModal";
 import GiftPasswordModal from "./components/GiftPasswordModal";
-import { ErrorCircleIcon, WarningIcon } from "./components/BannerIcons";
-import { isPasswordStrong, passwordProblem } from "./lib/vault/password";
+import { ErrorCircleIcon, EyeIcon, WarningIcon } from "./components/BannerIcons";
+import { isPasswordStrong, passwordProblem, passwordStrengthLevel } from "./lib/vault/password";
 import { decodeGiftFragment, isGiftPath, type GiftLinkParams } from "./lib/gift/giftLink";
 import { decodeRequestFragment, isRequestPath, type PaymentRequestParams } from "./lib/send/paymentRequest";
 import PaymentRequestPage from "./components/PaymentRequestPage";
 import ProfilePage from "./components/ProfilePage";
 import { handleFromPath } from "./lib/names/handle";
-import { clearPendingGiftPassword, getPendingGiftPassword, hasClaimedGift } from "./lib/gift/giftStore";
-import { tf, useT } from "./lib/i18n";
+import {
+  clearNeedsSeedBackup,
+  clearPendingGiftPassword,
+  getPendingGiftPassword,
+  hasClaimedGift,
+  markNeedsSeedBackup,
+} from "./lib/gift/giftStore";
+import { describeError } from "./lib/appErrors";
+import { getLang, useT } from "./lib/i18n";
 import { WALLET_OPEN_ELSEWHERE, walletTabLock } from "./lib/wallet/walletTabLock";
+import SkipBackupSheet from "./components/SkipBackupSheet";
 import WalletOpenElsewhereSheet from "./components/WalletOpenElsewhereSheet";
 import DeleteWalletSheet from "./components/DeleteWalletSheet";
 import { isIosBrowserTab, requestPersistentStorage } from "./lib/vault/storageProtection";
 import InstallAppSheet from "./components/InstallAppSheet";
+import Welcome from "./components/Welcome";
 import { hapticError, hapticSuccess, hapticTap } from "./lib/ui/haptics";
 import { sessionEngineMode } from "./lib/refreshEngine/mode";
 
@@ -79,18 +98,6 @@ const ONCHAIN_SCANNED_KEY = "btc-wallet-onchain-scanned";
 // One-time flag for resetOnchainWalletDb()'s repair below — see that
 // function's own comment in bark.ts for what it fixes and why.
 const ONCHAIN_BLOAT_FIX_KEY = "btc-wallet-onchain-bloat-fixed-v1";
-// Positions/timings for the onboarding screen's decorative floating
-// Bitcoin-mark background — hand-picked, not generated, so they stay fixed
-// across renders instead of jittering.
-const ONBOARDING_BG_ICONS = [
-  { top: "5%", left: "8%", size: 40, duration: 14, dx: 14, dy: 10, rot: -6, opacity: 0.5 },
-  { top: "12%", left: "78%", size: 30, duration: 12, dx: -12, dy: 14, rot: 8, opacity: 0.4 },
-  { top: "46%", left: "2%", size: 26, duration: 16, dx: 10, dy: -10, rot: -4, opacity: 0.35 },
-  { top: "60%", left: "84%", size: 34, duration: 13, dx: -14, dy: -8, rot: 5, opacity: 0.45 },
-  { top: "80%", left: "10%", size: 24, duration: 15, dx: 8, dy: -12, rot: -8, opacity: 0.32 },
-  { top: "3%", left: "44%", size: 20, duration: 17, dx: -8, dy: 10, rot: 10, opacity: 0.28 },
-] as const;
-
 // How long the unlock screen's padlock gets to visibly swing open before the
 // dashboard replaces it (V2 unlock screen only). Only ever spent *after* the
 // wallet is already open, never before the password is verified, so the
@@ -108,9 +115,10 @@ function prefersReducedMotion(): boolean {
 type Screen =
   | { kind: "loading" }
   | { kind: "onboarding" }
-  | { kind: "create-confirm"; mnemonic: string }
   | { kind: "import" }
   | { kind: "set-password"; mnemonic: string; isImport: boolean }
+  | { kind: "backup-intro"; mnemonic: string }
+  | { kind: "backup-words"; mnemonic: string }
   | { kind: "unlock" }
   | { kind: "ready"; wallet: WalletClient };
 
@@ -140,11 +148,13 @@ function PasswordField({
   onChange,
   placeholder,
   autoFocus,
+  autoComplete,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   autoFocus?: boolean;
+  autoComplete?: string;
 }) {
   return (
     <div className="input-icon-wrap">
@@ -154,6 +164,7 @@ function PasswordField({
         placeholder={placeholder}
         value={value}
         autoFocus={autoFocus}
+        autoComplete={autoComplete}
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
@@ -184,10 +195,8 @@ function App() {
   // before swapping to the dashboard.
   const celebrateUnlockRef = useRef(false);
   const lockCloseTimerRef = useRef<number | null>(null);
-  // Gates create-confirm's "I wrote it down, continue" button — false until
-  // MnemonicGrid reports every word has actually been stepped through, reset
-  // whenever a fresh mnemonic is generated below.
-  const [seedFullyRevealed, setSeedFullyRevealed] = useState(false);
+  // The "skip the backup?" sheet on the backup intro.
+  const [skipBackupSheet, setSkipBackupSheet] = useState(false);
   // True only for the very first Dashboard mount right after the user
   // finishes creating/importing a wallet — gates the onboarding coachmark
   // tour so returning users unlocking an existing wallet never see it again.
@@ -472,7 +481,7 @@ function App() {
 
     // Cloud backup restore (see ARCHITECTURE.md's backup section / lib/backup.ts)
     // — only on the import/recovery path, never for a freshly generated
-    // mnemonic (create-confirm), which can't possibly have a prior backup.
+    // mnemonic (onboarding), which can't possibly have a prior backup.
     // Runs before the SDK has ever opened either local database this
     // session — deliberately, after an earlier close-then-restore-then-reopen
     // design hit two real bugs during a live recovery test: it silently
@@ -841,36 +850,23 @@ function App() {
       // wallet — bark.ts's watchdog, or a worker crash. Nothing is wrong
       // with the vault; the attempt just has to start over.
       if (message === NO_HELD_MNEMONIC) return t("Odemykání bylo přerušeno. Zkus to prosím znovu.");
-      return message;
+      // The SDK's own errors, for the ones appErrors recognises (the Ark server not answering above all). An
+      // unrecognised one keeps its raw text here: this screen has no copy button, and the raw text is what a bug
+      // report needs.
+      const described = describeError(e, t, getLang());
+      return described.raw === null ? described.text : message;
     },
     [t],
   );
 
-  const finishWithMnemonic = useCallback(
-    async (mnemonic: string, password: string, isImport: boolean) => {
+  // Onboarding: the wallet exists as soon as the password step is done (or skipped); the seed comes after, as a
+  // backup the user may postpone (the dashboard banner carries it). `password === null` is the "Přeskočit heslo" box.
+  const openNewWallet = useCallback(
+    async (mnemonic: string, isImport: boolean) => {
       setBusy(true);
       setError(null);
       try {
-        // Before saveVault: replacing the vault under a wallet another tab has
-        // open would leave that tab running one wallet over another's vault.
-        if (await walletTabLock.heldElsewhere()) {
-          setOpenElsewhere(true);
-          return;
-        }
-        const vault = await encryptMnemonic(mnemonic, password);
-        saveVault(vault);
-        // Still close to the tap, which Firefox's permission prompt wants.
-        void requestPersistentStorage({ force: true });
         setJustOnboarded(true);
-        // Only the import path can possibly have a prior backup — a
-        // brand-new mnemonic from create-confirm never does, so skip the
-        // network round-trip for it entirely.
-        //
-        // The mnemonic is unavoidably in this realm on the create/import
-        // path (it was just shown to the user word by word, or typed in by
-        // them), so handing it to the worker here is not a new exposure —
-        // it just means every session goes through the same single open
-        // path. See PrepareSource's "mnemonic" variant.
         await openSession({ kind: "mnemonic", mnemonic }, true, isImport);
       } catch (e) {
         setError(describeOpenError(e));
@@ -879,6 +875,38 @@ function App() {
       }
     },
     [openSession, describeOpenError],
+  );
+
+  const finishV2 = useCallback(
+    async (mnemonic: string, password: string | null, isImport: boolean) => {
+      setBusy(true);
+      setError(null);
+      try {
+        if (await walletTabLock.heldElsewhere()) {
+          setOpenElsewhere(true);
+          return;
+        }
+        if (password === null) {
+          await createDeviceVault(mnemonic);
+          markDeviceVaultChosen();
+        } else {
+          saveVault(await encryptMnemonic(mnemonic, password));
+        }
+        void requestPersistentStorage({ force: true });
+        if (isImport) {
+          await openNewWallet(mnemonic, true);
+          return;
+        }
+        // Set before the backup screens so a closed tab in between still leaves the banner.
+        markNeedsSeedBackup();
+        setScreen({ kind: "backup-intro", mnemonic });
+      } catch (e) {
+        setError(describeOpenError(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [openNewWallet, describeOpenError],
   );
 
   const unlock = useCallback(
@@ -982,7 +1010,7 @@ function App() {
   // The wallet of a gift link made without a password (deviceVault.ts). Same open path as the fingerprint ("bioVault"):
   // the worker gets the device key and unwraps the seed, this thread never holds it. Opening it on a later start also
   // raises the setup sheet that turns it into a normal password wallet.
-  const [setupReason, setSetupReason] = useState<"gift" | "spend" | null>(null);
+  const [setupReason, setSetupReason] = useState<PasswordSetupReason | null>(null);
   const unlockDevice = useCallback(async () => {
     setJustOnboarded(false);
     setBusy(true);
@@ -995,7 +1023,7 @@ function App() {
       }
       const unwrap = await loadDeviceUnwrap();
       await openSession({ kind: "bioVault", ...unwrap }, false);
-      setSetupReason((r) => r ?? "gift");
+      if (!deviceVaultChosen()) setSetupReason((r) => r ?? "gift");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(
@@ -1087,8 +1115,9 @@ function App() {
 
   // Anything that needs a password when there is none yet (a larger payment, the exit, Settings) asks for the sheet.
   useEffect(() => {
-    const open = () => {
-      if (loadVault() === null && hasDeviceVault()) setSetupReason((r) => r ?? "spend");
+    const open = (e: Event) => {
+      const reason = (e as CustomEvent<PasswordSetupReason | undefined>).detail ?? "spend";
+      if (loadVault() === null && hasDeviceVault()) setSetupReason((r) => r ?? reason);
     };
     window.addEventListener(PASSWORD_SETUP_EVENT, open);
     return () => window.removeEventListener(PASSWORD_SETUP_EVENT, open);
@@ -1240,8 +1269,7 @@ function App() {
     setBusy(true);
     try {
       const mnemonic = await generateMnemonic();
-      setSeedFullyRevealed(false);
-      setScreen({ kind: "create-confirm", mnemonic });
+      setScreen({ kind: "set-password", mnemonic, isImport: false });
     } finally {
       setBusy(false);
     }
@@ -1269,56 +1297,14 @@ function App() {
 
   if (screen.kind === "onboarding") {
     return (
-      <div className="centered-screen onboarding-screen">
+      <div className="centered-screen onboarding-screen wl-host">
         <div className="onboarding-glow onboarding-glow-1" />
         <div className="onboarding-glow onboarding-glow-2" />
-        <div className="onboarding-bg-icons">
-          {ONBOARDING_BG_ICONS.map((icon, i) => (
-            <BitcoinMark
-              key={i}
-              className="onboarding-bg-icon"
-              style={
-                {
-                  top: icon.top,
-                  left: icon.left,
-                  width: icon.size,
-                  height: icon.size,
-                  opacity: icon.opacity,
-                  animationDuration: `${icon.duration}s`,
-                  animationDelay: `${i * 0.6}s`,
-                  "--drift-x": `${icon.dx}px`,
-                  "--drift-y": `${icon.dy}px`,
-                  "--drift-r": `${icon.rot}deg`,
-                } as CSSProperties
-              }
-            />
-          ))}
-        </div>
-        <Brand />
-        <div className="auth-card onboarding-card">
-          <span className="onboarding-badge">{t("SELF CUSTODIAL")}</span>
-          <h1>
-            {t("Bitcoin.")}
-            <br />
-            {t("Bez prostředníka.")}
-          </h1>
-          <p className="muted">{t("Klíče k penězům držíš jen ty, v telefonu.")}</p>
-          <div className="stack">
-            <button disabled={busy} onClick={() => throughInstallGate(startCreate)}>
-              {t("Vytvořit peněženku")}
-            </button>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => throughInstallGate(() => setScreen({ kind: "import" }))}
-            >
-              {t("Mám seed phrase")}
-            </button>
-          </div>
-          <a className="onboarding-learn" href="/learn" target="_blank" rel="noopener">
-            {t("Jak to funguje")}
-          </a>
-        </div>
+        <Welcome
+          busy={busy}
+          onCreate={() => throughInstallGate(startCreate)}
+          onImport={() => throughInstallGate(() => setScreen({ kind: "import" }))}
+        />
         {installGate && (
           <InstallAppSheet
             variant="onboarding"
@@ -1334,27 +1320,77 @@ function App() {
     );
   }
 
-  if (screen.kind === "create-confirm") {
+  if (screen.kind === "backup-intro") {
+    return (
+      <div className="centered-screen">
+        <div className="auth-card backup-intro">
+          {/* door-key-icon.svg, supplied by the project owner (Downloads, 2026-11-01), the outline is
+              thinned by the mask (3 units off every edge) and the colour comes from the text. Per the site it comes from, its icons may be used in commercial projects without
+              attribution (as quoted by the owner; the file itself carries no licence). */}
+          <span className="sht-mark bk-mark" aria-hidden="true">
+            <svg viewBox="0 0 118.74 122.88">
+              <defs>
+                <mask id="bk-key-thin">
+                  <path d="M70,9.81c.14.13.27.26.4.4a34.29,34.29,0,0,1-.21,48.19l-.06.07L100,88.38h0L111.62,100h0l7.12,7.12-11.62,11.61L100,111.62,88.74,122.88,77.12,111.26,88.38,100l-6.14-6.14-13,13L57.65,95.21l13-13L58.47,70.09l-.07.06A34.22,34.22,0,0,1,10,21.75L21.75,10A34.28,34.28,0,0,1,70,9.81ZM61.31,34.2a15.32,15.32,0,0,0-4.47-10.87h0a15.45,15.45,0,0,0-21.76,0L23.32,35.07A15.39,15.39,0,0,0,45.08,56.83L56.83,45.08A15.35,15.35,0,0,0,61.31,34.2Z" fill="#fff" stroke="#000" strokeWidth="6" strokeLinejoin="round" />
+                </mask>
+              </defs>
+              <rect width="118.74" height="122.88" fill="currentColor" mask="url(#bk-key-thin)" />
+            </svg>
+          </span>
+          <h1>{t("Zálohuj peněženku")}</h1>
+          <p className="muted">{t("12 slov obnoví peněženku, když přijdeš o telefon. Kdo je má, má i tvoje peníze.")}</p>
+          <div className="stack">
+            <button onClick={() => setScreen({ kind: "backup-words", mnemonic: screen.mnemonic })}>
+              {t("Ukázat slova")}
+            </button>
+            <button className="secondary" disabled={busy} onClick={() => setSkipBackupSheet(true)}>
+              {t("Později")}
+            </button>
+          </div>
+          {error && <p className="error">{error}</p>}
+        </div>
+        {openElsewhere && <WalletOpenElsewhereSheet onClose={() => setOpenElsewhere(false)} />}
+        {skipBackupSheet && (
+          <SkipBackupSheet
+            onClose={() => setSkipBackupSheet(false)}
+            onBackup={() => {
+              setSkipBackupSheet(false);
+              setScreen({ kind: "backup-words", mnemonic: screen.mnemonic });
+            }}
+            onSkip={() => {
+              setSkipBackupSheet(false);
+              void openNewWallet(screen.mnemonic, false);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (screen.kind === "backup-words") {
     const words = screen.mnemonic.split(" ");
     return (
       <div className="centered-screen">
         <div className="auth-card">
-          <h1>{t("Zapiš si seed phrase")}</h1>
-          <div className="banner banner-warning">
-            <WarningIcon />
-            <span className="seed-warning-text">
-              {tf(t("Těchto {n} slov je jediný způsob, jak obnovit peněženku. "), { n: words.length })}
-              <strong>{t("Napiš si je na papír a ulož na bezpečné místo. Nikdy je nikomu nesděluj.")}</strong>
-            </span>
-          </div>
-          <MnemonicGrid words={words} onAllRevealedChange={setSeedFullyRevealed} />
-          <button
-            disabled={!seedFullyRevealed}
-            onClick={() => setScreen({ kind: "set-password", mnemonic: screen.mnemonic, isImport: false })}
-          >
-            {t("Zapsal jsem si to, pokračovat")}
-          </button>
+          <QuillMark />
+          <h1>{t("Zapiš si 12 slov")}</h1>
+          <p className="pw-note is-warn">
+            <span className="pw-note-tab">{t("Pozor")}</span>
+            {t("Jen s nimi obnovíš peněženku. Napiš je na papír a nikomu je neukazuj.")}
+          </p>
+          <MnemonicGrid
+            tiles
+            words={words}
+            continueLabel={t("Zapsal jsem si to, pokračovat")}
+            continueDisabled={busy}
+            onContinue={() => {
+              clearNeedsSeedBackup();
+              void openNewWallet(screen.mnemonic, false);
+            }}
+          />
+          {error && <p className="error">{error}</p>}
         </div>
+        {openElsewhere && <WalletOpenElsewhereSheet onClose={() => setOpenElsewhere(false)} />}
       </div>
     );
   }
@@ -1396,7 +1432,7 @@ function App() {
             setError(null);
             setScreen({ kind: "onboarding" });
           }}
-          onSubmit={(password) => finishWithMnemonic(screen.mnemonic, password, screen.isImport)}
+          onSubmit={(password) => finishV2(screen.mnemonic, password, screen.isImport)}
         />
         {openElsewhere && <WalletOpenElsewhereSheet onClose={() => setOpenElsewhere(false)} />}
       </>
@@ -1409,7 +1445,7 @@ function App() {
         <div className="centered-screen">
           <Brand />
           {!error && (busy || !deviceAttemptRef.current) ? (
-            <p className="muted">{t("Otevírám…")}</p>
+            <div className="spinner" role="status" aria-label={t("Otevírám…")} />
           ) : (
             <>
               {error && <p className="error">{error}</p>}
@@ -1501,7 +1537,7 @@ function SetPasswordForm({
   error,
   busy,
 }: {
-  onSubmit: (password: string) => void;
+  onSubmit: (password: string | null) => void | Promise<unknown>;
   onCancel: () => void;
   error: string | null;
   busy: boolean;
@@ -1511,31 +1547,83 @@ function SetPasswordForm({
   const [confirmPw, setConfirmPw] = useState("");
   const mismatch = confirmPw.length > 0 && password !== confirmPw;
   const problem = passwordProblem(password);
-  const canSubmit = isPasswordStrong(password) && !mismatch;
+  const [skip, setSkip] = useState(false);
+  const strong = isPasswordStrong(password);
+  const canSubmit = skip || (strong && !mismatch);
+  // The mark: three asterisks turn green exactly when the password passes the gate, so the estimator's own verdict
+  // is what the third one means; below it the coarse level caps at two.
+  const level = strong ? 3 : Math.min(2, passwordStrengthLevel(password));
+  // Mismatch only counts as wrong once the confirmation is as long as the password: before that it is just being typed.
+  const wrongConfirm = mismatch && confirmPw.length >= password.length;
+  const bad = !skip && (wrongConfirm || !!error);
+  const markRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (bad) markRef.current?.animate(UNLOCK_SHAKE, { duration: 480, easing: "linear" });
+  }, [bad]);
+  // After a submit the mark plays its pass and holds for a beat before the screen moves on. Skipping the password
+  // and reduced motion go straight through. A failed attempt resets it.
+  const [done, setDone] = useState(false);
+  const doneTimer = useRef<number | null>(null);
+  const [seenError, setSeenError] = useState(error);
+  if (error !== seenError) {
+    setSeenError(error);
+    if (error) setDone(false);
+  }
+  useEffect(
+    () => () => {
+      if (doneTimer.current !== null) window.clearTimeout(doneTimer.current);
+    },
+    [],
+  );
   return (
     <form
       className="centered-screen"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!busy && canSubmit) onSubmit(password);
+        if (busy || done || !canSubmit) return;
+        if (skip || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          onSubmit(skip ? null : password);
+          return;
+        }
+        setDone(true);
+        doneTimer.current = window.setTimeout(() => {
+          // A submit that settles without leaving the screen (wallet open in another tab) must not leave the button dead.
+          void Promise.resolve(onSubmit(password)).finally(() => setDone(false));
+        }, 520);
       }}
     >
       <div className="auth-card">
+        <PasswordMark level={skip ? 0 : level} bad={bad} done={done} markRef={markRef} />
         <h1>{t("Nastav heslo")}</h1>
-        <p className="muted">
-          {t("Heslo šifruje seed phrase v tomto prohlížeči. Neposílá se nikam a nikdo ho nemůže obnovit za tebe.")}
-        </p>
-        <div className="field-group">
-          <PasswordField value={password} onChange={setPassword} placeholder={t("Heslo")} autoFocus />
-          <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder={t("Heslo znovu")} />
-        </div>
-        {mismatch && <p className="error">{t("Hesla se neshodují.")}</p>}
+        <p className="muted">{t("Zašifruje peněženku v tomto zařízení. Nikdo ho za tebe neobnoví.")}</p>
+        {!skip && (
+          <div className="field-group">
+            <PasswordField value={password} onChange={setPassword} placeholder={t("Heslo")} autoFocus={!COARSE_POINTER} autoComplete="new-password" />
+            <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder={t("Heslo znovu")} autoComplete="new-password" />
+          </div>
+        )}
+        <label className="ex-check">
+          <input type="checkbox" checked={skip} onChange={(e) => setSkip(e.target.checked)} />
+          {t("Přeskočit heslo")}
+        </label>
+        {skip && (
+          <p className="pw-note is-warn">
+            <span className="pw-note-tab">{t("Pozor")}</span>
+            {t("Peněženku otevře každý s odemčeným telefonem. Větší platby si vyžádají nastavení hesla.")}
+          </p>
+        )}
+        {!skip && mismatch && <p className="error">{t("Hesla se neshodují.")}</p>}
         {/* The hint names the specific weakness the estimator found (a
             common word, a keyboard run, a date, ...) rather than reciting a
             character-class rule — there is no such rule any more, and
             "add a capital letter" is advice that doesn't help against the
             attack this gate exists for. See lib/passwordStrength.ts. */}
-        {!mismatch && problem && <p className="hint">{t(problem)}</p>}
+        {!skip && !mismatch && problem && (
+          <p className="pw-note">
+            <span className="pw-note-tab">{t("Tip")}</span>
+            {t(problem)}
+          </p>
+        )}
         {error && (
           <div className="banner banner-danger">
             <ErrorCircleIcon />
@@ -1543,7 +1631,7 @@ function SetPasswordForm({
           </div>
         )}
         <div className="stack">
-          <button type="submit" disabled={busy || !canSubmit}>
+          <button type="submit" disabled={busy || done || !canSubmit}>
             {busy ? t("Zakládám peněženku…") : t("Vytvořit peněženku")}
           </button>
           <button type="button" className="secondary" onClick={onCancel}>
@@ -1601,28 +1689,6 @@ function UnlockLock({ state }: { state: "idle" | "busy" | "open" }) {
     </div>
   );
 }
-
-function EyeIcon({ crossed }: { crossed: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-      {crossed && <path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
-    </svg>
-  );
-}
-
-// A damped sine sampled finely enough that linear interpolation between
-// samples reads as one smooth motion rather than discrete jumps.
-const UNLOCK_SHAKE: Keyframe[] = Array.from({ length: 25 }, (_, i) => {
-  const p = i / 24;
-  return { transform: `translateX(${(Math.sin(p * Math.PI * 4) * 6 * (1 - p)).toFixed(2)}px)` };
-});
 
 // Unlock screen: animated padlock, real progress line, biometric first when
 // enrolled, password reveal + Caps Lock hint. (The old V1 screen was removed

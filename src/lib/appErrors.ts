@@ -114,6 +114,16 @@ const KNOWN: KnownError[] = [
     text: (_m, t) => t("Aplikace je zastaralá. Obnov stránku."),
   },
   {
+    // The Ark server itself is not answering (an outage, as on the status page): the person's internet is fine, so
+    // "check your internet" would send them the wrong way. A browser that is really offline fails the same way,
+    // so that case keeps the generic sentence below.
+    test: /failed to connect to (provided server|ark server)|handshake request failed/i,
+    text: (_m, t) =>
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? t("Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.")
+        : t("Ark server teď neodpovídá. Zkus to za chvíli."),
+  },
+  {
     test: /failed to connect|communicating with the server|failed to fetch|networkerror|load failed|transport error|unavailable|timed out|connection (refused|reset|closed)/i,
     text: (_m, t) => t("Nepodařilo se připojit. Zkontroluj internet a zkus to znovu."),
   },

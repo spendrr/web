@@ -56,12 +56,16 @@ export function markGiftClaimed(id: string): void {
 
 // --- "Needs seed backup" banner flag (fresh gift recipient only) --------
 
+// The dashboard banner lives apart from whatever sheet clears the flag, so a change is announced.
+export const SEED_BACKUP_CHANGED_EVENT = "spendrr:seed-backup-changed";
+
 export function markNeedsSeedBackup(): void {
   try {
     localStorage.setItem(NEEDS_BACKUP_KEY, "1");
   } catch {
     /* ignore */
   }
+  window.dispatchEvent(new Event(SEED_BACKUP_CHANGED_EVENT));
 }
 
 export function needsSeedBackup(): boolean {
@@ -78,6 +82,7 @@ export function clearNeedsSeedBackup(): void {
   } catch {
     /* ignore */
   }
+  window.dispatchEvent(new Event(SEED_BACKUP_CHANGED_EVENT));
 }
 
 // --- Last known claim status (display only) ---------------------------
