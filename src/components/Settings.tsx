@@ -476,12 +476,15 @@ function BackupStatusWidget({ variant = "rows" }: { variant?: "rows" | "card" })
         <div className="banner banner-danger">
           <ErrorCircleIcon />
           <span>
-            {t("Obnovu zálohy se nepodařilo dokončit, takže zálohování je až do dalšího otevření aplikace vypnuté.")}{" "}
-            <code style={{ wordBreak: "break-word" }}>{restoreError}</code>
+            {t("Zálohování je vypnuté do dalšího otevření.")}
+            <details style={{ marginTop: 6 }}>
+              <summary>{t("Podrobnosti")}</summary>
+              <code style={{ wordBreak: "break-word" }}>{restoreError}</code>
+            </details>
           </span>
         </div>
       )}
-      {isStale && (
+      {isStale && restoreError === null && (
         <div className="banner banner-warning">
           <WarningIcon />
           <span>

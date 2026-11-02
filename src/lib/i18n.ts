@@ -229,8 +229,8 @@ const DICT: Record<string, string> = {
   "Poslední záloha": "Last backup",
   "zatím žádná": "none yet",
   "Zálohování se dlouho nedaří.": "Backups have been failing for a while.",
-  "Obnovu zálohy se nepodařilo dokončit, takže zálohování je až do dalšího otevření aplikace vypnuté.":
-    "The backup could not be fully restored, so backing up is switched off until you reopen the app.",
+  "Zálohování je vypnuté do dalšího otevření.": "Backups are off until you reopen the app.",
+  "Podrobnosti": "Details",
   "před {seconds} s": "{seconds}s ago",
   "Síť": "Network",
   "Vzhled": "Appearance",
