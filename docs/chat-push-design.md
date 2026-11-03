@@ -1,224 +1,231 @@
-# Push pro chat: návrh
+# Push for chat: design
 
-Stav: postavené za V2 a chatovým přepínačem (`worker/chatPush.ts`, `src/lib/chat/chatPush.ts`,
-`pushFormat.ts`, `pushSlots.ts`, `public/sw-chat.js`). Doručení na skutečném telefonu zatím neověřené.
-Nahrazuje odstavec „Push u nové jednorázové žádosti“ v [money-chat-design.md](money-chat-design.md).
+Status: built behind V2 and the chat switch (`worker/chatPush.ts`, `src/lib/chat/chatPush.ts`,
+`pushFormat.ts`, `pushSlots.ts`, `public/sw-chat.js`). Delivery on a real phone is not verified yet.
 
-## Cíl
+## Goal
 
-- Oznámení o nové zprávě, žádosti a platbě z chatu i se zavřenou appkou.
-- V oznámení **jméno odesílatele a text**. Server nevidí ani jedno.
-- Odesílatele nejde podvrhnout: kontakt se v oznámení nemůže vydávat za někoho jiného.
-- **Žádný Durable Object, žádné KV, žádný alarm.** Cena roste s počtem oznámení, ne s časem.
-- Pro uživatele jeden přepínač. Výměna klíčů a obnova běží samy.
+- A notification for a new message, request or payment from the chat, also with the app closed.
+- The notification shows the **sender's name and the text**. The server sees neither.
+- The sender cannot be forged: a contact cannot pose as someone else in a notification.
+- **No Durable Object, no KV, no alarm.** The cost grows with the number of notifications, not with time.
+- One switch for the user. Key exchange and renewal run by themselves.
 
-## Shrnutí
+## Summary
 
 ```
-Příjemce (Alice)                         Worker                     Odesílatel (Pepa)
- zapne oznámení
- ── POST /api/chat/push/tokens ───────▶  zapečetí endpoint+slot
- ◀── tokeny ──────────────────────────   (nic neukládá)
- pozvánka v chatu (gift wrap): token + klíč náhledu ───────────────▶ uloží u kontaktu
-                                                                     napíše zprávu, Alice není přítomen
+Recipient (Alice)                        Worker                     Sender (Bob)
+ turns notifications on
+ ── POST /api/chat/push/tokens ───────▶  seals endpoint+slot
+ ◀── tokens ──────────────────────────   (stores nothing)
+ invitation in the chat (gift wrap): token + preview key ──────────▶ stored with the contact
+                                                                     writes a message, Alice is away
                                          ◀── POST /api/chat/poke {token, blob} ──
-                                         otevře token, limit,
+                                         opens the token, limit,
  ◀── web push {slot, blob} ────────────  RFC 8291, VAPID
- sw.js: klíč slotu → dešifruje blob
- „@pepa: platíš dnes ten oběd?“
+ sw.js: slot key → decrypts the blob
+ "@bob: are you paying for lunch today?"
 ```
 
-Blob šifruje odesílatel klíčem, který zná jen on a příjemce. Worker přepošle bajty, které neumí přečíst.
+The sender encrypts the blob with a key that only the sender and the recipient know. The Worker
+forwards bytes it cannot read.
 
-## 1. Token (worker)
+## 1. Token (Worker)
 
-- Nový secret `CHAT_PUSH_SEAL_KEY` (32 B), AES-256-GCM, náhodný nonce 12 B, prefix verze `c1.`.
-- Obsah: `{endpoint, p256dh, auth, slot (16 B), iat (den)}`. U Android appky endpoint `fcm:<token>` jako dnes.
-  Base64url ~350 znaků. AAD `spendrr-chat-push-token-v1`: změna klíče nebo AAD zneplatní všechny vydané
-  tokeny (klienti se zotaví přes `ask`).
-- **Vydání:** `POST /api/chat/push/tokens {subscription, slots: [...]}`, nejvýš 50 slotů. Same-origin,
-  per-IP limit, `readBodyCapped`. Vrátí tokeny a nic neuloží. Jeden request na zapnutí, rotaci nebo dávku
-  nových kontaktů.
-- **Platnost 60 dní** (worker starší odmítne). Příjemce posílá novou pozvánku po 30 dnech, přibaleno k běžné
-  aktivitě v konverzaci. Zapomenutý kontakt tak po čase přijde o možnost pushovat sám.
-- **Proč zapečetit a ne jen podepsat:** kontakt nemá vidět push endpoint. Ten prozradí výrobce telefonu
-  (Apple, Google, Mozilla) a je to stálý identifikátor zařízení.
-- **Proč bez KV:** zrušení tokenu řeší rotace endpointu (oddíl 8), ne seznam v úložišti. Push pak nepotřebuje
-  žádné čtení.
+- A secret `CHAT_PUSH_SEAL_KEY` (32 B), AES-256-GCM, random 12 B nonce, version prefix `c1.`.
+- Content: `{endpoint, p256dh, auth, slot (16 B), iat (day)}`. For the Android app the endpoint is
+  `fcm:<token>`. About 350 characters in base64url. AAD `spendrr-chat-push-token-v1`: changing the key
+  or the AAD invalidates every issued token (clients recover through `ask`).
+- **Issue:** `POST /api/chat/push/tokens {subscription, slots: [...]}`, at most 50 slots. Same-origin,
+  per-IP limit, `readBodyCapped`. It returns tokens and stores nothing. One request to turn on, rotate
+  or for a batch of new contacts.
+- **Valid for 60 days** (the Worker rejects older ones). The recipient sends a new invitation after 30
+  days, bundled with ordinary activity in the conversation. A forgotten contact therefore loses the
+  ability to push after a while.
+- **Why seal and not only sign:** the contact must not see the push endpoint. It reveals the phone
+  maker (Apple, Google, Mozilla) and is a stable identifier of the device.
+- **Why no KV:** revoking a token is done by rotating the endpoint (section 8), not by a list in
+  storage. A push then needs no read.
 
-## 2. Klíč náhledu (jeden na kontakt)
+## 2. Preview key (one per contact)
 
-- Příjemce vygeneruje pro každý přijatý kontakt náhodný `slot` (16 B) a klíč `K` (AES-256-GCM, 32 B).
-- **U příjemce:** IndexedDB `spendrr-push`, kterou čte `sw.js`: `slot → {key: CryptoKey (non-extractable),
-  name?, n}`. Zapečetěný záznam kontaktu v chatu drží slot, aby appka po kliknutí věděla, kterou konverzaci
-  otevřít.
-- **U odesílatele:** `{token, key, preview}` v záznamu kontaktu, zapečetěné úložným klíčem jako ostatní
-  kontakty. Do zálohy NIP-78 nejde (velikost). Nové zařízení si řekne o novou pozvánku (oddíl 3).
-- **Proč odesílatele nejde podvrhnout:** slot přečte worker ze zapečetěného tokenu, odesílatel ho nezmění.
-  Blob jde otevřít jen klíčem toho slotu (klíč je pro každý kontakt jiný, AAD je proto jen konstanta). Jméno bere `sw.js` z vlastního seznamu příjemce, nikdy z blobu.
-  Kontakt tak může v oznámení mluvit jen sám za sebe.
-- **Proč ne jeden klíč pro všechny:** každý kontakt by pak uměl vyrobit oznámení „od“ kohokoli jiného.
+- For every accepted contact the recipient generates a random `slot` (16 B) and a key `K`
+  (AES-256-GCM, 32 B).
+- **At the recipient:** the IndexedDB `spendrr-push`, read by `sw.js`: `slot → {key: CryptoKey
+  (non-extractable), name?, n}`. The sealed contact record in the chat holds the slot, so the app
+  knows which conversation to open after a click.
+- **At the sender:** `{token, key, preview}` in the contact record, sealed with the storage key like
+  the other contacts. It does not go into the NIP-78 backup (size). A new device asks for a new
+  invitation (section 3).
+- **Why the sender cannot be forged:** the Worker reads the slot from the sealed token, the sender
+  cannot change it. The blob can be opened only with the key of that slot (the key differs per
+  contact, so the AAD is just a constant). `sw.js` takes the name from the recipient's own list, never
+  from the blob. A contact can therefore speak in a notification only for itself.
+- **Why not one key for everyone:** every contact could then produce a notification "from" anyone else.
 
-## 3. Výměna v chatu
+## 3. Exchange in the chat
 
-Řídicí zprávy jdou v běžném gift wrapu (kind 1059, doručí se i offline), ale s **vlastním kindem rumoru**
-(`KIND_PUSH_CONTROL`), ne jako kind 14. Starší verze Spendrr (`messageFromRumor` vrací `null` pro jiný kind) i
-cizí Nostr klienti je tiše ignorují, nikde se neukáže prázdná bublina.
+Control messages travel in an ordinary gift wrap (kind 1059, delivered also offline), but with their
+**own rumor kind** (`KIND_PUSH_CONTROL`), not as kind 14. Older Spendrr versions (`messageFromRumor`
+returns `null` for another kind) and foreign Nostr clients ignore them silently, no empty bubble
+shows up.
 
-| zpráva | kdo a kdy |
+| message | who and when |
 |---|---|
-| `{t:"grant", token, key, preview}` | příjemce: zapnutí, přijetí kontaktu, obnova po 30 dnech, rotace, změna úrovně náhledu |
-| `{t:"revoke"}` | příjemce: vypnutí oznámení. Odesílatel smaže grant. |
-| `{t:"ask"}` | odesílatel bez grantu (starý kontakt, nové zařízení, token vypršel nebo vrátil 410). Nejvýš jednou za 7 dní na kontakt. Příjemce odpoví grantem, jen když má oznámení zapnutá, nejvýš jednou za hodinu na kontakt a jen na ask mladší 2 dní. |
+| `{t:"grant", token, key, preview}` | recipient: turning on, accepting a contact, renewal after 30 days, rotation, a change of the preview level |
+| `{t:"revoke"}` | recipient: turning notifications off. The sender deletes the grant. |
+| `{t:"ask"}` | sender without a grant (an old contact, a new device, the token expired or returned 410). At most once per 7 days per contact. The recipient answers with a grant only when notifications are on, at most once per hour per contact and only to an ask younger than 2 days. |
 
-- **Jen přijaté kontakty.** Žádost o kontakt od cizího pozvánku nedostane, takže cizí nemůže pushovat vůbec.
-  Daň: první zpráva od neznámého oznámení nespustí. Ukáže se při dalším otevření appky.
-- `preview` je `"text" | "name" | "none"`, aby odesílatel neposílal text, který příjemce nechce zobrazit.
+- **Accepted contacts only.** A contact request from a stranger gets no invitation, so a stranger
+  cannot push at all. The price: the first message from an unknown person does not trigger a
+  notification. It shows at the next open of the app.
+- `preview` is `"text" | "name" | "none"`, so the sender does not send text the recipient does not
+  want shown.
 
-## 4. Kdy odesílatel ťukne
+## 4. When the sender pokes
 
-- **Ano:** text, žádost, odpověď na žádost, platba, plán.
-- **Ne:** reakce, signály (píše, přečteno), řídicí zprávy.
-- **Ne, když je druhá strana přítomná:** za posledních 90 s od ní přišla zpráva nebo živý signál. Konverzace
-  naživo tak stojí nula pushů.
-- **Nejvýš 1 ťuknutí za 60 s na konverzaci.** Zprávy uvnitř okna dají jedno ťuknutí na jeho konci s posledním
-  náhledem a počtem. Když se appka dřív skryje, odejde hned (`visibilitychange`, `fetch` s `keepalive`).
-- Ťuká se až po potvrzeném doručení na relay, ne při optimistickém odeslání.
-- **410 od workeru** (mrtvý endpoint nebo starý token): smazat grant, poslat `ask`.
-- Selhání ťuknutí nic neblokuje a neukazuje chybu. Zpráva je doručená tak jako tak.
+- **Yes:** text, request, reply to a request, payment, schedule.
+- **No:** reactions, signals (typing, read), control messages.
+- **No when the other side is present:** a message or a live signal from them in the last 90 s. A live
+  conversation therefore costs zero pushes.
+- **At most 1 poke per 60 s per conversation.** Messages inside the window give one poke at its end
+  with the latest preview and a count. When the app hides earlier, it goes out at once
+  (`visibilitychange`, `fetch` with `keepalive`).
+- A poke goes out only after delivery to the relay is confirmed, not at the optimistic send.
+- **410 from the Worker** (a dead endpoint or an old token): delete the grant, send `ask`.
+- A failed poke blocks nothing and shows no error. The message is delivered anyway.
 
 ## 5. Blob
 
 ```
 {v:1, n, k:"text"|"request"|"payment"|"reply"|"schedule", x?, sats?, note?, c, t}
- → doplnit nulami na 256 B (512 B pro dlouhý text)
+ → pad with zeros to 256 B (512 B for a long text)
  → AES-256-GCM(K, nonce 12 B, AAD = "spendrr-push-v1:" + slot)
 ```
 
-- `x` je text zkrácený na 120 znaků, jen při `preview: "text"`. Při `"name"` jde jen druh zprávy a částka, při
-  `"none"` jen druh.
-- `n` je monotónní čítač na kontakt (`max(předchozí + 1, Date.now())`, takže přežije i nový grant se stejným
-  slotem). `sw-chat.js` zahodí blob s `n` nižším nebo rovným poslednímu, takže přehraný starý request nic
-  neukáže.
-- `t` je čas odeslání. Blob starší než 24 h dostane obecný text.
-- Padding: délka pushe neprozradí délku zprávy.
+- `x` is the text cut to 120 characters, only with `preview: "text"`. With `"name"` only the kind of
+  message and the amount go, with `"none"` only the kind.
+- `n` is a monotonic counter per contact (`max(previous + 1, Date.now())`, so it survives a new grant
+  with the same slot). `sw-chat.js` drops a blob whose `n` is lower than or equal to the last one, so
+  a replayed old request shows nothing.
+- `t` is the send time. A blob older than 24 h gets a generic text.
+- Padding: the length of the push does not reveal the length of the message.
 
 ## 6. Worker: `POST /api/chat/poke`
 
-1. Same-origin, tělo nejvýš 2 KB (`readBodyCapped`).
-2. `CHAT_POKE_IP_LIMITER` přes `bumpRateLimitKey` (návrh 30 za minutu).
-3. Otevřít token (AES-GCM), kontrola verze a stáří. Chyba vrátí 410.
-4. `CHAT_POKE_SLOT_LIMITER` podle slotu (návrh 3 za minutu). Rate Limiting binding se nepočítá do KV ani DO.
-5. Payload `{type:"chat", s: slot, b: blob}`, šifrování RFC 8291 přes stávající `encryptPushPayload`. VAPID JWT
-   se drží v cache izolátu na origin push služby (12 h), takže podpis neběží při každém pushi.
-   Hlavičky: `TTL: 86400`, `Urgency: high`, `Topic` = 32 znaků z SHA-256 slotu. Push služba pak pro offline
-   telefon drží jen poslední push na konverzaci.
-6. Odpověď po odeslání pushe: 204, nebo 410 když push služba vrátí 404/410.
+1. Same-origin, body at most 2 KB (`readBodyCapped`).
+2. `CHAT_POKE_IP_LIMITER` through `bumpRateLimitKey`.
+3. Open the token (AES-GCM), check the version and the age. An error returns 410.
+4. `CHAT_POKE_SLOT_LIMITER` per slot. A Rate Limiting binding is not counted against KV or DO.
+5. Payload `{type:"chat", s: slot, b: blob}`, RFC 8291 encryption through the existing
+   `encryptPushPayload`. The VAPID JWT is cached in the isolate per push-service origin (12 h), so the
+   signature is not computed for every push. Headers: `TTL: 86400`, `Urgency: high`, `Topic` = 32
+   characters of the SHA-256 of the slot. For an offline phone the push service then keeps only the
+   latest push per conversation.
+6. Response after the push is sent: 204, or 410 when the push service returns 404/410.
 
-- FCM (Android appka): data zpráva se stejným `{s, b}`. Google vidí slot a šifrovaný blob, ne text.
-- Nic se neukládá ani neloguje. Cena: 1 request a 1 subrequest na push.
+- FCM (the Android app): a data message with the same `{s, b}`. Google sees the slot and the encrypted
+  blob, not the text.
+- Nothing is stored or logged. Cost: 1 request and 1 subrequest per push.
 
 ## 7. `sw.js`
 
-- `type: "chat"`: najít slot v IndexedDB, dešifrovat, zkontrolovat `n` a `t`. Úroveň náhledu je menší z
-  lokálního nastavení a z blobu.
-- Neznámý slot nebo selhané dešifrování: „Nová zpráva“ bez jména.
-- Titulek je jméno kontaktu (z IndexedDB příjemce). Tělo podle druhu:
+- `type: "chat"`: find the slot in IndexedDB, decrypt, check `n` and `t`. The preview level is the
+  smaller of the local setting and the blob.
+- Unknown slot or a failed decryption: "New message" without a name.
+- The title is the contact's name (from the recipient's IndexedDB). The body by kind:
   - text: `x`
-  - žádost: „Chce 500 sats · oběd“
-  - platba: „Poslal ti 500 sats · oběd“
-  - plán: „Posílá 500 sats měsíčně“
-- `tag: spendrr-chat-<slot>`: jedno oznámení na konverzaci. Další push ho nahradí, při `c > 1` ukáže
-  „@pepa (3)“ s posledním textem.
-- **Platba z chatu a platební push:** oba by ukázaly totéž. Chatová verze dostane tag `spendrr-payment`. Když
-  přijde obecný push z mailboxu do 2 minut po chatové platbě (`getNotifications`), zahodí se. Kdo nemá
-  platební push zapnutý, dostane jen chatový.
-- `navigator.setAppBadge(počet)` tam, kde je podporovaný.
-- Appka v popředí: nic se neukáže (stávající pravidlo). Kvůli přítomnosti (oddíl 4) takový push skoro
-  nepřijde.
-- `notificationclick`: fokus nebo otevření appky. Slot jde přes `postMessage`, při novém okně přes IndexedDB
-  (nic osobního v URL). Appka podle slotu otevře konverzaci, zavře její oznámení a sníží odznak.
-- `sw.js` dál nemá síť, peněženku ani klíče chatu. Přibude jen čtení IndexedDB a AES-GCM. Malá, čitelná
-  změna citlivého souboru.
+  - request: "Wants 500 sats · lunch"
+  - payment: "Sent you 500 sats · lunch"
+  - schedule: "Sends 500 sats monthly"
+- `tag: spendrr-chat-<slot>`: one notification per conversation. The next push replaces it, with
+  `c > 1` it shows "@bob (3)" with the latest text.
+- **A payment from the chat and the payment push:** both would show the same thing. The chat version
+  gets the tag `spendrr-payment`. When a generic push from the mailbox arrives within 2 minutes after
+  a chat payment (`getNotifications`), it is dropped. Whoever has no payment push turned on gets only
+  the chat one.
+- `navigator.setAppBadge(count)` where supported.
+- App in the foreground: nothing is shown (the existing rule). Because of presence (section 4) such a
+  push hardly arrives.
+- `notificationclick`: focus or open the app. The slot goes through `postMessage`, for a new window
+  through IndexedDB (nothing personal in the URL). The app opens the conversation by the slot, closes
+  its notification and lowers the badge.
+- `sw.js` still has no network, no wallet and no chat keys. Only an IndexedDB read and AES-GCM are
+  added. A small, readable change to a sensitive file.
 
-## 8. Blokování a vypnutí
+## 8. Blocking and turning off
 
-- **Blokování:**
-  1. smazat slot z IndexedDB (blokovaný hned ukazuje jen obecný text)
-  2. nová push subscription (`unsubscribe` + `subscribe`)
-  3. znovu zaregistrovat platební push stávající obnovou
-  4. jedním requestem nové tokeny pro zbylé kontakty, rozeslat granty
+- **Blocking:**
+  1. delete the slot from IndexedDB (a blocked contact shows only a generic text at once)
+  2. a new push subscription (`unsubscribe` + `subscribe`)
+  3. register the payment push again through the existing renewal
+  4. one request for new tokens for the remaining contacts, send out the grants
 
-  Starý endpoint je mrtvý, blokovaný už nic nepošle. Synchronizace se odkládá o 2 s, takže víc blokování
-  za sebou dá jednu rotaci.
-- **Vypnutí:** stejná rotace (subscription sdílí platební push, nejde ji jen zrušit) a `revoke` všem.
-  Když není zapnutý ani platební push, subscription se zruší.
-- Do rotace hlídá zneužití limit na slot (3 za minutu).
+  The old endpoint is dead, the blocked contact can no longer push anything. Synchronization is
+  deferred by 2 s, so several blocks in a row give one rotation.
+- **Turning off:** the same rotation (the subscription is shared with the payment push, it cannot just
+  be cancelled) and `revoke` to everyone. When no payment push is on either, the subscription is
+  cancelled.
+- Until the rotation, abuse is held back by the per-slot limit.
 
-## 9. Nastavení
+## 9. Settings
 
-- V Nastavení u chatu: přepínač **„Oznámení o zprávách“** a pod ním **„Náhled: Text / Jméno / Nic“**,
-  výchozí Text.
-- Změna úrovně pošle nové granty (pole `preview`), `sw.js` ji navíc vynucuje sám.
-- Popis u přepínače, krátce: náhledy se ukazují i na zamčené obrazovce, klíče náhledů jsou v telefonu mimo
-  heslo.
-- iOS: push jen u appky přidané na plochu. Bez ní přepínač řekne, co udělat.
+- In the chat settings: a switch **"Message notifications"** and under it **"Preview: Text / Name /
+  None"**, default Text.
+- A change of the level sends new grants (the `preview` field), `sw.js` also enforces it itself.
+- A short description at the switch: previews are also shown on the lock screen, the preview keys are
+  on the phone outside the password.
+- iOS: push only for an app added to the home screen. Without it the switch says what to do.
 
-## 10. Co kdo vidí
+## 10. Who sees what
 
-| kdo | vidí | nevidí |
+| who | sees | does not see |
 |---|---|---|
-| Worker | IP odesílatele, čas, endpoint příjemce (z tokenu), slot, paddovanou velikost | text, jména, Nostr klíče, kdo je odesílatel |
-| Push služba (Apple, Google, Mozilla) | že náš server pushuje na endpoint, čas, velikost | obsah (RFC 8291) |
-| Google u FCM | slot a šifrovaný blob | text, jméno |
-| Relaye | běžné gift wrapy | že jde o pozvánku |
-| Telefon příjemce | klíče náhledů a jména kontaktů v IndexedDB, mimo trezor | |
+| Worker | the sender's IP, time, the recipient's endpoint (from the token), slot, padded size | text, names, Nostr keys, who the sender is |
+| Push service (Apple, Google, Mozilla) | that our server pushes to the endpoint, time, size | content (RFC 8291) |
+| Google with FCM | slot and encrypted blob | text, name |
+| Relays | ordinary gift wraps | that it is an invitation |
+| Recipient's phone | preview keys and contact names in IndexedDB, outside the vault | |
 
-- **Propojení:** endpoint je stejný jako u platebního pushe, takže worker by mohl spojit „tahle peněženka
-  dostává zprávy v tyhle časy“. Stejná úroveň důvěry jako u platebních oznámení, přibývá časování zpráv.
-- **Zbytkové riziko:** kdo má odemčený telefon nebo profil prohlížeče, přečte jména kontaktů a otevře budoucí
-  náhledy. Historii chatu, seed ani Nostr klíč tím nezíská.
+- **Linkage:** the endpoint is the same as for the payment push, so the Worker could link "this wallet
+  receives messages at these times". The same level of trust as for payment notifications, plus the
+  timing of messages.
+- **Residual risk:** whoever has the unlocked phone or the browser profile reads the contact names and
+  can open future previews. They do not get the chat history, the seed or the Nostr key.
 
-## 11. Cena
 
-- 0 Kč, Free plán. 1 Worker request a 1 subrequest na oznámení, vydání tokenů výjimečně. 0 KV, 0 DO.
-- Díky přítomnosti a oknu 60 s se platí za zahájené konverzace, ne za zprávy. Při 3 až 5 ťuknutích na člověka
-  denně: 2 500 lidí = 7,5k až 12,5k requestů (8 až 13 % ze 100k), 10 000 lidí = 30 až 50 %.
-- Strop počtu uživatelů dál drží platební push v DO (~2 500), ne chat.
-- CPU: otevření tokenu, šifrování RFC 8291 a topic dohromady pod 1 ms (měřeno v Node se stejným WebCrypto,
-  ne přímo ve workerd). VAPID podpis se drží v cache izolátu hodinu na push službu.
+## 11. Considered and rejected
 
-## 12. Zvažované a zamítnuté
+- **The Worker listens to relays** (a DO with a WebSocket 24/7): it cannot sleep, cost per time. No go.
+- **Polling relays in push shards:** cost per time, subrequests, CPU for parsing.
+- **A KV record per token with a revocation list:** writes and reads on every push. Rotation is free.
+- **One preview key for all / the sender sends the name:** sender forgery.
+- **A key derived from the Nostr key:** `sw.js` does not have it, it is behind the password.
+- **A relay of our own on a VPS:** an extra server, and it links the Nostr key to the endpoint.
+- **A second service worker with its own scope** (an endpoint separated from payments, the Worker
+  would not link them): uncertain support on iOS. Possible later.
 
-- **Worker poslouchá relaye** (DO s WebSocketem 24/7): nemůže usnout, cena za čas. No go.
-- **Polling relayí v push shardech:** cena za čas, subrequesty, CPU na parsování.
-- **KV záznam na token se seznamem zrušených:** zápisy a čtení na každý push. Rotace je zdarma.
-- **Jeden klíč náhledu pro všechny / jméno posílá odesílatel:** podvrh odesílatele.
-- **Klíč odvozený z Nostr klíče:** `sw.js` ho nemá, je za heslem.
-- **Vlastní relay na VPS:** server navíc a propojí Nostr klíč s endpointem.
-- **Druhý service worker s vlastním scope** (endpoint oddělený od plateb, worker by je nespojil): nejistá
-  podpora na iOS. Možné později.
-
-## 13. Testy a ověření
+## 12. Tests and verification
 
 - **Unit:**
-  - token: zapečetění, otevření, stáří, změněný slot
-  - blob: padding, šifrování, čítač `n`, AAD
-  - pravidla ťuknutí: přítomnost, okno 60 s, 410
-  - řídicí zprávy: parsování, ignorování ve starém `messageFromRumor`
-- **`wrangler dev`:** poke až do skutečné subscription v Chrome, odmítnutí (cizí origin, starý token,
-  limity), měření CPU.
-- **Prohlížeč:** dvě testovací peněženky, oznámení se zavřenou záložkou (Chrome desktop), blokování
-  a rotace.
-- **Uživatel na telefonu:** Android Chrome PWA, iOS PWA na ploše, zamčená obrazovka, klik do konverzace.
-- **Android appka (Capacitor):** obecný text, dokud nativní kód neumí dešifrovat.
+  - token: sealing, opening, age, a changed slot
+  - blob: padding, encryption, the counter `n`, AAD
+  - poke rules: presence, the 60 s window, 410
+  - control messages: parsing, being ignored by the old `messageFromRumor`
+- **`wrangler dev`:** a poke all the way to a real subscription in Chrome, rejections (foreign origin,
+  old token, limits), CPU measurement.
+- **Browser:** two test wallets, a notification with the tab closed (Chrome desktop), blocking and
+  rotation.
+- **On a phone:** Android Chrome PWA, iOS PWA on the home screen, a locked screen, a click into the
+  conversation.
+- **Android app (Capacitor):** a generic text until the native code can decrypt.
 
-## 14. Fáze
+## 13. Phases
 
-1. Worker: vydání tokenů, `/api/chat/poke`, limity, testy, CPU.
-2. Chat: řídicí zprávy, granty, pravidla ťuknutí u odesílatele.
-3. `sw.js` a nastavení: dešifrování, texty, tagy, klik do konverzace, odznak.
-4. Blokování a vypnutí s rotací.
-5. Sloučení s platebním pushem.
+1. Worker: issuing tokens, `/api/chat/poke`, limits, tests, CPU.
+2. Chat: control messages, grants, poke rules at the sender.
+3. `sw.js` and settings: decryption, texts, tags, a click into the conversation, the badge.
+4. Blocking and turning off with rotation.
+5. Merging with the payment push.
 
-Celé za V2 a chatovým přepínačem jako zbytek chatu.
+All of it behind V2 and the chat switch, like the rest of the chat.

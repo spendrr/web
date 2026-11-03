@@ -248,7 +248,7 @@ RESERVED_NAME_OWNERS = "{}"
 # Until those are set, every Lightning-address route degrades to "Dočasně
 # nedostupné" rather than throwing (see worker/index.ts's callBarkd).
 BARKD_URL = "https://ln-node.example.com"
-# Payment push relay (worker/pushRelay.ts, relay/README.md): its tunnel
+# Payment push relay (worker/pushRelay.ts, docs/payment-push-relay.md): its tunnel
 # hostname. Inert until PUSH_RELAY_TOKEN and PUSH_RELAY_HOOK_SECRET are set.
 PUSH_RELAY_URL = "https://push-relay.spendrr.app"
 
