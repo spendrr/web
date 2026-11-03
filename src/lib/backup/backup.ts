@@ -623,7 +623,7 @@ export function uploadBackupNow(keys: BackupKeys): void {
 }
 
 interface SettleCheckable {
-  allVtxos(): Promise<{ id: string }[]>;
+  vtxos(): Promise<{ id: string }[]>;
 }
 
 const SETTLE_POLL_MS = 3000;
@@ -675,13 +675,13 @@ const SETTLE_MAX_WAIT_MS = 3 * 60_000;
 // even after refresh() was fixed. maintenanceWithDeadline() bounds each
 // attempt to a fixed ~60s; isMaintenanceSuppressed() (the same Settings
 // toggle refresh() honors) skips the call entirely, same reasoning as there
-// — allVtxos() alone still gives a meaningful (if less complete) settle
+// — vtxos() alone still gives a meaningful (if less complete) settle
 // signal without ever touching the round-event stream.
 //
-// maintenanceWithDeadline() and wallet.allVtxos() are deliberately in
+// maintenanceWithDeadline() and wallet.vtxos() are deliberately in
 // *separate* try/catch blocks, not one shared one. They used to share one,
 // which meant a single failed maintenance attempt returned out of the whole
-// function immediately — before ever calling allVtxos() even once — and
+// function immediately — before ever calling vtxos() even once — and
 // silently reintroduced the exact 2026-09-13 incident this function exists
 // to prevent, just triggered by a different kind of transient error.
 // maintenanceWithDeadline() failing is not rare: it's documented (see its
@@ -690,7 +690,7 @@ const SETTLE_MAX_WAIT_MS = 3 * 60_000;
 // hypothetical one — and that failure says nothing about whether the
 // locally known VTXO set has actually stabilized. A failed maintenance
 // attempt here should cost this one poll's worth of refresh, not the whole
-// settle wait. allVtxos() failing is different: without it there is no
+// settle wait. vtxos() failing is different: without it there is no
 // settle signal at all for this attempt, so giving up there (as before)
 // remains correct.
 export async function waitForLocalStateToSettle(
@@ -705,11 +705,11 @@ export async function waitForLocalStateToSettle(
         await maintenance();
       } catch {
         // Best-effort — skip only this attempt's refresh; still check
-        // allVtxos() below with whatever local state already exists.
+        // vtxos() below with whatever local state already exists.
       }
     }
     try {
-      const vtxos = await wallet.allVtxos();
+      const vtxos = await wallet.vtxos();
       const key = vtxos
         .map((v) => v.id)
         .sort()

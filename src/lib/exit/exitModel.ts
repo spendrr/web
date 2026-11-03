@@ -40,7 +40,8 @@ export const CLAIM_GRACE_MS = 15 * 60_000;
 // loses the coin to the server; once the last exit transaction confirmed
 // (timelock, claimable) expiry no longer matters. bark's exit code does not
 // look at expiry at all, and ExitVtxo doesn't carry it: the tracker joins it
-// in from allVtxos().
+// in from vtxos(). A coin whose exit is already fully broadcast is Exited and
+  // absent; expiry only matters before that.
 //
 // Below this many blocks to expiry, a coin still getting on-chain is shown as
 // at risk: a day to notice, reopen the app and top up fees, plus room for a
@@ -295,7 +296,8 @@ export function buildExitOverview(
   sdkClaimableIds: readonly string[] | null,
   claims: readonly ExitClaimRecord[],
   now: number,
-  // VTXO id -> expiry height, from allVtxos(). null or a missing id: unknown.
+  // VTXO id -> expiry height, from vtxos(). A coin whose exit is already fully broadcast is Exited and
+  // absent; expiry only matters before that. null or a missing id: unknown.
   expiryHeights: ReadonlyMap<string, number> | null = null,
   // The chain tip from the on-chain wallet. bark's per-exit tipHeight can
   // stand still (see viewCoin), so the newer of the two wins.

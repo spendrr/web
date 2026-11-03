@@ -48,7 +48,7 @@ export interface ExitLockPlan {
 
 // What the worker's syncExitLocks hands back: the locks it actually changed,
 // plus the expiry height of every coin in an exit, read from the same
-// allVtxos() call so the tracker doesn't need a second one (exitModel.ts,
+// vtxos() call so the tracker doesn't need a second one (exitModel.ts,
 // EXIT_EXPIRY_WARN_BLOCKS).
 export interface ExitLockSync extends ExitLockPlan {
   expiryHeights: Record<string, number>;

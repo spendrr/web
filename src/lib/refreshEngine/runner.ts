@@ -106,11 +106,12 @@ export function engineDeps(wallet: WalletClient): EngineDeps {
       },
       // Fresh on purpose (the engine decides on it); the display readers
       // behind it reuse the result (wallet/vtxoSnapshot.ts).
-      allVtxos: async () => {
-        const v = await t(wallet.allVtxos());
+      liveVtxos: async () => {
+        const v = await t(wallet.vtxos());
         recordVtxoRead(wallet.fingerprint, v);
         return v as EngineVtxo[];
       },
+      allVtxos: async () => (await t(wallet.allVtxos())) as EngineVtxo[],
       pendingRoundStates: () => t(wallet.pendingRoundStates()),
       pendingRoundInputs: async () => [...(await t(pendingRoundInputIds(wallet)))],
       progressPendingRounds: () => t(wallet.progressPendingRounds()).finally(() => dropVtxoSnapshot(wallet.fingerprint)),
@@ -275,7 +276,7 @@ export async function releaseEngineQuarantine(wallet: WalletClient, id: string):
 export async function computeEngineStatus(wallet: WalletClient): Promise<EngineStatus> {
   const deps = engineDeps(wallet);
   const [vtxos, tip, limits] = await Promise.all([
-    deps.wallet.allVtxos(),
+    deps.wallet.liveVtxos(),
     deps.getTipHeight().catch(() => 0),
     deps.wallet.arkLimits().catch(() => null),
   ]);

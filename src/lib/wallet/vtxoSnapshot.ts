@@ -1,8 +1,7 @@
 // One shared read of the live coins (vtxos(), not allVtxos(): see bark.ts) for
 // callers that only DISPLAY or REPORT the list (Settings → VTXO mince, the
 // expiry watch the push report carries). The list holds at least the spendable
-// and locked coins; a tick's recorded allVtxos() read also carries spent and
-// exited ones, so readers filter by state as before.
+// and locked coins, which is also all a tick's own read returns.
 // The call costs seconds even on a quiet wallet and queues in the worker's
 // FIFO, so three readers asking within seconds of each other tripled the wait.
 //

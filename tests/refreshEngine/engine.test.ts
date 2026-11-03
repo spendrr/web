@@ -553,6 +553,21 @@ describe("orphaned locks (every open, every mode)", () => {
     expect(t.wallet.violations).toEqual([]);
   });
 
+  it("an input that exited while its round was issued is no completed refresh", async () => {
+    const { t, due } = await liveBatch();
+    await sweepEngineLocks(t.deps, false);
+    const id = t.wallet.rounds[0].id;
+    t.wallet.issueRound(id);
+    await sweepEngineLocks(t.deps, false);
+    expect(t.state().batches[0].locked).toBe(true);
+    // startExitForCoins on the coin: bark marks it Exited, liveVtxos() no longer lists it.
+    t.wallet.vtxos.get(due.id)!.state = { type: "exited" };
+    t.wallet.failRound(id);
+    const ev = await sweepEngineLocks(t.deps, true);
+    expect(ev.map((e) => e.kind)).not.toContain("completed");
+    expect(ev.map((e) => e.kind)).toContain("round-failed");
+  });
+
   it("an older version's lock left on a round the server already issued: bark takes it once the lock goes", async () => {
     const { t } = await liveBatch();
     const id = t.wallet.rounds[0].id;
@@ -626,7 +641,7 @@ describe("orphaned locks (every open, every mode)", () => {
     expect(t.wallet.vtxos.get(due.id)?.state.type).toBe("spendable");
   });
 
-  it("a wallet the engine never touched: one allVtxos(), nothing else", async () => {
+  it("a wallet the engine never touched: one liveVtxos(), nothing else", async () => {
     const t = setup();
     t.wallet.add({ amountSats: 50_000, expiryHeight: TIP + 100, exitDepth: 1 });
     let rounds = 0;
@@ -1328,8 +1343,8 @@ describe("a lock in the middle of a tick", () => {
   it("a read that finds the wallet closed leaves no log entry", async () => {
     const t = setup();
     t.wallet.add({ amountSats: 50_000, expiryHeight: TIP + 3000, exitDepth: 1 });
-    t.wallet.allVtxos = async () => {
-      throw new Error("Wallet not open (wallet.allVtxos)");
+    t.wallet.liveVtxos = async () => {
+      throw new Error("Wallet not open (wallet.liveVtxos)");
     };
     const r = await tick(t.deps);
     expect(r.outcome).toBe("error");
@@ -1465,8 +1480,8 @@ describe("a round that finishes in the middle of a tick's reads", () => {
     await tick(t.deps);
     // A sync() elsewhere finishes the round right after a coin read, before
     // anything reads the round states again.
-    const read = t.wallet.allVtxos.bind(t.wallet);
-    t.wallet.allVtxos = async () => {
+    const read = t.wallet.liveVtxos.bind(t.wallet);
+    t.wallet.liveVtxos = async () => {
       const v = await read();
       if (t.wallet.rounds.some((x) => x.id === roundId)) t.wallet.finishRound(roundId, TIP + 4032);
       return v;

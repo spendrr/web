@@ -297,7 +297,7 @@ async function requireSpendAuth(auth: SpendAuth | undefined): Promise<void> {
 // time too: bark-ffi rejects the whole batch when any id isn't ours.
 async function syncExitLocks(w: Wallet): Promise<ExitLockSync> {
   const exits = await w.getExitVtxos();
-  const vtxos = await w.allVtxos();
+  const vtxos = await w.vtxos();
   const plan = planExitLocks(vtxos, exits);
   const holder = { type: "action" as const, id: EXIT_LOCK_HOLDER_ID };
   const locked: string[] = [];

@@ -151,6 +151,12 @@ export interface EngineFee {
 export interface EngineWallet {
   refreshServer(): Promise<void>;
   arkLimits(): Promise<ArkLimits>;
+  // Spendable and locked coins only (bark vtxos()). allVtxos() parses every record ever
+  // stored, seconds on a wallet with history; a coin missing here is one the engine
+  // already treated like spent or exited.
+  liveVtxos(): Promise<EngineVtxo[]>;
+  // Every record, spent and exited included: only for telling a missing input that was
+  // spent from one that exited, when a batch ends (settleLocks).
   allVtxos(): Promise<EngineVtxo[]>;
   pendingRoundStates(): Promise<EngineRoundState[]>;
   // Ids of the inputs of every pending round, issued or not (runner.ts: bark
@@ -608,7 +614,7 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
     maxAmountSats = limits.maxVtxoAmountSats;
     tip = await deps.getTipHeight();
     let rounds = await wallet.pendingRoundStates();
-    vtxos = dedupeVtxos(await wallet.allVtxos());
+    vtxos = dedupeVtxos(await wallet.liveVtxos());
 
     if (dry) {
       // Nothing live here, but locks a live session left behind still have to
@@ -616,7 +622,7 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
       const settled = await settleLocks({ state, wallet, now: deps.now(), appVersion: deps.appVersion, live: false }, vtxos, rounds);
       state = settled.state;
       events.push(...settled.events);
-      vtxos = dedupeVtxos(await wallet.allVtxos());
+      vtxos = dedupeVtxos(await wallet.liveVtxos());
     } else {
       // A resubmit of an uncertain submit is this tick's one action.
       const again = await reconcile(rounds);
@@ -627,7 +633,7 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
         return result(again === "ok" ? "resubmitted" : (heldBack ?? "failed"));
       }
       // reconcile may have locked/unlocked: read again before planning.
-      vtxos = dedupeVtxos(await wallet.allVtxos());
+      vtxos = dedupeVtxos(await wallet.liveVtxos());
       rounds = await wallet.pendingRoundStates();
     }
 
@@ -1454,8 +1460,20 @@ export async function settleLocks(
       continue;
     }
     if (ours.length > 0) log({ kind: "unlocked", ids: ours });
+    // liveVtxos() omits spent AND exited coins. An input that exited (startExitForCoins on a
+    // coin held by this round) is no success of this refresh, so read the full record once
+    // for the missing inputs; a failed read leaves the batch for the next look.
+    let full: Map<string, EngineVtxo> | null = null;
+    if (b.ids.some((id) => !byId.has(id))) {
+      try {
+        full = new Map((await wallet.allVtxos()).map((v) => [v.id, v]));
+      } catch {
+        keep.push(b);
+        continue;
+      }
+    }
     const spent = b.ids.filter((id) => {
-      const v = byId.get(id);
+      const v = byId.get(id) ?? full?.get(id);
       return v === undefined || v.state.type === "spent";
     });
     if (!b.locked && b.ids.some((id) => byId.get(id)?.state.type !== "spendable")) {
@@ -1558,7 +1576,7 @@ export async function settleLocks(
 }
 
 // On every open, in every mode (V1 included): see settleLocks. Cheap when
-// there's nothing to do: one allVtxos() and nothing else unless an engine lock
+// there's nothing to do: one liveVtxos() and nothing else unless an engine lock
 // or a tracked batch exists.
 export function sweepEngineLocks(deps: EngineDeps, live: boolean): Promise<LogEntry[]> {
   return exclusive(() => sweepInner(deps, live));
@@ -1566,14 +1584,14 @@ export function sweepEngineLocks(deps: EngineDeps, live: boolean): Promise<LogEn
 
 async function sweepInner(deps: EngineDeps, live: boolean): Promise<LogEntry[]> {
   const state = deps.store.load();
-  const first = await deps.wallet.allVtxos();
+  const first = await deps.wallet.liveVtxos();
   const holds = first.some((v) => isOurs(v, ENGINE.HOLDER_REFRESH) || isOurs(v, ENGINE.HOLDER_QUARANTINE));
   const quarantined = live && Object.values(state.quarantine).some((q) => q.reason === "spent");
   if (!holds && state.batches.length === 0 && !quarantined) return [];
   // Rounds before coins, see reconcile(): the cheap check above read the coins
   // first, so read them again after the rounds.
   const rounds = await deps.wallet.pendingRoundStates();
-  const vtxos = await deps.wallet.allVtxos();
+  const vtxos = await deps.wallet.liveVtxos();
   const settled = await settleLocks({ state, wallet: deps.wallet, now: deps.now(), appVersion: deps.appVersion, live }, vtxos, rounds);
   deps.store.save(settled.state);
   return settled.events;
@@ -1729,7 +1747,7 @@ export async function previewManual(deps: EngineDeps): Promise<{ plan: Plan; fee
   const tip = await deps.getTipHeight();
   const state = deps.store.load();
   const rounds = await deps.wallet.pendingRoundStates();
-  const vtxos = dedupeVtxos(await deps.wallet.allVtxos());
+  const vtxos = dedupeVtxos(await deps.wallet.liveVtxos());
   const foreign = await foreignRoundInputs(state, rounds, deps.wallet);
   if (foreign === null) throw new Error("Nelze přečíst cizí obnovu");
   const plan = planRefresh(planInput(state, vtxos, tip, limits, deps.now(), foreign, true));
@@ -1765,7 +1783,7 @@ export function releaseBatch(deps: EngineDeps, at: number): Promise<void> {
     const state = deps.store.load();
     const b = state.batches.find((x) => x.at === at && !x.released);
     if (!b) return;
-    const vtxos = dedupeVtxos(await deps.wallet.allVtxos());
+    const vtxos = dedupeVtxos(await deps.wallet.liveVtxos());
     const byId = new Map(vtxos.map((v) => [v.id, v]));
     // The server has issued the round: the coins are its now, the round
     // finishes on its own (Settings no longer offers this then).

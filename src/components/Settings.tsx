@@ -1587,7 +1587,7 @@ function VtxoList({
                 setOverviewError(rawErrorMessage(e) || t("Neznámá chyba"));
               }
             }
-            const v = await withTimeout(wallet.allVtxos(), WALLET_CALL_TIMEOUT_MS, t(TIMEOUT_MESSAGE));
+            const v = await withTimeout(wallet.vtxos(), WALLET_CALL_TIMEOUT_MS, t(TIMEOUT_MESSAGE));
             if (cancelled) return;
             const list = vtxosForList(v);
             setVtxos(list);

@@ -57,7 +57,7 @@ describe("refreshPushAuthorization", () => {
       return "cd".repeat(105);
     },
     getFirstExpiringVtxoBlockheight: async () => 900_000,
-    allVtxos: async () => [],
+    vtxos: async () => [],
     fingerprint: "f",
   } as never;
 
