@@ -64,6 +64,9 @@ export class FakeWallet implements EngineWallet {
   async allVtxos() {
     return [...this.vtxos.values()].map((v) => structuredClone(v));
   }
+  async liveVtxos() {
+    return [...this.vtxos.values()].filter((v) => v.state.type === "spendable" || v.state.type === "locked").map((v) => structuredClone(v));
+  }
   async pendingRoundStates(): Promise<EngineRoundState[]> {
     return this.rounds.map((r) => ({ id: r.id, state: r.state }));
   }

@@ -91,6 +91,8 @@ class World implements EngineWallet {
   refreshServer = () => this.call(() => {});
   arkLimits = () => this.call(() => ({ maxVtxoExitDepth: 100, maxVtxoAmountSats: 2_000_000 as number | undefined }));
   allVtxos = () => this.call(() => [...this.vtxos.values()].map((v) => structuredClone(v)));
+  liveVtxos = () =>
+    this.call(() => [...this.vtxos.values()].filter((v) => v.state.type === "spendable" || v.state.type === "locked").map((v) => structuredClone(v)));
   pendingRoundStates = () => this.call((): EngineRoundState[] => this.local.map((x) => ({ id: x.id, state: x.state })));
   pendingRoundInputs = () => this.call(() => this.local.flatMap((x) => x.inputs));
   progressPendingRounds = () => this.call(() => this.syncRounds());

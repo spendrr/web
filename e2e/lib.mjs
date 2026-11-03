@@ -44,16 +44,20 @@ export async function newWallet(browser, label = "wallet", { v2 = false } = {}) 
   watchPage(page, label);
   await page.goto(BASE);
   await page.getByRole("button", { name: /^Vytvořit peněženku/i }).click();
+  // Password first, then the backup screens (the words are shown after the wallet exists).
+  await page.getByPlaceholder("Heslo", { exact: true }).fill(PASSWORD);
+  await page.getByPlaceholder("Heslo znovu").fill(PASSWORD);
+  await page.getByRole("button", { name: /^Vytvořit peněženku/i }).click();
+  await page.getByRole("button", { name: /^Ukázat slova$/i }).click();
   const written = page.getByRole("button", { name: /Zapsal jsem si to/i });
-  for (let i = 0; i < 6 && !(await written.isEnabled()); i++) {
-    await page.getByRole("button", { name: /Zobrazit další/i }).click();
+  // One button: "Zobrazit další (n/12)" until every word is shown, then the continue label.
+  const more = page.getByRole("button", { name: /Zobrazit další/i });
+  for (let i = 0; i < 6 && (await more.count()) > 0; i++) {
+    await more.click();
     await page.waitForTimeout(300);
   }
   const mnemonic = await readMnemonic(page);
   await written.click();
-  await page.getByPlaceholder("Heslo", { exact: true }).fill(PASSWORD);
-  await page.getByPlaceholder("Heslo znovu").fill(PASSWORD);
-  await page.getByRole("button", { name: /^Vytvořit peněženku/i }).click();
   await page.getByRole("button", { name: /^Odeslat$/ }).waitFor({ timeout: 90_000 });
   await page.getByRole("button", { name: /^Rozumím$/ }).click({ timeout: 5_000 }).catch(() => {});
   return { context, page, mnemonic };
