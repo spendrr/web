@@ -3742,6 +3742,25 @@ function RequestIcon() {
   );
 }
 
+// Tabler's "clipboard" glyph (MIT), drawn with the scan icon's stroke.
+function PasteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+// Taps on Send this soon after a paste are ignored (a double tap on Paste).
+const SEND_AFTER_PASTE_GUARD_MS = 350;
+
 function ScanIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -4858,6 +4877,42 @@ function SendPanel({
     return () => window.clearTimeout(timer);
   }, [plan]);
 
+  // Beta: while the destination is empty the send button is a Paste button
+  // (it could not be pressed anyway). On the tap only, never automatically: a
+  // clipboard swapped by other software must not become the destination
+  // unseen (the kind badge shows what landed). If the browser refuses to read
+  // it, the field is focused so a long-press paste is one tap away.
+  const pasteBeta = useDesignVersion() === "v2";
+  const destinationRef = useRef<HTMLInputElement>(null);
+  const pasteMode = pasteBeta && !destination.trim() && typeof navigator.clipboard?.readText === "function";
+  const pastedAtRef = useRef(0);
+  const destinationLiveRef = useRef(destination);
+  useEffect(() => {
+    destinationLiveRef.current = destination;
+  }, [destination]);
+  const pasteFromClipboard = () => {
+    navigator.clipboard
+      .readText()
+      .then((text) => {
+        const pasted = text.trim();
+        if (!pasted) {
+          destinationRef.current?.focus();
+          return;
+        }
+        // The browser's paste prompt can take seconds: a read that lands after the person typed or scanned
+        // something must not overwrite it.
+        if (destinationLiveRef.current.trim()) return;
+        pastedAtRef.current = Date.now();
+        // Same unwrapping as a scan, so a copied bitcoin: URI fills the address (and amount) instead of
+        // landing in the field as an invalid destination.
+        const { destination: dest, amountSats } = parseScannedPayload(pasted);
+        setDestination(dest);
+        setResolvedKind(null);
+        if (amountSats !== undefined) setAmount(String(amountSats));
+      })
+      .catch(() => destinationRef.current?.focus());
+  };
+
   const requestSend = useCallback(() => {
     setError(null);
     const built = buildPlan();
@@ -5093,9 +5148,10 @@ function SendPanel({
     <>
     <div className="panel">
       <div className="field">
-        <label className="field-label">{t("Adresa, faktura nebo Lightning adresa")}</label>
+        <label className="field-label">{t("Komu platíš?")}</label>
         <div className="destination-row">
           <input
+            ref={destinationRef}
             className={justScanned ? "just-scanned" : undefined}
             value={destination}
             onChange={(e) => {
@@ -5104,7 +5160,7 @@ function SendPanel({
             }}
             onFocus={() => setDestinationFocused(true)}
             onBlur={() => setDestinationFocused(false)}
-            placeholder="ark1… / bc1… / lnbc1… / jmeno@domena.cz"
+            placeholder={t("ark… / bc… / lnbc… / jmeno@domena.cz")}
             spellCheck={false}
             autoComplete="off"
           />
@@ -5221,10 +5277,30 @@ function SendPanel({
       )}
       <button
         className={`send-submit${motionOn && busy ? " sending" : ""}`}
-        disabled={busy || !destination.trim() || (amountRequired && !amount) || kind === null || kind === "invalid"}
-        onClick={requestSend}
+        disabled={
+          pasteBeta
+            ? busy || (!pasteMode && (!destination.trim() || (amountRequired && !amount) || kind === null || kind === "invalid"))
+            : busy || !destination.trim() || (amountRequired && !amount) || kind === null || kind === "invalid"
+        }
+        onClick={() => {
+          if (pasteMode) pasteFromClipboard();
+          // A double tap on Paste must not carry straight on to the confirm sheet.
+          else if (Date.now() - pastedAtRef.current > SEND_AFTER_PASTE_GUARD_MS) requestSend();
+        }}
       >
-        {t("Odeslat")}
+        {pasteBeta ? (
+          <span className="send-swap" data-mode={pasteMode ? "paste" : "send"}>
+            <span className="send-swap-paste" aria-hidden={!pasteMode}>
+              <PasteIcon />
+              {t("Vložit ze schránky")}
+            </span>
+            <span className="send-swap-send" aria-hidden={pasteMode}>
+              {t("Odeslat")}
+            </span>
+          </span>
+        ) : (
+          t("Odeslat")
+        )}
       </button>
     </div>
     {confirmSheet}
