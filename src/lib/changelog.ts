@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "4. 11. 2026",
+    title: "Vložit adresu",
+    items: [
+      { text: "Tlačítko Odeslat se při prázdné adrese změní na Vložit.", beta: true },
+      "Zůstatek na hlavní obrazovce je menší a zabírá méně místa.",
+    ],
+  },
+  {
     date: "1. 11. 2026",
     title: "Heslo kdykoli",
     items: [

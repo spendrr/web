@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-04: Paste address
+
+- The Send button turns into Paste while the address is empty. (beta)
+- The balance on the main screen is smaller and takes less space.
+
 ## 2026-11-01: Password anytime
 
 - You can set a wallet password anytime in settings.

@@ -245,7 +245,9 @@
      .rd-col ghost trick below is what makes that safe to use again. */
   align-items: baseline;
   gap: 10px;
-  --balance-scale: 1;
+  /* 0.85 is the size the headline already had from 100k sats up; every balance now starts there, so the steps
+     below (1M and up) still compound from it and 100k no longer shrinks anything. */
+  --balance-scale: 0.85;
   /* Pinned to the tallest possible rendering (scale 1, i.e. unscaled) so
      the row's own height never depends on --balance-scale or on subtle
      baseline differences the rolling-digit markup introduces (an
@@ -452,8 +454,8 @@
 
 .balance-skeleton {
   display: block;
-  width: 190px;
-  height: 76px;
+  width: 162px;
+  height: 64px;
   border-radius: 10px;
   background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-soft) 37%, var(--surface-2) 63%);
   background-size: 400% 100%;
@@ -1127,6 +1129,11 @@
 .destination-row input {
   flex: 1;
   min-width: 0;
+}
+
+/* A placeholder wider than the field ends in an ellipsis, not a cut-off letter. */
+.destination-row input::placeholder {
+  text-overflow: ellipsis;
 }
 
 .scan-btn {
@@ -2844,10 +2851,15 @@ button.qr-torch-a11y {
   box-shadow: none;
 }
 
+/* Not inside (hover: hover): after a tap a touch device keeps :hover on the button (the sheet it opens covers it),
+   and design-v2's `button.small:hover` pop shadow, which has no such guard, would show as a black offset outline. */
+:root .gift-seed-banner button.gift-seed-btn.small:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
 @media (hover: hover) {
   :root .gift-seed-banner button.gift-seed-btn.small:hover:not(:disabled) {
-    transform: none;
-    box-shadow: none;
     background: color-mix(in srgb, var(--fee-medium) 14%, transparent);
   }
 }
@@ -3070,4 +3082,39 @@ button.qr-torch-a11y {
 .qrs-mark .sht-mark-glyph {
   stroke: var(--text-dim);
   stroke-width: 2.6;
+}
+
+/* Send button doubling as Paste (beta): both labels share one grid cell and
+   cross-fade, so the button keeps its size and the swap is a fade, not a jump. */
+/* Block-level grid, not inline-grid: an inline box adds a baseline strut under
+   the line and made the button 4px taller than the plain Odeslat one. */
+.send-submit .send-swap {
+  display: grid;
+  justify-items: center;
+  align-items: center;
+}
+
+.send-submit .send-swap > span {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.18s ease;
+}
+
+.send-submit .send-swap svg {
+  width: 18px;
+  height: 18px;
+}
+
+.send-submit .send-swap[data-mode="paste"] .send-swap-send,
+.send-submit .send-swap[data-mode="send"] .send-swap-paste {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-submit .send-swap > span {
+    transition: none;
+  }
 }

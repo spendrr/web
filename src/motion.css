@@ -19,6 +19,12 @@
   view-transition-name: dash-balance;
 }
 
+/* The "Chybí záloha" line belongs to the balance block, so it stays put with it
+   instead of sliding with the page (which read as the line jumping sideways). */
+:root[data-nav-dir] .gift-seed-banner {
+  view-transition-name: dash-banner;
+}
+
 :root[data-nav-morph="send"] .big-action-btn--send,
 :root[data-nav-morph="send"] .subview .destination-row input,
 :root[data-nav-morph="receive"] .big-action-btn--receive,
@@ -87,6 +93,12 @@
   animation: 220ms var(--ease-in) both motion-balance-out;
 }
 :root[data-nav-dir]::view-transition-new(dash-balance):only-child {
+  animation: 320ms var(--ease-out) 60ms both motion-balance-in;
+}
+:root[data-nav-dir]::view-transition-old(dash-banner):only-child {
+  animation: 220ms var(--ease-in) both motion-balance-out;
+}
+:root[data-nav-dir]::view-transition-new(dash-banner):only-child {
   animation: 320ms var(--ease-out) 60ms both motion-balance-in;
 }
 

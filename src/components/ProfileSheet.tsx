@@ -387,7 +387,7 @@ export default function ProfileSheet({
         <input
           className="sht-field"
           value={input}
-          placeholder="@jmeno"
+          placeholder={t("@jmeno")}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
