@@ -1460,10 +1460,14 @@ function App() {
           onSetPassword={() => {
             // The locked session let go of the wallet lock; hold it until the sheet is done, or a second tab could set
             // a different password at the same time and the later save would win over the first.
-            void walletTabLock.acquire().then((held) => {
-              if (held) setSetupReason("settings");
+            void (async () => {
+              // A lock still held here belongs to the session that was just locked (its close waits for a running
+              // call): taking it over would let that close release it under the sheet. Wait until it is gone.
+              for (let i = 0; i < 200 && walletTabLock.heldHere(); i++) await new Promise((r) => setTimeout(r, 100));
+              if (walletTabLock.heldHere()) return;
+              if (await walletTabLock.acquire()) setSetupReason("settings");
               else setOpenElsewhere(true);
-            });
+            })();
           }}
         />
         {setupReason && (

@@ -39,6 +39,9 @@ export interface WalletTabLock {
   acquire(): Promise<boolean>;
   // Drops the lock if this tab holds it; a no-op otherwise.
   release(): void;
+  // Whether this tab holds the lock right now (a session, or a setup that took it). A caller that needs a lock of its
+  // own waits for this to turn false first: acquire() would otherwise reuse a session's lock that is about to be released.
+  heldHere(): boolean;
   // Whether another tab holds the lock right now. A hint for checking before
   // a step that is expensive or destructive (a biometric prompt, overwriting
   // the vault), not a guarantee: only acquire() is atomic.
@@ -91,6 +94,7 @@ export function createWalletTabLock(
     release() {
       releaseHeld?.();
     },
+    heldHere: () => releaseHeld !== null,
     async heldElsewhere() {
       if (!locks || releaseHeld || !enabled()) return false;
       try {

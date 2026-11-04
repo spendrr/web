@@ -22,6 +22,16 @@ function fakeLocks() {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe("walletTabLock", () => {
+  it("reports whether this tab holds the lock", async () => {
+    const { manager } = fakeLocks();
+    const tab = createWalletTabLock(manager);
+    expect(tab.heldHere()).toBe(false);
+    await tab.acquire();
+    expect(tab.heldHere()).toBe(true);
+    tab.release();
+    expect(tab.heldHere()).toBe(false);
+  });
+
   it("lets only one tab hold the wallet", async () => {
     const { manager } = fakeLocks();
     const tabA = createWalletTabLock(manager);
