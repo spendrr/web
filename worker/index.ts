@@ -76,6 +76,7 @@ export { NameRegistry } from "./names";
 export { LnLedger } from "./lnLedger";
 import { networkPrefix, guardPrefix, bumpRateLimitKey } from "./bump";
 import { isCanonicalBase64, readBodyCapped } from "./requestGuard";
+import { handleBip353 } from "./bip353";
 import { getSliding, putSliding, touchSliding, type SlidingRead } from "./kvSliding";
 import { cachedNameLookup, invalidateNameLookup } from "./nameLookupCache";
 import { currentNameSnapshot, invalidateNameSnapshot } from "./nameSnapshot";
@@ -157,6 +158,8 @@ export interface Env {
   ASSETS: Fetcher;
   COINGECKO_API_KEY?: string;
   PRICE_RATE_LIMITER: RateLimiter;
+  // /api/bip353 (DNSSEC proof relay), per source, spent only on an edge-cache miss.
+  BIP353_RATE_LIMITER: RateLimiter;
   // /api/push/{subscribe,height,unsubscribe}. Its own bucket: it used to be
   // PRICE_RATE_LIMITER's, so price traffic from one address (or a whole carrier
   // NAT) could 429 a push subscribe, and a lost subscribe is a silent loss of
@@ -469,6 +472,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (url.pathname === "/api/bump/sync") {
     return handleBumpSync(request, env);
+  }
+  if (request.method === "GET" && url.pathname === "/api/bip353") {
+    return handleBip353(request, {
+      ip: request.headers.get("CF-Connecting-IP") ?? "unknown",
+      limiter: env.BIP353_RATE_LIMITER,
+      cache: caches.default,
+      inFlight: bip353InFlight,
+    });
   }
   if (request.method === "GET" && url.pathname === "/api/bump/stats") {
     return handleBumpStats(request, env);
@@ -918,6 +929,7 @@ async function handleFeesProxy(request: Request, env: Env): Promise<Response> {
 const TIP_CACHE_KEY = new Request("https://fees-cache.internal/tip");
 const TIP_CACHE_TTL_SECONDS = 30;
 const tipRequestsInFlight = new Map<string, Promise<CachedResult>>();
+const bip353InFlight = new Map<string, Promise<CachedResult>>();
 const TIP_STALE_TTL_SECONDS = 15 * 60;
 const TIP_FAILURE_TTL_SECONDS = 15;
 

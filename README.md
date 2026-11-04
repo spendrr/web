@@ -33,6 +33,9 @@ Self-custodial, instant and cheap payments, no jargon. Runs in the browser and i
   ask for the password again.
 - **Receive** with a QR code. Push notification on incoming payments, even with the app closed.
 - **Gift links.** Send bitcoin as a link. Unclaimed gifts can be taken back.
+- **BIP 353 names** (beta). Pay `₿alice@example.com`: the payment record is read from DNS and checked
+  against the DNS root on your device, our server only relays it. Sending only. See
+  [docs/bip353-design.md](docs/bip353-design.md).
 - **@names.** Pay `@alice` instead of an address. Profile page at `spendrr.app/@alice`, Lightning address
   `alice@spendrr.app`.
 - **Tap to pay.** Tap two phones together to pay.
@@ -57,6 +60,11 @@ Spendrr's server never sees it and never holds funds.
 **A malicious dependency can't phone home.** Both places that ever hold the seed run behind a network
 allowlist ([`fetch-guard.js`](public/fetch-guard.js), [`walletWorkerGuard.ts`](src/lib/wallet/walletWorkerGuard.ts)),
 and a strict Content Security Policy blocks third-party scripts.
+
+**Names from DNS are verified on your device.** For `₿user@domain` the Worker only carries the DNSSEC proof;
+the chain from the DNS root to the payment record is checked in your browser
+([`src/lib/bip353/`](src/lib/bip353/)). A record that fails the check stops the payment, it never falls back to
+another destination.
 
 **Spending rules are an allowlist.** Every wallet operation is classified in
 [`walletSpendPolicy.ts`](src/lib/wallet/walletSpendPolicy.ts). Anything that moves money above a small
@@ -129,6 +137,7 @@ Found a vulnerability? Don't open a public issue. Report it privately through
 - The WASM SDK is ~7.7 MB (~4.3 MB gzipped), so the first load is slow on a poor connection.
 - An Ark coin that is still partly off-chain when it expires is lost. Automatic refresh and expiry
   reminders exist to prevent that, but the risk comes with Ark itself.
+- BIP 353 names are send only (beta). Spendrr cannot publish its own BIP 353 records yet.
 - No independent security audit.
 
 ## 📄 License
