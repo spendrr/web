@@ -24,6 +24,8 @@ import { surfaceError } from "../lib/appErrors";
 import { TIMEOUT_MESSAGE, withTimeout } from "../lib/wallet/walletCall";
 import { ErrorCircleIcon } from "./BannerIcons";
 import SentGiftsView, { type GiftRowData } from "./SentGiftsView";
+import GiftReadySheet from "./GiftReadySheet";
+import { useDesignVersion } from "../lib/ui/designVersion";
 
 const LIST_TIMEOUT_MS = 8_000;
 
@@ -49,6 +51,9 @@ export default function SentGiftsList({
   const queueRef = useRef<string[]>([]);
   const runningRef = useRef(false);
   const giftsRef = useRef<OutgoingGift[]>([]);
+  // Beta: a tap on a waiting gift opens its card sheet.
+  const sheetOn = useDesignVersion() === "v2";
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     alive.current = true;
@@ -189,6 +194,8 @@ export default function SentGiftsList({
     };
   });
 
+  const opened = openId ? gifts.find((g) => g.id === openId) : undefined;
+
   return (
     <div className="settings-body">
       {!encryptionKey && (
@@ -206,7 +213,19 @@ export default function SentGiftsList({
         checking={looking !== null || queued.length > 0}
         onTakeBack={(id) => void takeBack(id)}
         onCopy={(id) => void copyLink(id)}
+        onOpen={sheetOn ? setOpenId : undefined}
       />
+      {openId && encryptionKey && opened && (
+        <GiftReadySheet
+          wallet={wallet}
+          encryptionKey={encryptionKey}
+          gift={opened}
+          onClose={(changed) => {
+            setOpenId(null);
+            if (changed) reload();
+          }}
+        />
+      )}
     </div>
   );
 }

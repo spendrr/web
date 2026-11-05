@@ -20,17 +20,19 @@ const DAY_MS = 24 * 60 * 60_000;
 const HOUR_MS = 60 * 60_000;
 
 // Presentation only (the list and the preview share it): the rows, the status word, at most one visible action.
-// "Kopírovat odkaz" sits behind a tap on the row.
+// A tap on the row opens the gift's sheet when `onOpen` is given (V2), else shows "Kopírovat odkaz".
 export default function SentGiftsView({
   rows,
   checking,
   onTakeBack,
   onCopy,
+  onOpen,
 }: {
   rows: GiftRowData[];
   checking: boolean;
   onTakeBack: (id: string) => void;
   onCopy: (id: string) => void;
+  onOpen?: (id: string) => void;
 }) {
   const t = useT();
   const lang = useLang();
@@ -83,8 +85,8 @@ export default function SentGiftsView({
                   <button
                     type="button"
                     className="sgv-main"
-                    aria-expanded={isOpen}
-                    onClick={() => setExpanded(isOpen ? null : r.id)}
+                    aria-expanded={onOpen ? undefined : isOpen}
+                    onClick={() => (onOpen ? onOpen(r.id) : setExpanded(isOpen ? null : r.id))}
                   >
                     {head}
                   </button>

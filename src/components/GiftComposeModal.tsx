@@ -24,6 +24,9 @@ import {
   useSheetClose,
 } from "./sheet/PaySheet";
 import { ShareLinkResult } from "./sheet/ShareLink";
+import { GiftCardResult } from "./GiftCardResult";
+import { GiftDoneRow } from "./GiftReadySheet";
+import { useDesignVersion } from "../lib/ui/designVersion";
 import { surfaceError } from "../lib/appErrors";
 import { isOffline } from "../lib/connectivity/connectivity";
 
@@ -71,9 +74,8 @@ export default function GiftComposeModal({
   const [forcePassword, setForcePassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
-  // V2: the record of the gift just made, for "Zrušit dárek" (reclaimGift wants it), and where that tap is at.
+  // The record of the gift just made, for "Zrušit dárek" (reclaimGift wants it).
   const [made, setMade] = useState<OutgoingGift | null>(null);
-  const [cancel, setCancel] = useState<"idle" | "confirm" | "busy">("idle");
 
   const amount = useAmountEntry(rate, cur, fmt, () => setErrorMsg(null));
   const amountSats = amount.sats;
@@ -83,18 +85,18 @@ export default function GiftComposeModal({
   const needsPassword = amountSats >= PASSWORD_REQUIRED_THRESHOLD_SATS || forcePassword;
 
   const close = () => closeThen(onClose);
+  // Beta: the result as a card with gallery and print export.
+  const cardOn = useDesignVersion() === "v2";
 
   // Takes the gift back right here. The link stops working the moment the funds are ours again, so it asks once.
   const cancelGift = async () => {
     if (!made) return;
-    setCancel("busy");
     setErrorMsg(null);
     try {
       const outcome = await reclaimGift(wallet, encryptionKey, made, { terminalWhenEmpty: true });
       setPhase(outcome === "reclaimed" ? "cancelled" : "taken");
     } catch (e) {
       surfaceError(e, setErrorMsg);
-      setCancel("idle");
     }
   };
 
@@ -329,33 +331,22 @@ export default function GiftComposeModal({
       <Screen>
         <StatusMark state="sent" />
         <h2 className="sht-title">{t("Dárek je připravený")}</h2>
-        <ShareLinkResult link={link} shareText={t("Poslal jsem ti bitcoin 🎁")} compact>
-          <BigAmount sats={amountSats} rate={rate} currency={cur} fmt={fmt} />
-          <p className="sht-sub">{t("Kdo odkaz otevře, ten si dárek vyzvedne. Posílej ho jen komu věříš.")}</p>
-        </ShareLinkResult>
-        {errorMsg && <p className="sht-error">{errorMsg}</p>}
-        {cancel === "idle" ? (
-          <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
-            <button type="button" className="sht-link" onClick={close}>
-              {t("Hotovo")}
-            </button>
-            <button type="button" className="sht-link" onClick={() => setCancel("confirm")}>
-              {t("Zrušit dárek")}
-            </button>
-          </div>
+        {cardOn && made ? (
+          <GiftCardResult
+            link={link}
+            amountSats={amountSats}
+            message={made.message}
+            expiresAt={made.expiresAt}
+            shareText={t("Poslal jsem ti bitcoin 🎁")}
+          />
         ) : (
-          <>
-            <p className="sht-sub">{t("Dárek se vrátí na tvůj zůstatek a odkaz přestane fungovat.")}</p>
-            <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
-              <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => setCancel("idle")}>
-                {t("Ne")}
-              </button>
-              <button type="button" className="sht-link" disabled={cancel === "busy"} onClick={() => void cancelGift()}>
-                {cancel === "busy" ? t("Vracím…") : t("Ano, zrušit")}
-              </button>
-            </div>
-          </>
+          <ShareLinkResult link={link} shareText={t("Poslal jsem ti bitcoin 🎁")} compact>
+            <BigAmount sats={amountSats} rate={rate} currency={cur} fmt={fmt} />
+            <p className="sht-sub">{t("Kdo odkaz otevře, ten si dárek vyzvedne. Posílej ho jen komu věříš.")}</p>
+          </ShareLinkResult>
         )}
+        {errorMsg && <p className="sht-error">{errorMsg}</p>}
+        <GiftDoneRow onDone={close} onCancelGift={cancelGift} />
       </Screen>
     );
   } else if (phase === "cancelled") {
