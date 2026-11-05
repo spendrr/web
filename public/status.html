@@ -37,17 +37,65 @@
           <p class="st-overall-sub">&nbsp;</p>
         </div>
       </section>
-      <section id="round" class="st-card st-round" hidden aria-label="Ark round">
+      <section id="round" class="st-card st-round" aria-label="Ark round">
         <div id="st-ring" class="st-mark st-pie" aria-hidden="true"></div>
         <div class="st-round-text">
           <p class="st-round-label">Next Ark round</p>
           <p class="st-round-hint">Coin refresh</p>
         </div>
-        <p id="st-round" class="st-round-time"></p>
+        <p id="st-round" class="st-round-time">--:--</p>
       </section>
       <noscript><p class="st-note">This page needs JavaScript to show the live status.</p></noscript>
 
-      <section id="services" class="st-card st-services" aria-label="Services"></section>
+      <!-- The skeleton of what status.js draws (same rows, same height), so the first paint is already the final
+           layout and nothing jumps when the answer arrives. Keep in step with COMPONENTS in status.js. -->
+      <section id="services" class="st-card st-services" aria-label="Services">
+        <div class="st-svc">
+          <div class="st-svc-head">
+            <span class="st-svc-name">Ark server<span class="st-svc-hint">by Second. Payments, coin refresh</span></span>
+            <span class="st-pill st-pill--unknown st-pill--wait">No data</span>
+          </div>
+          <div class="st-bars st-bars--wait"></div>
+          <div class="st-axis st-axis--wide"><span>90 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+          <div class="st-axis st-axis--narrow"><span>30 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+        </div>
+        <div class="st-svc">
+          <div class="st-svc-head">
+            <span class="st-svc-name">Blockchain data<span class="st-svc-hint">mempool.second.tech, fallback mempool.space</span></span>
+            <span class="st-pill st-pill--unknown st-pill--wait">No data</span>
+          </div>
+          <div class="st-bars st-bars--wait"></div>
+          <div class="st-axis st-axis--wide"><span>90 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+          <div class="st-axis st-axis--narrow"><span>30 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+        </div>
+        <div class="st-svc">
+          <div class="st-svc-head">
+            <span class="st-svc-name">Lightning address<span class="st-svc-hint">name@spendrr.app</span></span>
+            <span class="st-pill st-pill--unknown st-pill--wait">No data</span>
+          </div>
+          <div class="st-bars st-bars--wait"></div>
+          <div class="st-axis st-axis--wide"><span>90 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+          <div class="st-axis st-axis--narrow"><span>30 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+        </div>
+        <div class="st-svc">
+          <div class="st-svc-head">
+            <span class="st-svc-name">Payment notifications<span class="st-svc-hint">Push</span></span>
+            <span class="st-pill st-pill--unknown st-pill--wait">No data</span>
+          </div>
+          <div class="st-bars st-bars--wait"></div>
+          <div class="st-axis st-axis--wide"><span>90 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+          <div class="st-axis st-axis--narrow"><span>30 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+        </div>
+        <div class="st-svc">
+          <div class="st-svc-head">
+            <span class="st-svc-name">Spendrr server<span class="st-svc-hint">Backups, names</span></span>
+            <span class="st-pill st-pill--unknown st-pill--wait">No data</span>
+          </div>
+          <div class="st-bars st-bars--wait"></div>
+          <div class="st-axis st-axis--wide"><span>90 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+          <div class="st-axis st-axis--narrow"><span>30 days ago</span><span class="st-up">&nbsp;</span><span>Today</span></div>
+        </div>
+      </section>
 
       <h2>Incidents</h2>
       <div id="incidents"></div>

@@ -412,6 +412,18 @@ button.theme-btn {
   visibility: hidden;
 }
 
+/* The empty bars, drawn without markup: 90 tiles on a wide screen, 30 on a narrow one (as status.js). */
+.st-bars--wait {
+  gap: 0;
+  background: linear-gradient(90deg, var(--st-none) calc(100% - 2px), transparent 0) 0 0 / calc(100% / 90) 100% repeat-x;
+}
+
+@media (max-width: 560px) {
+  .st-bars--wait {
+    background-size: calc(100% / 30) 100%;
+  }
+}
+
 body,
 .st-card,
 .st-svc,
