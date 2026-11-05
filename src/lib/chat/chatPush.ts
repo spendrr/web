@@ -33,6 +33,7 @@ import {
   type PreviewLevel,
   type Preview,
 } from "./pushFormat";
+import { usablePendingToken, type PendingToken } from "./pendingToken";
 import { deleteSlot, hasSlot, markSlotSeen, putSlot, setPreviewLevel, setSlotName } from "./pushSlots";
 import { browserPushSubscription, isNotifyEnabled, isPushSupported, notificationPermission, rotatePushSubscription } from "../notifications";
 
@@ -40,7 +41,18 @@ import { browserPushSubscription, isNotifyEnabled, isPushSupported, notification
 
 // What we handed one contact. `endpoint` is a hash of the subscription the
 // token was made for: a different one means the grant is stale.
-type SlotRecord = { slot: string; key: string; sentAt: number; endpoint: string; level: PreviewLevel };
+// `pending`: a token fetched for `endpoint` whose grant has not reached the
+// contact yet. Sending right after an unlock often fails (the chat is still
+// connecting), and the token is kept so the retry, seconds or an app open later,
+// does not ask the Worker for another one.
+type SlotRecord = {
+  slot: string;
+  key: string;
+  sentAt: number;
+  endpoint: string;
+  level: PreviewLevel;
+  pending?: PendingToken;
+};
 
 // A contact's grant to us, plus per contact the newest control message
 // applied (relays return them in any order), the last counter used, and when
@@ -61,6 +73,7 @@ const ANSWER_ASK_EVERY_MS = 60 * 60 * 1000;
 const SYNC_DELAY_MS = 2000;
 const RETRY_AFTER_MS = 5 * 60 * 1000;
 const TOKENS_PER_REQUEST = 50;
+
 
 let slots: Record<string, SlotRecord> = {};
 let grants: Grants = { grants: {}, at: {}, n: {}, asked: {} };
@@ -195,23 +208,34 @@ async function sync(): Promise<void> {
   }
   if (changed) saveSlots();
 
-  for (let i = 0; i < due.length; i += TOKENS_PER_REQUEST) {
-    const batch = due.slice(i, i + TOKENS_PER_REQUEST);
+  // Tokens still kept from an earlier, failed send are reused; only the rest is
+  // asked for.
+  const keptToken = (peer: string): string | null => usablePendingToken(slots[peer]?.pending, endpoint, now);
+  const toFetch = due.filter((peer) => keptToken(peer) === null);
+  for (let i = 0; i < toFetch.length; i += TOKENS_PER_REQUEST) {
+    const batch = toFetch.slice(i, i + TOKENS_PER_REQUEST);
     const tokens = await fetchTokens(subscription, batch.map((p) => slots[p].slot));
     for (let j = 0; j < batch.length; j++) {
-      const peer = batch[j];
-      const rec = slots[peer];
-      // A contact blocked or a setting changed meanwhile: the next run sorts it out.
-      if (!rec || !isChatPushOn()) continue;
-      try {
-        await sendControl(peer, controlContent({ t: "grant", token: tokens[j], key: rec.key, preview: level }));
-      } catch {
-        continue;
-      }
-      slots[peer] = { ...rec, sentAt: Date.now(), endpoint, level };
-      asks.delete(peer);
-      saveSlots();
+      const rec = slots[batch[j]];
+      if (rec) slots[batch[j]] = { ...rec, pending: { token: tokens[j], endpoint, at: now } };
     }
+    saveSlots();
+  }
+
+  for (const peer of due) {
+    const rec = slots[peer];
+    const token = keptToken(peer);
+    // A contact blocked or a setting changed meanwhile: the next run sorts it out.
+    if (!rec || token === null || !isChatPushOn()) continue;
+    try {
+      await sendControl(peer, controlContent({ t: "grant", token, key: rec.key, preview: level }));
+    } catch {
+      continue; // the token stays in `pending` for the next run
+    }
+    const { pending: _sent, ...rest } = rec;
+    slots[peer] = { ...rest, sentAt: Date.now(), endpoint, level };
+    asks.delete(peer);
+    saveSlots();
   }
 }
 
@@ -336,6 +360,12 @@ function onControl(from: string, content: string, createdAt: number): void {
     if (Date.now() - (answeredAsk.get(from) ?? 0) < ANSWER_ASK_EVERY_MS) return;
     // Old asks come back with every resubscription: only recent ones count.
     if (Date.now() / 1000 - createdAt > 2 * 24 * 60 * 60) return;
+    // An ask older than the grant we last sent is already answered. Relays replay
+    // old asks on every open and answeredAsk lives in memory only, so this
+    // persisted time is what stops the same ask costing a token request and a
+    // message each time the app starts.
+    const sent = slots[from];
+    if (sent && sent.sentAt >= createdAt * 1000) return;
     answeredAsk.set(from, Date.now());
     asks.add(from);
     scheduleSync();

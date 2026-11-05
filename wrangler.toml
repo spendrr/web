@@ -34,9 +34,9 @@ not_found_handling = "single-page-application"
 # "/.well-known/nostr.json" is NIP-05 for the same names (money chat, beta).
 # "/tip/*" and "/donate" are the standalone tip page: the Worker serves the
 # static /tip page (dist/tip.html) for them, the page reads the name from the URL.
-# "/learn" (exact path only) picks the landing page's language from
-# Accept-Language, see worker/learnLang.ts; "/learn/en" stays a plain asset.
-run_worker_first = ["/manifest.json", "/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/learn", "/tip/*", "/donate", "/donate/", "/app/*"]
+# /learn is NOT here: it is a plain static asset (a visit costs no Worker request);
+# its language redirect runs in the browser, public/learn-lang.js.
+run_worker_first = ["/manifest.json", "/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/tip/*", "/donate", "/donate/", "/app/*"]
 
 # Per-source-IP cap on the /api/price/* CoinGecko proxy (see worker/index.ts)
 # so one abusive client can't exhaust the shared Demo API key's quota for
@@ -101,8 +101,8 @@ id = "00000000000000000000000000000000"
 # plan regardless of overall traffic. Every mailbox now gets its own separate
 # invocation and its own separate subrequest budget instead.
 # SQLite-backed (new_sqlite_classes, not new_classes) specifically because
-# that storage backend is available on the Workers Free plan — see
-# https://developers.cloudflare.com/changelog/post/2025-04-07-durable-objects-free-tier/
+# that storage backend is the supported one for this deployment — see
+# https://developers.cloudflare.com/durable-objects/
 [[durable_objects.bindings]]
 name = "MAILBOX_WATCHER"
 class_name = "MailboxWatcher"
@@ -114,7 +114,7 @@ new_sqlite_classes = ["MailboxWatcher"]
 # Tap-to-pay pairing (see worker/bump.ts): one single global instance
 # (idFromName("global") in worker/index.ts), not sharded like MailboxWatcher.
 # The class keeps its original BumpLab name (renaming needs a migration).
-# SQLite-backed for the same free-plan reason as above; durable storage holds
+# SQLite-backed for the same reason as above; durable storage holds
 # only pairs whose direction was chosen, so a payment survives a restart.
 [[durable_objects.bindings]]
 name = "BUMP_LAB"
@@ -126,7 +126,7 @@ new_sqlite_classes = ["BumpLab"]
 
 # @handle registry (see worker/names.ts): one global Durable Object holding
 # name -> Ark address, so a name can never be claimed twice. SQLite-backed like
-# the others (free-plan compatible).
+# the others.
 [[durable_objects.bindings]]
 name = "NAME_REGISTRY"
 class_name = "NameRegistry"
@@ -144,9 +144,9 @@ namespace_id = "1010"
 simple = { limit = 120, period = 60 }
 
 # Name lookups that the edge cache (worker/nameLookupCache.ts) could not answer,
-# i.e. the ones that cost a Durable Object request. The Free plan allows 100,000
-# Durable Object requests a DAY for the whole account (push alarms, name writes
-# and lookups share it), so this is tighter than NAME_LOOKUP_RATE_LIMITER above,
+# i.e. the ones that cost a Durable Object request. Those requests share one
+# daily budget for the whole account (push alarms, name writes
+# and lookups), so this is tighter than NAME_LOOKUP_RATE_LIMITER above,
 # which still counts every request. NOT tighter than typing needs: the send
 # field looks a name up on every 150 ms pause and each prefix ("pav", "pave",
 # "pavel") is a distinct name, hence a miss, so one handle typed at normal speed
@@ -170,7 +170,7 @@ simple = { limit = 20, period = 60 }
 # Lightning address (docs/ln-address-plan.md, beta): one global Durable
 # Object tracking every open/settled/expired invoice, so the per-name/global
 # open-invoice caps in worker/lnLedger.ts can't race. SQLite-backed like the
-# others (free-plan compatible).
+# others.
 [[durable_objects.bindings]]
 name = "LN_LEDGER"
 class_name = "LnLedger"
@@ -213,10 +213,10 @@ namespace_id = "1008"
 simple = { limit = 120, period = 60 }
 
 # Lowered 900 -> 300 on 2026-09-30 (hardening before the web rollout): every
-# /status is a request on the one global BumpLab object, and the Free plan's
-# 100,000 Durable Object requests a day are shared by the WHOLE account (push,
-# names, Lightning). At 900 a minute one address could spend that budget in
-# under two hours. The phone's own worst case is far below 300: a clock sync
+# /status is a request on the one global BumpLab object, and the Durable Object
+# requests of the WHOLE account share one daily budget (push,
+# names, Lightning). At 900 a minute one address could spend a large part of
+# that budget within hours. The phone's own worst case is far below 300: a clock sync
 # of 2 to 5 requests every 10 minutes while visible, and one long-poll of up to
 # 8 s per pairing. The motion-driven warm-up ping goes to a static file
 # (src/lib/bump/bump.ts's WARM_UP_URL) and never reaches the Worker.
@@ -360,7 +360,7 @@ type = "ratelimit"
 namespace_id = "1007"
 simple = { limit = 600, period = 60 }
 
-# BTCMAP_TILES_API_KEY (a MapTiler free-tier key) is a secret, not a binding
+# BTCMAP_TILES_API_KEY (a MapTiler key) is a secret, not a binding
 # here — one-time manual setup, not run automatically:
 # `npx wrangler secret put BTCMAP_TILES_API_KEY`. Until that's done,
 # handleBtcMapTile degrades to a 503 rather than throwing.

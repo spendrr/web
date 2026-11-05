@@ -201,21 +201,61 @@ function errorFrom(status: number, body: unknown): NameError {
 }
 
 async function post(path: string, body: unknown): Promise<{ status: number; json: unknown }> {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json: unknown = await res.json().catch(() => null);
-  return { status: res.status, json };
+  // Everything but the read changes what fetchMyName would answer.
+  const writes = path !== "/api/names/mine";
+  if (writes) mineEpoch++;
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json: unknown = await res.json().catch(() => null);
+    return { status: res.status, json };
+  } finally {
+    if (writes) mineEpoch++;
+  }
 }
 
 // The name this wallet owns, or null when it has none. Throws when the answer
 // is unknown (network, auth, server), so a failed read is never mistaken for
 // "you have no name" and offered a fresh registration on top of a real one.
-export async function fetchMyName(
-  wallet: WalletClient,
-): Promise<{ name: string; address: string; lnAddress: boolean; chatPubkey?: string } | null> {
+type MyName = { name: string; address: string; lnAddress: boolean; chatPubkey?: string };
+
+// Several places ask at once after an unlock (the receive screen, the profile,
+// the chat, the weekly touch), each one a Worker request that also checks the
+// mailbox with the Ark server. They share one in-flight read, and an answer is
+// remembered for a minute per wallet. Any write below forgets it; a failed read
+// is never remembered.
+const MINE_REMEMBER_MS = 60_000;
+type MineEntry = { pending: Promise<MyName | null>; at: number | null; epoch: number };
+const mineMemory = new WeakMap<WalletClient, MineEntry>();
+// Bumped before and after every write (see post), which invalidates every entry
+// made around it, including a read already in flight.
+let mineEpoch = 0;
+
+// `fresh`: a deliberate refresh (the weekly touch) skips what is remembered.
+export function fetchMyName(wallet: WalletClient, opts: { fresh?: boolean } = {}): Promise<MyName | null> {
+  const known = opts.fresh ? undefined : mineMemory.get(wallet);
+  if (known && known.epoch === mineEpoch && (known.at === null || Date.now() - known.at < MINE_REMEMBER_MS)) {
+    return known.pending;
+  }
+  const entry: MineEntry = { pending: Promise.resolve(null), at: null, epoch: mineEpoch };
+  entry.pending = readMyName(wallet).then(
+    (value) => {
+      entry.at = Date.now();
+      return value;
+    },
+    (err) => {
+      if (mineMemory.get(wallet) === entry) mineMemory.delete(wallet);
+      throw err;
+    },
+  );
+  mineMemory.set(wallet, entry);
+  return entry.pending;
+}
+
+async function readMyName(wallet: WalletClient): Promise<MyName | null> {
   const { status, json } = await post("/api/names/mine", await mailboxProof(wallet));
   if (status === 404) return null;
   const j = json as { name?: unknown; address?: unknown; lnAddress?: unknown; chatPubkey?: unknown } | null;

@@ -35,6 +35,23 @@ class MemoryStorage implements LedgerStorage {
   }
 }
 
+function ttlCache() {
+  const store = new Map<string, { body: string; until: number }>();
+  return {
+    async match(req: Request) {
+      const e = store.get(req.url);
+      return e && Date.now() < e.until ? new Response(e.body) : undefined;
+    },
+    async put(req: Request, res: Response) {
+      const m = /max-age=(\d+)/.exec(res.headers.get("cache-control") ?? "");
+      store.set(req.url, { body: await res.text(), until: Date.now() + (m ? Number(m[1]) * 1000 : 0) });
+    },
+    async delete(req: Request) {
+      return store.delete(req.url);
+    },
+  };
+}
+
 const BARKD = "https://barkd.test";
 const PING = "https://hc-ping.test/ln";
 const PREIMAGE = "11".repeat(32);
@@ -48,6 +65,7 @@ let barkdPaths: string[];
 let pings: string[];
 let kv: Map<string, string>;
 let nodeUp: boolean;
+let dirtyAt: number | null; // upload time of the "newest invoice" object, null = none
 let paid: boolean;
 
 const env = () => ({
@@ -64,6 +82,9 @@ const env = () => ({
         return ledger.fetch(new Request(url, init));
       },
     }),
+  },
+  WALLET_BACKUPS: {
+    head: async (key: string) => (key === "ln/dirty" && dirtyAt !== null ? { uploaded: new Date(dirtyAt) } : null),
   },
   PUSH_SUBSCRIPTIONS: {
     get: async (k: string) => kv.get(k) ?? null,
@@ -84,6 +105,7 @@ beforeEach(() => {
   pings = [];
   kv = new Map();
   nodeUp = true;
+  dirtyAt = null;
   paid = false;
   vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
     const url = input instanceof Request ? input.url : String(input);
@@ -104,6 +126,7 @@ beforeEach(() => {
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
+  (globalThis as { caches?: unknown }).caches = { default: ttlCache() };
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -137,12 +160,56 @@ async function invoiceState(): Promise<string> {
 }
 
 describe("LN address sweep", () => {
-  it("costs one ledger request a tick when nothing is due", async () => {
+  it("an idle ledger is ticked every few minutes, the node is probed and pinged every minute", async () => {
     await tick();
-    await tick();
-    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
+    now += 60_000;
+    await tick(); // idle marker: the ledger is skipped
+    expect(ledgerPaths).toEqual(["/tick"]);
     expect(barkdPaths).toEqual(["/api/v1/lightning/receives", "/api/v1/lightning/receives"]);
     expect(pings).toEqual([PING, PING]);
+
+    now += 4 * 60_000; // marker expired
+    await tick();
+    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
+  });
+
+  it("an open invoice that is about to come due keeps the ledger ticking", async () => {
+    await reserve();
+    await tick(); // the invoice is younger than the sweep age: due in 30 s
+    now += 60_000;
+    await tick();
+    expect(ledgerPaths).toEqual(["/tick", "/tick", "/checked"]);
+  });
+
+  it("an invoice opened during the skip makes the next tick run", async () => {
+    await tick();
+    now += 60_000;
+    dirtyAt = now; // the invoice path marked the bucket
+    await tick();
+    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
+  });
+
+  it("an invoice marker that cannot be read never lets a tick be skipped", async () => {
+    await tick();
+    now += 60_000;
+    const noBucket = { ...env(), WALLET_BACKUPS: undefined };
+    await worker.scheduled({ scheduledTime: Date.UTC(2026, 9, 6, 12, 1) } as never, noBucket as never);
+    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
+  });
+
+  it("a status report tick always reaches the ledger", async () => {
+    await tick();
+    now += 60_000;
+    await worker.scheduled({ scheduledTime: Date.UTC(2026, 9, 6, 12, 5) } as never, env() as never);
+    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
+  });
+
+  it("a node that stops answering is ticked at once, whatever the idle marker says", async () => {
+    await tick();
+    nodeUp = false;
+    now += 60_000;
+    await tick();
+    expect(ledgerPaths).toEqual(["/tick", "/tick"]);
   });
 
   it("settles a paid invoice once it is due, and leaves an unpaid one open", async () => {
@@ -150,14 +217,14 @@ describe("LN address sweep", () => {
     await tick(); // younger than the sweep age: not listed yet
     expect(ledgerPaths).toEqual(["/tick"]);
 
-    now += 31_000;
+    now += 5 * 60_000; // past the idle marker
     ledgerPaths = [];
     await tick();
     expect(ledgerPaths).toEqual(["/tick", "/checked"]);
     expect(await invoiceState()).toBe("pending");
 
     paid = true;
-    now += 60_000;
+    now += 3 * 60_000; // an unpaid invoice of 5 minutes is looked at every 2
     ledgerPaths = [];
     await tick();
     expect(ledgerPaths).toEqual(["/tick", "/settle"]);
@@ -187,23 +254,6 @@ describe("LN address sweep", () => {
 });
 
 describe("LNURL verify polling", () => {
-  function ttlCache() {
-    const store = new Map<string, { body: string; until: number }>();
-    return {
-      async match(req: Request) {
-        const e = store.get(req.url);
-        return e && Date.now() < e.until ? new Response(e.body) : undefined;
-      },
-      async put(req: Request, res: Response) {
-        const m = /max-age=(\d+)/.exec(res.headers.get("cache-control") ?? "");
-        store.set(req.url, { body: await res.text(), until: Date.now() + (m ? Number(m[1]) * 1000 : 0) });
-      },
-      async delete(req: Request) {
-        return store.delete(req.url);
-      },
-    };
-  }
-
   const verify = async () => {
     const res = await worker.fetch(
       new Request(`https://spendrr.app/api/lnurlp/verify/${HASH}`, { headers: { "CF-Connecting-IP": "203.0.113.9" } }),

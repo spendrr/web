@@ -106,7 +106,7 @@ function usePriceWidget(currency: FiatCurrency) {
 
   // Kept separate from the chart's history fetch below — the rate doesn't
   // depend on the selected range, so re-fetching it on every range switch
-  // just burns extra calls against CoinGecko's free-tier rate limit for no
+  // just burns extra calls against CoinGecko's rate limit for no
   // reason (and once that limit trips, its error responses drop CORS
   // headers, which shows up in the browser as an opaque "Failed to fetch").
   useEffect(() => {

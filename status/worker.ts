@@ -1,5 +1,5 @@
 // Status probe for spendrr.app/status, on its own Cloudflare account (see
-// status/wrangler.toml) so it neither shares the app's Free plan limits nor
+// status/wrangler.toml) so it neither shares the app's limits nor
 // goes down with the app's Worker. Every minute the cron probes the services
 // the way the app sees them and hands the results to one Durable Object; the
 // app itself reports what only it can see (POST /v1/report, signed). GET

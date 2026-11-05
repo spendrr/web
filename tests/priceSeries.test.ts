@@ -91,3 +91,26 @@ describe("ringColumn", () => {
     expect(ringColumn(ring, "usd")).toEqual([[1, 30]]);
   });
 });
+
+import { historyPublishPlan, publicHistoryKey } from "../worker/priceSeries";
+
+describe("historyPublishPlan", () => {
+  it("covers every currency and range, and each tick touches one currency", () => {
+    const seen = new Set<string>();
+    for (let m = 0; m < 3 * 60; m++) {
+      const { currency, days } = historyPublishPlan(m);
+      for (const d of days) seen.add(publicHistoryKey(currency, d));
+    }
+    expect(seen.size).toBe(15);
+  });
+
+  it("keeps a tick small: at most 3 ranges, and the 1 year chart is hourly", () => {
+    let year = 0;
+    for (let m = 0; m < 3 * 60; m++) {
+      const { days } = historyPublishPlan(m);
+      expect(days.length).toBeLessThanOrEqual(3);
+      if (days.includes(365)) year++;
+    }
+    expect(year).toBe(9); // 3 currencies, once an hour each, over 3 hours
+  });
+});

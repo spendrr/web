@@ -20,9 +20,8 @@ enabled = true
 [triggers]
 crons = ["* * * * *"]
 
-# SQLite-backed, the only kind the Free plan has. Not KV: a status that
-# records its last check every minute would need 1440 KV writes a day, over
-# the Free plan's 1000.
+# SQLite-backed. Not KV: a status that
+# records its last check every minute would need 1440 KV writes a day.
 [[durable_objects.bindings]]
 name = "STATUS"
 class_name = "StatusStore"

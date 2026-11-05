@@ -29,6 +29,7 @@ import {
   fetchJsonCached,
   fetchSimplePriceCached,
   refreshHistoryIfStale,
+  publishPublicHistoryStep,
   sharedHistoryBody,
   refreshSimplePriceIfStale,
   type RateLimiter,
@@ -44,7 +45,6 @@ import { schnorr } from "@noble/curves/secp256k1.js";
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { escapeHtml, profileMeta, profileMetaTags } from "./profileMeta";
-import { prefersEnglishLearn } from "./learnLang";
 import { avatarPng, isAvatarAddress } from "./avatarPng";
 import {
   ARK_ADDRESS_MAX_CHARS,
@@ -69,6 +69,7 @@ import {
   parseCallbackComment,
 } from "./lnurl";
 import type { ReceiveRecord } from "./lnLedger";
+import { idleSkipSeconds, LN_DIRTY_KEY, shouldSkipTick } from "./lnSweepIdle";
 import { lnAddrHealthResponse, syncLnAddrRefusing } from "./lnAddrHealth";
 export { MailboxWatcher } from "./mailboxWatcher";
 export { BumpLab } from "./bump";
@@ -117,6 +118,7 @@ interface KVNamespace {
 interface R2Object {
   customMetadata?: Record<string, string>;
   etag?: string;
+  uploaded?: Date;
 }
 
 interface R2ObjectBody extends R2Object {
@@ -522,9 +524,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/donate" || url.pathname === "/donate/" || url.pathname.startsWith("/tip/"))) {
     return handleTipPage(request, url, env);
   }
-  if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/learn") {
-    return handleLearnPage(request, url, env);
-  }
   if (request.method === "GET" || request.method === "HEAD") {
     const profileName = handleFromPath(url.pathname);
     if (profileName !== null) return handleProfilePage(request, env, profileName);
@@ -586,6 +585,8 @@ export default {
       refreshBtcMapCacheIfStale(env),
       refreshSimplePriceIfStale(env),
       refreshHistoryIfStale(env),
+      publishPublicHistoryStep(env, event.scheduledTime),
+      publishPublicChainData(env, event.scheduledTime),
       // The status report takes the ledger's part from the sweep's own
       // ledger call (one Durable Object request a tick, not two). Chained, so
       // the relay ping then reuses reportStatus's cached /health answer.
@@ -972,12 +973,80 @@ async function handleTipBlock(request: Request, env: Env): Promise<Response> {
   });
 }
 
+// Public copies of the fee estimates and the last block (PRICE_PUBLIC, behind
+// data.spendrr.app), so the Settings widget costs the app no Worker request:
+// everybody sees the same numbers and they move over minutes. The cron is the
+// only writer; the app reads them first and falls back to the routes above
+// (src/lib/send/fees.ts). `at` lets the app stop trusting an old copy.
+const PUBLIC_FEES_KEY = "fees.json";
+const PUBLIC_TIP_KEY = "tip.json";
+const PUBLIC_LNADDR_KEY = "lnaddr.json";
+const PUBLIC_CHAIN_MAX_AGE_SECONDS = 60;
+
+async function putPublicChainJson(env: Env, key: string, value: Record<string, unknown>): Promise<void> {
+  await env.PRICE_PUBLIC?.put(key, JSON.stringify({ ...value, at: Date.now() }), {
+    httpMetadata: { contentType: "application/json", cacheControl: `public, max-age=${PUBLIC_CHAIN_MAX_AGE_SECONDS}` },
+  });
+}
+
+// Fees every 2nd minute, the block every 5th: one upstream call and one write
+// each, never both in a tick unless the minutes coincide.
+// The first host that answers with usable numbers. The fallback goes first:
+// the primary has no fee route (404, see FEES_PRIMARY), so asking it first
+// costs a subrequest every time.
+async function fetchPublicFees(): Promise<{ fastestFee: number; halfHourFee: number; economyFee: number } | null> {
+  const ok = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v < 100_000;
+  for (const source of [FEES_FALLBACK, FEES_PRIMARY]) {
+    try {
+      const res = await fetch(source, { signal: upstreamSignal(FEES_FETCH_TIMEOUT_MS) });
+      if (!res.ok) continue;
+      const data = (await res.json()) as Record<string, unknown>;
+      const { fastestFee, halfHourFee, economyFee } = data;
+      if (ok(fastestFee) && ok(halfHourFee) && ok(economyFee)) return { fastestFee, halfHourFee, economyFee };
+    } catch {
+      // try the next host
+    }
+  }
+  return null;
+}
+
+export async function publishPublicChainData(env: Env, scheduledTime: number): Promise<void> {
+  if (!env.PRICE_PUBLIC) return;
+  const minute = Math.floor(scheduledTime / 60_000);
+  try {
+    if (minute % 2 === 0) {
+      const fees = await fetchPublicFees();
+      if (fees) await putPublicChainJson(env, PUBLIC_FEES_KEY, fees);
+    }
+  } catch (e) {
+    console.error("public fees write failed", e instanceof Error ? e.message : e);
+  }
+  try {
+    if (minute % 5 === 1) {
+      for (const source of [TIP_BLOCKS_PRIMARY, TIP_BLOCKS_FALLBACK]) {
+        try {
+          const res = await fetch(source, { signal: upstreamSignal(FEES_FETCH_TIMEOUT_MS) });
+          if (!res.ok) continue;
+          const picked = pickTipBlock(await res.json());
+          if (!picked) continue;
+          await putPublicChainJson(env, PUBLIC_TIP_KEY, JSON.parse(picked) as Record<string, unknown>);
+          break;
+        } catch {
+          // try the next source
+        }
+      }
+    }
+  } catch (e) {
+    console.error("public tip write failed", e instanceof Error ? e.message : e);
+  }
+}
+
 const HEX_66 = /^[0-9a-f]{66}$/;
 const HEX_210 = /^[0-9a-f]{210}$/;
 
 // How many mailboxes a MailboxWatcher Durable Object (mailboxWatcher.ts)
 // batches through one alarm firing, rather than one DO per mailbox — see
-// that file's own top comment for the two different free-tier caps this
+// that file's own top comment for the two different caps this
 // balances (Durable Objects' ~3M requests/month vs. Cloudflare's ~50
 // external-subrequests-per-invocation). 64 keeps each shard's average
 // mailbox count comfortably under mailboxWatcher.ts's own BATCH_SIZE (20)
@@ -1007,8 +1076,7 @@ function isShardId(shard: string): boolean {
 // hundred, at 64 shards — statistically lands at least one mailbox in nearly
 // every shard, so all 64 alarms end up firing every minute (each one a
 // Durable Object request) regardless of whether the actual mailbox count
-// would fit in a handful of shards. Since that DO request budget (~3M/month
-// on the free plan) is shared account-wide with NameRegistry and BumpLab,
+// would fit in a handful of shards. Since that DO request budget is shared account-wide with NameRegistry and BumpLab,
 // hash-spreading starves them long before the real 64*SHARD_TARGET_MAX_MAILBOXES
 // subscriber ceiling is anywhere close. Packing keeps active shard count at
 // ceil(subscribers / SHARD_TARGET_MAX_MAILBOXES) — the two ceilings (DO
@@ -1080,7 +1148,7 @@ async function mailboxExistsInShard(env: Env, shardId: string, mailboxId: string
 }
 
 // Bounds allocateIntoPackedShard's scan, well under Cloudflare's ~50
-// external-subrequests-per-invocation cap on the free plan (see
+// external-subrequests-per-invocation cap (see
 // mailboxWatcher.ts's own top comment for that number) rather than walking
 // all the way to SHARD_COUNT. Near the real subscriber ceiling (all/most
 // shards genuinely full), a scan that kept going shard-by-shard could itself
@@ -1487,7 +1555,7 @@ async function handlePushSubscribe(request: Request, env: Env): Promise<Response
   // mailboxId (a re-enable from a different browser).
   //
   // Written only when the mapping is new or old (kvSliding.ts): a KV write per
-  // subscribe call made the Free plan's 1,000 writes a day the ceiling on push
+  // subscribe call made the daily KV write budget the ceiling on push
   // users.
   await touchSliding(
     env.PUSH_SUBSCRIPTIONS,
@@ -1720,7 +1788,7 @@ const MAX_BACKUP_BODY_BYTES = 20 * 1024 * 1024;
 // see the isKnownLookupKey check there for what this protects against and
 // why the per-IP/per-lookupKey limiters alone don't cover it. Sized against
 // the worst case, not the typical one: every one of the 200 slots maxed out
-// at MAX_BACKUP_BODY_BYTES is 4GB, comfortably under R2's 10GB free-tier
+// at MAX_BACKUP_BODY_BYTES is 4GB, comfortably under the bucket's
 // storage ceiling with room for real backups alongside it, while staying far
 // above this app's actual pace of new wallets (41 backups total as of
 // 2026-09-14).
@@ -2378,7 +2446,7 @@ async function proveNameMailbox(
   // `mine` is not a name write from the registry's
   // point of view (mine only refreshes lastSeenAt, at most once a day per
   // name), so it skips it: the cap is a KV write per call, and the account
-  // has 1,000 KV writes a day in total. Counting `mine` let ~1,000 throwaway
+  // has a small daily KV write budget in total. Counting `mine` let a thousand throwaway
   // wallets' profile opens lock every real name write out and starve the push
   // subscription writes that share the same budget.
   if (countsAsWrite && !(await allowUnderDailyCap(env, "name-write-cap", DAILY_NAME_WRITE_CAP))) {
@@ -2560,30 +2628,6 @@ async function handleAvatarPng(request: Request, url: URL, env: Env, ctx: Execut
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
-}
-
-// /learn is the Czech landing page (public/learn.html); /learn/en the English
-// one. A browser that prefers another language is redirected to English
-// (learnLang.ts), unless it asked for Czech explicitly with ?lang=cs: that is
-// where the English page's "Česky" link points, or it could never get back.
-// Only this exact path is routed here (run_worker_first in wrangler.toml).
-async function handleLearnPage(request: Request, url: URL, env: Env): Promise<Response> {
-  const explicitCzech = url.searchParams.get("lang") === "cs";
-  if (!explicitCzech && prefersEnglishLearn(request.headers.get("accept-language"))) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        location: new URL("/learn/en", url).toString(),
-        vary: "Accept-Language",
-        "cache-control": "no-store",
-      },
-    });
-  }
-  const response = await env.ASSETS.fetch(request);
-  if (explicitCzech) return response;
-  const out = new Response(response.body, response);
-  out.headers.append("vary", "Accept-Language");
-  return out;
 }
 
 // /tip/<name> and /donate are one static page (tip.html, served at /tip) that
@@ -2901,6 +2945,8 @@ async function handleLnurlCallback(request: Request, url: URL, env: Env): Promis
     mailboxId: target.mailboxId,
   });
   if (!reserved || !reserved.ok) return lnurlErrorResponse("Dočasně nedostupné.");
+  // Tells the minute cron (which may be skipping an idle ledger) that an invoice is open.
+  await env.WALLET_BACKUPS?.put(LN_DIRTY_KEY, "1").catch(() => undefined);
 
   return lnurlJsonResponse({ pr: invoiceResult.json.invoice, routes: [], verify: `${url.origin}/api/lnurlp/verify/${paymentHash}` });
 }
@@ -3133,6 +3179,7 @@ async function handleLnAddrAdmin(request: Request, url: URL, env: Env): Promise<
 // nothing depends purely on a wallet actively polling /verify. Runs every
 // minute alongside pingHealthcheck/refreshBtcMapCacheIfStale (see
 // scheduled() above). Never throws — a bad tick just tries again next minute.
+const LN_IDLE_KEY = new Request("https://ln-sweep.internal/idle");
 const LN_PENDING_SWEEP_AGE_MS = 30_000;
 // Invoices looked at per tick. Each costs one subrequest to the node (plus a
 // DO call when it settles/expires), in the same invocation as pingHealthcheck
@@ -3146,12 +3193,18 @@ const LN_EXPIRE_GRACE_MS = 2 * 60 * 1000;
 // The ledger's "refusing new invoices" state into KV for GET
 // /api/lnaddr/health (lnAddrHealth.ts). Takes the ledger's reply as parsed
 // JSON or raw text; never throws, a failed write is retried next minute.
-async function syncLnAddrRefusingLogged(env: Env, reply: unknown): Promise<void> {
+async function syncLnAddrRefusingLogged(env: Env, reply: unknown, refreshPublic = false): Promise<void> {
   try {
     const parsed = typeof reply === "string" ? (JSON.parse(reply) as unknown) : reply;
     const refusing = typeof parsed === "object" && parsed !== null ? (parsed as { refusing?: unknown }).refusing : undefined;
     const outcome = await syncLnAddrRefusing(env.PUSH_SUBSCRIPTIONS, refusing);
     if (outcome === "set" || outcome === "cleared") console.log(`lnaddr health: refusing ${outcome}`);
+    // The same answer for the receive screen as a public file, so opening it
+    // costs no Worker request: written on a change, and on status report ticks
+    // so its `at` stays fresh (the app trusts it for 30 minutes).
+    if (typeof refusing === "boolean" && (outcome === "set" || outcome === "cleared" || refreshPublic)) {
+      await putPublicChainJson(env, PUBLIC_LNADDR_KEY, { ok: !refusing });
+    }
   } catch (err) {
     console.error("lnaddr health: KV sync failed", err);
   }
@@ -3200,6 +3253,8 @@ type LedgerSummary = { lnNode: boolean; lnRefusing: boolean; lnInvoicesFailing: 
 type LedgerTick = {
   health: { lifted?: boolean; downForMs?: number; autoKilled?: boolean; justTripped?: boolean; refusing: boolean };
   pending: { hash: string; name: string; pr: string; createdAt: number; expiresAt: number }[];
+  // When the next open invoice that is not due yet comes due (null: none open).
+  nextDueMs?: number | null;
   summary?: LedgerSummary;
 };
 
@@ -3220,7 +3275,12 @@ async function settlementFromNode(env: Env, pr: string, hash: string): Promise<s
 }
 
 async function sweepLnLedger(env: Env, withSummary = false): Promise<LedgerSummary | null> {
-  if (!env.BARKD_URL) return null; // Feature not configured yet — nothing to sweep.
+  if (!env.BARKD_URL) {
+    // Feature not configured: nothing to sweep, and no address can be paid. The
+    // public health file says so (like GET /api/lnaddr/health), on report ticks.
+    if (withSummary) await putPublicChainJson(env, PUBLIC_LNADDR_KEY, { ok: false }).catch(() => undefined);
+    return null;
+  }
   try {
     // Health first, so it can travel in the same ledger request. GET
     // receives-list is one of the paths Caddy's allowlist passes; an error
@@ -3229,6 +3289,32 @@ async function sweepLnLedger(env: Env, withSummary = false): Promise<LedgerSumma
     const nodeUp = barkdAnswered(probe);
     if (!nodeUp) console.error("sweepLnLedger: node unreachable", probe.ok ? "" : probe.reason);
 
+    // Idle and healthy: the ledger's own bookkeeping can wait (see lnSweepIdle.ts).
+    // The node is still probed and pinged every minute. A new invoice marks the
+    // bucket (markLnDirty), so the first check of an invoice made during the skip
+    // is not left waiting for the marker to expire.
+    const cache = caches.default;
+    let markerStartedAt: number | null = null;
+    let dirtyAt: number | null | "unknown" = "unknown";
+    if (nodeUp && !withSummary) {
+      const marker = await cache.match(LN_IDLE_KEY).catch(() => undefined);
+      const startedAt = marker ? Number(await marker.text().catch(() => "")) : NaN;
+      if (Number.isFinite(startedAt)) {
+        markerStartedAt = startedAt;
+        try {
+          const head = env.WALLET_BACKUPS ? await env.WALLET_BACKUPS.head(LN_DIRTY_KEY) : undefined;
+          if (head !== undefined) dirtyAt = head === null ? null : head.uploaded ? head.uploaded.getTime() : "unknown";
+        } catch {
+          // unknown: tick
+        }
+      }
+    }
+    if (shouldSkipTick(nodeUp, withSummary, markerStartedAt, dirtyAt)) {
+      await pingLnHealthcheck(env, "");
+      return null;
+    }
+
+    const tickStartedAt = Date.now();
     const tick = await callLnLedger<LedgerTick>(env, "/tick", {
       node: nodeUp ? "ok" : "down",
       olderThanMs: LN_PENDING_SWEEP_AGE_MS,
@@ -3239,7 +3325,7 @@ async function sweepLnLedger(env: Env, withSummary = false): Promise<LedgerSumma
 
     if (nodeUp) {
       if (tick.health.lifted) console.log("sweepLnLedger: node back, automatic kill switch lifted");
-      await syncLnAddrRefusingLogged(env, tick.health);
+      await syncLnAddrRefusingLogged(env, tick.health, withSummary);
       await pingLnHealthcheck(env, "");
     } else {
       // Down. The ledger counts the outage from its first failed check and
@@ -3247,7 +3333,7 @@ async function sweepLnLedger(env: Env, withSummary = false): Promise<LedgerSumma
       // the next healthy check lifts it again, no admin needed. An admin's own
       // switch (/api/lnaddr/admin/kill) is separate and never lifted here.
       if (tick.health.justTripped) console.error("sweepLnLedger: node down, automatic kill switch set");
-      await syncLnAddrRefusingLogged(env, tick.health);
+      await syncLnAddrRefusingLogged(env, tick.health, withSummary);
       // The alert: LN_HEALTHCHECK_PING_URL gets a /fail ping on every tick the
       // switch is on, and nothing while the outage is still shorter than that,
       // so a blip under 3 minutes never pages anyone.
@@ -3314,6 +3400,12 @@ async function sweepLnLedger(env: Env, withSummary = false): Promise<LedgerSumma
       }
     }
     if (stillOpen.length > 0) await callLnLedger(env, "/checked", { hashes: stillOpen });
+    const skipSeconds = stillOpen.length === 0 ? idleSkipSeconds(tick, nodeUp) : 0;
+    if (skipSeconds > 0) {
+      await cache
+        .put(LN_IDLE_KEY, new Response(String(tickStartedAt), { headers: { "cache-control": `public, max-age=${skipSeconds}` } }))
+        .catch(() => undefined);
+    }
     return tick.summary ?? null;
   } catch (err) {
     console.error("sweepLnLedger error", err);

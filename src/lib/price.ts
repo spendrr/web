@@ -2,6 +2,8 @@
 // slow fetch never blocks anything, the fiat line just doesn't show.
 
 import type { FiatCurrency } from "./currency";
+import { historyMaxAgeMs, publicHistoryUrl, readPublicCopy } from "./publicData";
+import { isChartPoints } from "./publicHistory";
 
 const CACHE_MS = 60_000;
 // The Worker hands out one shared copy of the price, rewritten by its cron at
@@ -199,9 +201,16 @@ export async function fetchBtcPriceHistory(currency: FiatCurrency, range: PriceR
   const days = RANGE_DAYS[range];
   const promise = (async () => {
     try {
-      const res = await throttledFetch(`${HISTORY_URL}?vs_currency=${currency}&days=${days}`);
-      if (!res.ok) throw new Error("Historii ceny se nepodařilo načíst.");
-      const data = (await res.json()) as { prices?: [number, number][] };
+      // The public chart first (no Worker request), the Worker route if it is
+      // missing or old.
+      let data = (await readPublicCopy(publicHistoryUrl(currency, days), historyMaxAgeMs(days))) as {
+        prices?: [number, number][];
+      } | null;
+      if (!data || !isChartPoints(data.prices)) {
+        const res = await throttledFetch(`${HISTORY_URL}?vs_currency=${currency}&days=${days}`);
+        if (!res.ok) throw new Error("Historii ceny se nepodařilo načíst.");
+        data = (await res.json()) as { prices?: [number, number][] };
+      }
       const rawPoints = (data.prices ?? []).map(([t, v]) => ({ t, v }));
       if (rawPoints.length === 0) throw new Error("Prázdná historie ceny.");
       const points = downsample(rawPoints, RANGE_MAX_POINTS[range]);

@@ -19,6 +19,8 @@
 //   d90  days=90 (hourly)             -> 7, 30 and 90 days, cut to length
 //   d365 days=365, interval=daily     -> the 1 year chart
 
+import { isChartPoints, publicHistoryPath } from "../src/lib/publicHistory";
+
 export type Point = [number, number];
 // [timestamp ms, czk, eur, usd]
 export type RingPoint = [number, number, number, number];
@@ -53,12 +55,8 @@ export function seriesNameFor(days: number): SeriesName | null {
 export const RING_KEEP_MS = 26 * HOUR;
 
 export function isPoints(x: unknown): x is Point[] {
-  return (
-    Array.isArray(x) &&
-    x.every((p) => Array.isArray(p) && p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[1] > 0)
-  );
+  return isChartPoints(x);
 }
-
 export function isRing(x: unknown): x is RingPoint[] {
   return (
     Array.isArray(x) &&
@@ -107,4 +105,28 @@ export function buildHistory(series: readonly Point[], days: number, tail: reado
     }
   });
   return out;
+}
+
+// --- Public copies on data.spendrr.app --------------------------------------
+//
+// The finished charts are also written to the public bucket, one file per
+// currency and range, so a chart costs the app no Worker request (see
+// priceCache.ts, publishPublicHistoryStep). The cron is the only writer and
+// builds ONE currency per tick, which keeps a tick to a handful of storage
+// calls (a Worker invocation allows 50) whatever the number of files.
+export const publicHistoryKey = (currency: Currency, days: number): string => publicHistoryPath(currency, days);
+
+// What a tick publishes. `minuteIndex` is the cron minute; currencies take
+// turns, so each one comes round every 3 minutes ("round" below):
+//   1 day        every 2nd round  (6 min; its chart has 5 minute points)
+//   7/30/90 days every 10th round (30 min; their tail is thinned to 50 min)
+//   1 year       every 20th round (60 min; its tail is thinned to 12 h)
+export function historyPublishPlan(minuteIndex: number): { currency: Currency; days: number[] } {
+  const currency = CURRENCIES[minuteIndex % CURRENCIES.length];
+  const round = Math.floor(minuteIndex / CURRENCIES.length);
+  const days: number[] = [];
+  if (round % 2 === 0) days.push(1);
+  if (round % 10 === 1) days.push(7, 30, 90);
+  if (round % 20 === 3) days.push(365);
+  return { currency, days };
 }

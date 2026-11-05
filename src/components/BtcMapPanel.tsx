@@ -13,6 +13,7 @@ import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { useT } from "../lib/i18n";
+import { CoverageCache, loadElements, type Bbox } from "../lib/btcmapCoverage";
 import "./BtcMapPanel.css";
 
 // Leaflet's default marker icon CSS/JS points at plain relative paths
@@ -223,18 +224,23 @@ function getEffectiveTheme(): "light" | "dark" {
 }
 
 function tileUrlTemplate(theme: "light" | "dark"): string {
-  return `/api/btcmap/tile/{z}/{x}/{y}.png${theme === "dark" ? "?style=dark" : ""}`;
+  // r=2: 512 px tiles (see the tile layer). The number also keeps the browser's
+  // 7-day immutable copies of the old 256 px URLs from being reused.
+  return `/api/btcmap/tile/{z}/{x}/{y}.png?r=2${theme === "dark" ? "&style=dark" : ""}`;
 }
 
-function boundsToBbox(bounds: L.LatLngBounds): string {
+function boundsToBbox(bounds: L.LatLngBounds): Bbox {
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
-  return `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+  return [sw.lng, sw.lat, ne.lng, ne.lat];
 }
 
-async function fetchElementsInBbox(bbox: string): Promise<BtcMapElement[] | null> {
+// What the map screen already fetched: a pan inside it costs no request.
+const elementsCoverage = new CoverageCache<BtcMapElement>();
+
+async function fetchElementsInBbox(bbox: Bbox | string): Promise<BtcMapElement[] | null> {
   try {
-    const res = await fetch(`/api/btcmap/elements?bbox=${encodeURIComponent(bbox)}`);
+    const res = await fetch(`/api/btcmap/elements?bbox=${encodeURIComponent(typeof bbox === "string" ? bbox : bbox.join(","))}`);
     if (!res.ok) return null;
     return (await res.json()) as BtcMapElement[];
   } catch {
@@ -261,20 +267,41 @@ function formatDistance(meters: number): string {
 
 // null = síťová/serverová chyba na prvním kroku, kde nemá smysl zkoušet dál.
 // [] = i po nejširším výřezu opravdu nic (datová mezera, ne chyba).
+// The widening search below costs up to six requests in a thinly covered area.
+// Its raw result is remembered for a few minutes per ~1 km cell, so opening
+// the nearby list again (or moving a little) costs none.
+const NEARBY_REMEMBER_MS = 5 * 60_000;
+// Positions are grouped by two decimals, so two in one cell are less than this apart.
+const NEARBY_CELL_DEG = 0.01;
+const nearbyMemory = new Map<string, { at: number; elements: BtcMapElement[] }>();
+
+function rankNearby(latlng: L.LatLngTuple, elements: BtcMapElement[]): (BtcMapElement & { distanceM: number })[] {
+  return elements
+    .map((el) => ({ ...el, distanceM: distanceMeters(latlng, el) }))
+    .sort((a, b) => a.distanceM - b.distanceM)
+    .slice(0, NEARBY_COUNT);
+}
+
 async function fetchNearestElements(
   latlng: L.LatLngTuple,
 ): Promise<(BtcMapElement & { distanceM: number })[] | null> {
+  const cell = `${latlng[0].toFixed(2)},${latlng[1].toFixed(2)}`;
+  const remembered = nearbyMemory.get(cell);
+  if (remembered && Date.now() - remembered.at < NEARBY_REMEMBER_MS) return rankNearby(latlng, remembered.elements);
   for (const span of NEARBY_BBOX_STEPS_DEG) {
-    const bbox = `${latlng[1] - span},${latlng[0] - span},${latlng[1] + span},${latlng[0] + span}`;
+    // The box is a cell wider on every side, so the result also covers the search
+    // of any other position that rounds to the same cell.
+    // (capped so the widest step stays inside the server's span limit)
+    const reach = Math.min(span + NEARBY_CELL_DEG, 5.99);
+    const bbox = `${latlng[1] - reach},${latlng[0] - reach},${latlng[1] + reach},${latlng[0] + reach}`;
     const elements = await fetchElementsInBbox(bbox);
     if (elements === null) return null;
     if (elements.length > 0) {
-      return elements
-        .map((el) => ({ ...el, distanceM: distanceMeters(latlng, el) }))
-        .sort((a, b) => a.distanceM - b.distanceM)
-        .slice(0, NEARBY_COUNT);
+      nearbyMemory.set(cell, { at: Date.now(), elements });
+      return rankNearby(latlng, elements);
     }
   }
+  nearbyMemory.set(cell, { at: Date.now(), elements: [] });
   return [];
 }
 
@@ -320,7 +347,17 @@ export default function BtcMapPanel() {
     mapRef.current = map;
     const tiles = L.tileLayer(tileUrlTemplate(getEffectiveTheme()), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://btcmap.org" target="_blank" rel="noopener noreferrer">BTC Map</a>',
+      // 512 px tiles one zoom level lower: four times fewer tile requests (each
+      // one is a Worker invocation) for the same screen, same sharpness.
+      tileSize: 512,
+      zoomOffset: -1,
+      minZoom: 1,
       maxZoom: 19,
+      // Tiles load once a pan or a zoom has settled, not on the way: a zoom
+      // from the country to the street would otherwise fetch every level it
+      // passes, and each tile is a Worker request.
+      updateWhenIdle: true,
+      updateWhenZooming: false,
     }).addTo(map);
     // Nahrazuje dřívější prosté L.layerGroup() — v hustě pokryté oblasti
     // (centrum Prahy) se desítky teček v jednom bloku překrývaly a nešlo se
@@ -387,7 +424,7 @@ export default function BtcMapPanel() {
         loadingBadgeTimerRef.current = null;
         if (seq === fetchSeqRef.current) setElementsLoading(true);
       }, LOADING_BADGE_DELAY_MS);
-      const elements = await fetchElementsInBbox(bbox);
+      const elements = await loadElements(elementsCoverage, bbox, fetchElementsInBbox);
       // Zahodit odpověď, pokud mezitím proběhl novější dotaz (rychlé
       // posouvání mapy by jinak mohlo vykreslit zastaralá data přes nová) —
       // ta newer request si svůj vlastní loading/error stav dořeší sama.

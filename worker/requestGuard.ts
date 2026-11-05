@@ -43,8 +43,8 @@ export async function readBodyCapped(request: Request, maxBytes: number): Promis
 // True for canonical base64 text (standard alphabet, correct padding, no
 // whitespace), i.e. exactly what btoa() produces. The backup upload used to
 // check its ciphertext with /^[A-Za-z0-9+/]+=*$/, which costs ~3.2 ms per MB
-// of V8 time (a backup of a few MB alone would pass the Workers Free plan's
-// 10 ms CPU limit); atob/btoa run natively at ~0.4 ms per MB in total. The
+// of V8 time (a backup of a few MB alone would pass the per-request CPU
+// limit); atob/btoa run natively at ~0.4 ms per MB in total. The
 // round trip is stricter than the regex (it also refuses bad lengths and
 // non-canonical padding), which no real client sends: backup.ts uses btoa.
 export function isCanonicalBase64(s: string): boolean {

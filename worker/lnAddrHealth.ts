@@ -4,10 +4,10 @@
 // callback refuses every new invoice, and the app should show Ark instead of
 // an address that fails once the payer has typed an amount.
 //
-// Free plan budget: the answer must cost no Durable Object request, since
+// Request budget: the answer must cost no Durable Object request, since
 // every open of the receive screen asks. So the ledger's state is mirrored
 // into one KV key, written only when it changes (a few writes a day against
-// the 1000 cap) by the minute cron and the admin kill route, both of which
+// the daily cap) by the minute cron and the admin kill route, both of which
 // already talk to the ledger. The public GET reads that key behind the edge
 // cache, so a colo reads KV at most once per HEALTH_CACHE_SECONDS whatever the
 // traffic. Lives in PUSH_SUBSCRIPTIONS, which already holds small operational

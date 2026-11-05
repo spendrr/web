@@ -81,7 +81,7 @@ export const MAX_PLAUSIBLE_BLOCKHEIGHT = 10_000_000;
 export const SUBSCRIPTION_TTL_SECONDS = 40 * 24 * 60 * 60;
 
 // Pages of a mailbox's first-read backlog one check may fetch (see
-// checkMailboxForPayments). Kept well under the 50 subrequests a Free plan
+// checkMailboxForPayments). Kept well under the 50 subrequests an
 // invocation allows, so a shard's other mailboxes still get their read in the
 // same tick.
 export const MAX_BACKLOG_PAGES_PER_TICK = 5;
@@ -370,7 +370,7 @@ export async function checkMailboxForPayments(
     // `backfilling` flag prevents while progress is kept between ticks.
     //
     // At most MAX_BACKLOG_PAGES_PER_TICK pages per check. Every page is one
-    // subrequest, a Workers Free invocation allows 50, and this loop had no
+    // subrequest, an invocation allows 50, and this loop had no
     // bound: a wallet with a long history (a year of daily use) never finished
     // its first read, spent the shard's whole budget on every tick, and starved
     // every other mailbox in the shard. Progress is now committed after each

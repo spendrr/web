@@ -151,8 +151,8 @@ export async function verifyHook(
 // pokes are the fast path; the sweep is the safety net and the VTXO expiry
 // nudge (hours of blocks). It used to drop to a minute whenever the relay
 // was down or cold, which made one VPS outage cost every active shard 1,440
-// Durable Object requests a day: at a few dozen shards that is the account's
-// whole daily budget, taking @names, the Lightning address and tap to pay down
+// Durable Object requests a day: at a few dozen shards that would use up the account's
+// daily budget, taking @names, the Lightning address and tap to pay down
 // with it. While the relay is down a payment push arrives up to this late;
 // the open app shows the payment itself either way. The outage is alerted on
 // (worker/index.ts's pingRelayHealthcheck).

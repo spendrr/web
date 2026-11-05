@@ -9,6 +9,8 @@
 // can lose the race against its own timeout even though the upstream API
 // itself answers instantly. Fetching straight from the same-origin proxy
 // below never touches that queue at all.
+import { FEES_MAX_AGE_MS, PUBLIC_FEES_URL, PUBLIC_TIP_URL, readPublicCopy } from "../publicData";
+
 const FEES_URL = "/api/fees/recommended";
 const CACHE_MS = 15_000;
 // Last successful result, kept across widget remounts *and* full reloads so
@@ -24,6 +26,10 @@ export interface OnchainFees {
 
 let cached: { fees: OnchainFees; at: number } | null = null;
 let inFlight: Promise<OnchainFees> | null = null;
+
+function isFeeNumbers(d: { fastestFee?: unknown; halfHourFee?: unknown; economyFee?: unknown }): boolean {
+  return typeof d.fastestFee === "number" && typeof d.halfHourFee === "number" && typeof d.economyFee === "number";
+}
 
 function isOnchainFees(v: unknown): v is OnchainFees {
   if (!v || typeof v !== "object") return false;
@@ -50,13 +56,15 @@ export async function fetchOnchainFees(): Promise<OnchainFees> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const res = await fetch(FEES_URL);
-      if (!res.ok) throw new Error("Poplatky se nepodařilo načíst.");
-      const data = (await res.json()) as {
-        fastestFee?: number;
-        halfHourFee?: number;
-        economyFee?: number;
-      };
+      type FeesBody = { fastestFee?: number; halfHourFee?: number; economyFee?: number };
+      // The public copy first (no Worker request), the Worker route if it is
+      // missing or old.
+      let data = (await readPublicCopy(PUBLIC_FEES_URL, FEES_MAX_AGE_MS)) as FeesBody | null;
+      if (!data || !isFeeNumbers(data)) {
+        const res = await fetch(FEES_URL);
+        if (!res.ok) throw new Error("Poplatky se nepodařilo načíst.");
+        data = (await res.json()) as FeesBody;
+      }
       const { fastestFee, halfHourFee, economyFee } = data;
       if (typeof fastestFee !== "number" || typeof halfHourFee !== "number" || typeof economyFee !== "number") {
         throw new Error("Neplatná odpověď poplatků.");
@@ -119,9 +127,13 @@ export async function fetchTipBlock(): Promise<TipBlock> {
   if (tipInFlight) return tipInFlight;
   tipInFlight = (async () => {
     try {
-      const res = await fetch(TIP_URL);
-      if (!res.ok) throw new Error("Poslední blok se nepodařilo načíst.");
-      const data = (await res.json()) as { height?: unknown; timestamp?: unknown; tx_count?: unknown; weight?: unknown };
+      type TipBody = { height?: unknown; timestamp?: unknown; tx_count?: unknown; weight?: unknown };
+      let data = (await readPublicCopy(PUBLIC_TIP_URL, FEES_MAX_AGE_MS)) as TipBody | null;
+      if (!data || !isTipBlock({ height: data.height, timestamp: data.timestamp, txCount: data.tx_count, weight: data.weight })) {
+        const res = await fetch(TIP_URL);
+        if (!res.ok) throw new Error("Poslední blok se nepodařilo načíst.");
+        data = (await res.json()) as TipBody;
+      }
       const tip = { height: data.height, timestamp: data.timestamp, txCount: data.tx_count, weight: data.weight };
       if (!isTipBlock(tip)) throw new Error("Neplatná odpověď bloku.");
       tipCached = { tip, at: Date.now() };

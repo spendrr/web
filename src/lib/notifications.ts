@@ -225,7 +225,7 @@ async function postSubscription(
 // off by.
 const SENT_KEY = "btc-wallet-push-sent";
 export const SUBSCRIBE_RESEND_AFTER_MS = 2 * 60 * 60 * 1000;
-export const SUBSCRIBE_PRICE_DRIFT = 0.005;
+export const SUBSCRIBE_PRICE_DRIFT = 0.01;
 
 export interface SentSubscribe {
   key: string;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WalletClient } from "../src/lib/wallet/bark";
 import { NAME_TOUCH_INTERVAL_MS, getCachedName, maybeTouchName, setCachedName, setHasHandle } from "../src/lib/names/nameTouch";
 
@@ -16,10 +16,16 @@ function fakeStorage(): Storage {
   } as Storage;
 }
 
-const wallet = {
-  mailboxIdentifier: async () => "02" + "aa".repeat(32),
-  mailboxAuthorization: async () => "02" + "aa".repeat(32) + "00".repeat(8) + "bb".repeat(64),
-} as unknown as WalletClient;
+// A fresh object per test: fetchMyName remembers its answer per wallet.
+const newWallet = () =>
+  ({
+    mailboxIdentifier: async () => "02" + "aa".repeat(32),
+    mailboxAuthorization: async () => "02" + "aa".repeat(32) + "00".repeat(8) + "bb".repeat(64),
+  }) as unknown as WalletClient;
+let wallet = newWallet();
+beforeEach(() => {
+  wallet = newWallet();
+});
 
 function serverSays(status: number, body?: unknown) {
   const f = vi.fn(async () => new Response(JSON.stringify(body ?? {}), { status }));

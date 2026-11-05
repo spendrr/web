@@ -173,7 +173,7 @@ export async function refreshBtcMapCacheIfStale(env: Env): Promise<void> {
   }
 }
 
-// MapTiler's free tier (100k tile loads/month) — chosen over hitting
+// MapTiler — chosen over hitting
 // tile.openstreetmap.org directly, which is a donation-funded resource whose
 // own usage policy asks production apps not to hotlink it without prior
 // permission. Proxied same-origin for two reasons: (1) the API key has to
@@ -189,8 +189,11 @@ export async function refreshBtcMapCacheIfStale(env: Env): Promise<void> {
 // to probe arbitrary MapTiler style ids through this proxy.
 const TILE_STYLES = { light: "streets-v2", dark: "streets-v2-dark" } as const;
 
-const TILE_URL_TEMPLATE = (z: number, x: number, y: number, key: string, style: string): string =>
-  `https://api.maptiler.com/maps/${style}/${z}/${x}/${y}.png?key=${key}`;
+// `hidpi` asks for the @2x image (1024 px for a 512 px tile). The client shows
+// each tile at 512 CSS px (BtcMapPanel.tsx: tileSize 512, zoomOffset -1), so one
+// request covers four of the old 256 px tiles at the same sharpness.
+const TILE_URL_TEMPLATE = (z: number, x: number, y: number, key: string, style: string, hidpi = false): string =>
+  `https://api.maptiler.com/maps/${style}/${z}/${x}/${y}${hidpi ? "@2x" : ""}.png?key=${key}`;
 
 const TILE_PATH_RE = /^\/api\/btcmap\/tile\/(\d+)\/(\d+)\/(\d+)\.png$/;
 const MAX_ZOOM = 19;
@@ -279,29 +282,31 @@ export async function handleBtcMapTile(request: Request, url: URL, env: Env): Pr
   // separate entries.
   const wantsDark = url.searchParams.get("style") === "dark";
   const cache = caches.default;
-  const cacheKey = new Request(`https://tile-cache.internal/${z}/${x}/${y}.png?style=${wantsDark ? "dark" : "light"}`);
+  const cacheKey = new Request(`https://tile-cache.internal/v2/${z}/${x}/${y}.png?style=${wantsDark ? "dark" : "light"}`);
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(TILE_URL_TEMPLATE(z, x, y, key, wantsDark ? TILE_STYLES.dark : TILE_STYLES.light), {
-      headers: { "User-Agent": TILE_USER_AGENT },
-    });
-    // Fail-safe, not fail-broken: if the dark style ever 404s/errors on
-    // MapTiler's side (wrong id, plan doesn't include it, etc.), fall back
-    // to the light tile rather than showing a broken/blank map in dark mode
-    // — worse than a light map in a dark UI, but never worse than before
-    // this feature existed.
-    if (!upstream.ok && wantsDark) {
-      upstream = await fetch(TILE_URL_TEMPLATE(z, x, y, key, TILE_STYLES.light), {
+  // Fail-safe ladder: @2x in the requested style, then the plain 512 px image
+  // (same area, same zoom), then, in dark mode, the light style. A step that
+  // the provider does not serve costs one more subrequest, never a blank map.
+  const style = wantsDark ? TILE_STYLES.dark : TILE_STYLES.light;
+  const attempts: Array<[string, boolean]> = [[style, true], [style, false]];
+  if (wantsDark) attempts.push([TILE_STYLES.light, false]);
+  let upstream: Response | null = null;
+  for (const [s, hidpi] of attempts) {
+    try {
+      const res = await fetch(TILE_URL_TEMPLATE(z, x, y, key, s, hidpi), {
         headers: { "User-Agent": TILE_USER_AGENT },
       });
+      if (res.ok) {
+        upstream = res;
+        break;
+      }
+    } catch {
+      // this variant failed to answer; the next one may
     }
-  } catch {
-    return jsonError(502, "Upstream tile source unreachable.");
   }
-  if (!upstream.ok) return jsonError(502, "Upstream tile source unreachable.");
+  if (!upstream) return jsonError(502, "Upstream tile source unreachable.");
 
   const body = await upstream.arrayBuffer();
   const response = new Response(body, {

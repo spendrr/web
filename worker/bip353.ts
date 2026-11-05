@@ -5,7 +5,7 @@
 // cannot reach a DoH resolver itself; the Worker can. Nothing here is trusted:
 // a lying Worker or resolver produces a proof that fails validation, and the
 // worst it can do is deny a payment. So there is deliberately no DNSSEC check
-// in this file (10 ms CPU on the Free plan would not fit one anyway).
+// in this file (the CPU limit per request would not fit one anyway).
 //
 // Budget: one Worker request per lookup, and a cache miss fans out to at most
 // MAX_LABELS * 2 + 2 DoH queries (primary resolver, fallback on failure only),
@@ -26,7 +26,7 @@ export const DOH_FALLBACK = "https://dns.google/dns-query";
 // (src/lib/bip353/client.ts), or a primary outage fails lookups the fallback could serve.
 const DOH_TIMEOUT_MS = 3_000;
 const DOH_MAX_RESPONSE = 64 * 1024;
-// Cloudflare Free allows 50 subrequests and holds only 6 connections open at
+// Cloudflare allows 50 subrequests per invocation and holds only 6 connections open at
 // once (the rest queue and burn their timeout). 8 labels (user, user,
 // _bitcoin-payment and a domain of up to 5) is 18 queries, 36 with every one
 // falling back (a failed primary retries on the fallback), under 50.
