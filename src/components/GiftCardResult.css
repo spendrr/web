@@ -1,0 +1,186 @@
+/* Gift card result (GiftCardResult.tsx). The rail runs edge to edge of the
+   sheet (.sht-screen pads 22px a side) so the next card peeks in. */
+
+.gcr-rail {
+  --gcr-w: min(300px, calc(100vw - 110px));
+  width: calc(100% + 44px);
+  /* Room above and below for the near edge of a turning card, which grows in
+     perspective; the scroller would clip it. The negative margins keep the
+     sheet's spacing as it was. */
+  margin: -12px -22px -10px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  /* 50% resolves against the sheet, not the 44px wider rail: + 22px centers
+     the first and last card. */
+  padding: 22px calc(50% + 22px - var(--gcr-w) / 2) 20px;
+  scrollbar-width: none;
+}
+
+.gcr-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.gcr-card {
+  flex: 0 0 var(--gcr-w);
+  aspect-ratio: 85.6 / 54;
+  scroll-snap-align: center;
+  /* One card per swipe; a fast flick otherwise skips past the next motif. */
+  scroll-snap-stop: always;
+  perspective: 1000px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+/* The global button hover/active nudge (App.css) does not belong on a card. */
+.gcr-card:hover:not(:disabled),
+.gcr-card:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* The chosen motif: the centered card, the one Obrázek, PDF and Sdílet use. An
+   outline on the button, not the turning face, so it holds still while the card turns. */
+.gcr-card.is-current {
+  outline: var(--border-w) solid var(--text-h);
+  outline-offset: 3px;
+}
+
+/* Same keyboard ring as the app's buttons (design-v2.css). */
+.gcr-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* One continuous turn on the compositor: transform only, both faces always
+   there, each hidden while it faces away. The curve overshoots a touch and
+   settles, like card stock. */
+.gcr-inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.3, 1.15, 0.45, 1);
+}
+
+.gcr-card.is-flipped .gcr-inner {
+  transform: rotateY(180deg);
+}
+
+.gcr-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #16130d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* The drawing arrives like a print pulled off the plate: a soft edge sweeps
+   it in from the left over the ink card. The mask is three cards wide and
+   slides from fully clear to fully covered. An animation, not a transition:
+   a data: image often loads before its first style is computed, and a
+   transition then has no starting point and the art just pops in. */
+.gcr-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  -webkit-mask-image: linear-gradient(90deg, #000 36%, transparent 64%);
+  mask-image: linear-gradient(90deg, #000 36%, transparent 64%);
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.gcr-face img.is-shown {
+  opacity: 1;
+  animation: gcr-print 1.3s cubic-bezier(0.4, 0.1, 0.2, 1) both;
+}
+
+@keyframes gcr-print {
+  from {
+    opacity: 0;
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+  }
+}
+
+.gcr-back {
+  transform: rotateY(180deg);
+}
+
+/* Uložit / Tisk: quiet, icon and word, tight under the card. */
+.gcr-tools {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.gcr-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  color: var(--text-h);
+  font: 600 14px var(--sans);
+  cursor: pointer;
+}
+
+/* No global lift or shadow, and no pressed tint: a share sheet opened from
+   the tap ends the touch outside the page, so on iOS :active stays on until
+   the next tap and left a tinted pill behind. A tint on hover only where
+   hover is real (on touch :hover sticks the same way). */
+.gcr-tool:hover:not(:disabled),
+.gcr-tool:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .gcr-tool:hover {
+    background: color-mix(in srgb, var(--text-h) 8%, transparent);
+  }
+}
+
+.gcr-tool:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gcr-inner {
+    transition: none;
+  }
+  .gcr-face img.is-shown {
+    animation: none;
+  }
+}
