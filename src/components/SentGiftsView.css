@@ -59,7 +59,7 @@
   border-radius: 6px;
 }
 .sgv-amount {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 15px;
   font-weight: 700;
   color: var(--text-h);

@@ -153,7 +153,7 @@ function renderOverall(snap, now, failed) {
   box.append(markEl, text);
 }
 
-function renderServices(snap, now) {
+function renderServices(snap, now, loading = false) {
   const box = $("services");
   box.replaceChildren();
   const stale = !snap || now - snap.checkedAt > STALE_MS;
@@ -164,7 +164,7 @@ function renderServices(snap, now) {
     const head = el("div", "st-svc-head");
     const name = el("span", "st-svc-name", c.name);
     name.append(el("span", "st-svc-hint", c.hint));
-    head.append(name, el("span", `st-pill st-pill--${status}`, PILL[status]));
+    head.append(name, el("span", `st-pill st-pill--${status}${loading ? " st-pill--wait" : ""}`, PILL[status]));
     row.append(head);
 
     const bars = el("div", "st-bars");
@@ -189,7 +189,7 @@ function renderServices(snap, now) {
     for (const n of [DAYS, MOBILE_DAYS]) {
       const axis = el("div", `st-axis st-axis--${n === DAYS ? "wide" : "narrow"}`);
       const s = sums[n];
-      const up = s.covered ? `${fmtPct(100 * (1 - s.down / s.covered))} uptime` : "No data yet";
+      const up = s.covered ? `${fmtPct(100 * (1 - s.down / s.covered))} uptime` : loading ? "\u00a0" : "No data yet";
       axis.append(el("span", "", `${n} days ago`), el("span", "st-up", up), el("span", "", "Today"));
       row.append(axis);
     }
@@ -215,6 +215,7 @@ function renderRound() {
   const time = $("st-round");
   const now = Date.now();
   const snap = current;
+  if (!settled) return;
   if (!snap || !snap.nextRoundAt || now - snap.checkedAt > STALE_MS || snap.components.ark.status === "down") {
     box.hidden = true;
     return;
@@ -262,9 +263,12 @@ function renderIncidents(snap, now) {
 }
 
 let current = null;
+// False until the first answer (or failure): the round card keeps its placeholder until then.
+let settled = false;
 
 function render(snap, failed) {
   current = snap;
+  settled = true;
   const now = Date.now();
   renderOverall(snap, now, failed);
   renderServices(snap, now);
@@ -343,6 +347,10 @@ async function load() {
   }
 }
 
+// Skeleton first, so nothing jumps when the answer arrives: the five rows with empty bars and the round card.
+renderServices(null, Date.now(), true);
+$("st-round").textContent = "--:--";
+$("round").hidden = false;
 load();
 setInterval(load, REFRESH_MS);
 setInterval(renderRound, 1000);

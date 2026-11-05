@@ -14,7 +14,7 @@ import {
 import { displayName } from "../../lib/chat/contactName";
 import { safetyCode } from "../../lib/chat/safety";
 import { contactPayments } from "../../lib/chat/chatHistory";
-import { describeInterval } from "../../lib/chat/messages";
+import { describeIntervalT } from "../../lib/chat/messages";
 import { localeFor, tf, useLang, useT } from "../../lib/i18n";
 import Avatar from "../Avatar";
 import { Screen, Sheet, useSheetClose } from "../sheet/PaySheet";
@@ -172,7 +172,7 @@ export default function ContactSheet({
             {schedules.map((s) => (
               <div key={s.id} className="cht-profile-row">
                 <span className="cht-profile-note">
-                  {s.kind === "send" ? t("Posílám") : t("Platím")} {describeInterval(s.every)}
+                  {s.kind === "send" ? t("Posílám") : t("Platím")} {describeIntervalT(s.every, t)}
                 </span>
                 <b className="cht-num">{num(s.sats)}</b>
                 <button

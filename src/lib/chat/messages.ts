@@ -103,6 +103,15 @@ export function describeInterval(i: Interval): string {
   return `každých ${i.n} ${unit}`;
 }
 
+// The same for the screen: every word through the caller's t(), so an English UI
+// does not get "týdně" inside an English sentence. (describeInterval stays Czech
+// for fallbackText, which other clients read.)
+export function describeIntervalT(i: Interval, t: (cs: string) => string): string {
+  if (i.n === 1) return t(i.unit === "day" ? "denně" : i.unit === "week" ? "týdně" : "měsíčně");
+  const key = i.unit === "day" ? "každých {n} dní" : i.unit === "week" ? "každých {n} týdnů" : "každých {n} měsíců";
+  return t(key).replace("{n}", String(i.n));
+}
+
 // The readable `content` other clients show.
 export function fallbackText(p: Payload): string {
   const note = "note" in p && p.note ? `: ${p.note}` : "";

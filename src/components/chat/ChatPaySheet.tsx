@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import type { WalletClient } from "../../lib/wallet/bark";
 import type { Contact, Schedule } from "../../lib/chat/chatClient";
 import { addSchedule, markSchedulePaid, sendPayload } from "../../lib/chat/chatClient";
-import { MAX_NOTE_CHARS, clampText, describeInterval, type Interval } from "../../lib/chat/messages";
+import { MAX_NOTE_CHARS, clampText, describeIntervalT, type Interval } from "../../lib/chat/messages";
 import { nextDue } from "../../lib/chat/recurrence";
 import { loadVaultOrPrompt, missingVaultText } from "../../lib/vault/vaultAccess";
 import type { FiatCurrency } from "../../lib/currency";
@@ -256,8 +256,8 @@ export default function ChatPaySheet({
                 </div>
                 <p className="cht-repeat-hint">
                   {isSend
-                    ? tf(t("Teď a pak připomínka {when}."), { when: describeInterval(shownEvery) })
-                    : tf(t("Opakovaně {when}. Druhá strana musí přijmout."), { when: describeInterval(shownEvery) })}
+                    ? tf(t("Teď a pak připomínka {when}."), { when: describeIntervalT(shownEvery, t) })
+                    : tf(t("Opakovaně {when}. Druhá strana musí přijmout."), { when: describeIntervalT(shownEvery, t) })}
                 </p>
               </Collapse>
             </div>

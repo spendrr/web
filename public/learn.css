@@ -1686,6 +1686,14 @@ section h2 {
   color: var(--accent);
 }
 
+/* Stacked under the button (narrow screens): its icon starts where the button's own
+   content does, past the border and padding, not on the outline. */
+@media (max-width: 480px) {
+  .end-src {
+    padding-left: 14.5px;
+  }
+}
+
 /* The wordmark as a watermark on the left edge of the content, links under it. */
 .foot {
   overflow: hidden;

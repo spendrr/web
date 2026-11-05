@@ -1,3 +1,4 @@
+import { swipeAway } from "../lib/ui/swipeAway";
 import { IS_REGTEST } from "../lib/network";
 import { RollingDigits } from "./RollingDigits";
 import {
@@ -2829,6 +2830,11 @@ export default function Dashboard({
             <div
               className={`toast-island toast-island--${toastTone(toast.kind, toast.detail)}${toast.closing ? " toast-island--closing" : ""}`}
               role="status"
+              {...swipeAway(() => {
+                if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+                if (toastCloseTimerRef.current !== null) window.clearTimeout(toastCloseTimerRef.current);
+                setToast(null);
+              })}
             >
               <span className="toast-island-icon" aria-hidden="true">
                 <ToastIslandIcon tone={toastTone(toast.kind, toast.detail)} />
@@ -3043,6 +3049,11 @@ export default function Dashboard({
             <div
               className={`toast-island toast-island--net toast-island--${NET_ISLAND_COPY[netIsland.kind].tone === "online" ? "online" : "offline"}${netIsland.closing ? " toast-island--closing" : ""}`}
               role="status"
+              {...swipeAway(() => {
+                netTimersRef.current.forEach((id) => window.clearTimeout(id));
+                netTimersRef.current = [];
+                setNetIsland(null);
+              })}
             >
               <span className="toast-island-icon" aria-hidden="true">
                 <ToastIslandIcon tone={NET_ISLAND_COPY[netIsland.kind].tone} />
@@ -3085,7 +3096,14 @@ export default function Dashboard({
       {loadError && !toast && !netIsland && (
         <BodyPortal>
           <div className="toast-island-wrap">
-            <div className="toast-island toast-island--danger" role="status">
+            <div
+              className="toast-island toast-island--danger"
+              role="status"
+              {...swipeAway(() => {
+                setLoadError(null);
+                setLoadErrorDetail(null);
+              })}
+            >
               <span className="toast-island-icon" aria-hidden="true">
                 <ToastIslandIcon tone="danger" />
               </span>

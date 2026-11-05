@@ -1236,16 +1236,18 @@
 }
 
 .history-day-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
+  letter-spacing: 0.025em;
   color: var(--text-h);
 }
 
 .history-day-count {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: 0.025em;
   color: var(--text);
-  opacity: 0.75;
+  opacity: 0.8;
   flex-shrink: 0;
 }
 
@@ -1292,6 +1294,8 @@
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 10px 28px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
+  /* Sideways drags belong to swipeAway (dismiss); vertical ones still scroll the page. */
+  touch-action: pan-y;
   transform-origin: 50% 0;
   animation: island-in 0.5s cubic-bezier(0.3, 1.35, 0.5, 1);
   will-change: transform, opacity;

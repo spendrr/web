@@ -1389,6 +1389,40 @@ function raceBudget<T>(work: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+// Opens the gift wallet and pulls the gift out of its mailbox: the part of a claim that waits on the
+// network. 0 means the pull finished and found nothing; running out of budget is GIFT_SLOW_MESSAGE.
+async function openAndPull(giftMnemonic: string, dbName: string, onchainDbName: string): Promise<number> {
+  await giftRequest({ type: "giftOpen", mnemonic: giftMnemonic, dbName, onchainDbName });
+  try {
+    return await raceBudget(pullGiftBalance(), GIFT_MAILBOX_BUDGET_MS);
+  } catch (e) {
+    if (e instanceof Error && e.message === "__gift_budget__") throw new Error(GIFT_SLOW_MESSAGE);
+    throw e;
+  }
+}
+
+// First half of a claim, for the screen that waits for "Přijmout dárek": the gift is pulled into
+// its wallet, nothing leaves it. The local database stays (unless the gift is confirmed empty), so
+// claimGiftToAddress, called on the tap, reopens the same one and finds the gift already in it,
+// the same way a retry after a failed forward does.
+export function prepareGiftClaim(giftMnemonic: string, giftId: string): Promise<GiftClaimResult> {
+  return withGiftLock(async () => {
+    const { dbName, onchainDbName } = giftDbNames(giftId);
+    let safeToDeleteDb = false;
+    try {
+      const sats = await openAndPull(giftMnemonic, dbName, onchainDbName);
+      if (!sats) {
+        safeToDeleteDb = true;
+        throw new Error(GIFT_EMPTY_MESSAGE);
+      }
+      return { claimedSats: sats };
+    } finally {
+      terminateGiftWorker();
+      if (safeToDeleteDb) await deleteGiftDb(giftId);
+    }
+  });
+}
+
 export function claimGiftToAddress(
   giftMnemonic: string,
   giftId: string,
@@ -1413,15 +1447,7 @@ export function claimGiftToAddress(
     // instead of needing the lossy scan to re-find it.
     let safeToDeleteDb = false;
     try {
-      await giftRequest({ type: "giftOpen", mnemonic: giftMnemonic, dbName, onchainDbName });
-
-      let claimedSats: number;
-      try {
-        claimedSats = await raceBudget(pullGiftBalance(), GIFT_MAILBOX_BUDGET_MS);
-      } catch (e) {
-        if (e instanceof Error && e.message === "__gift_budget__") throw new Error(GIFT_SLOW_MESSAGE);
-        throw e;
-      }
+      const claimedSats = await openAndPull(giftMnemonic, dbName, onchainDbName);
       if (!claimedSats) {
         // The pull genuinely completed and found nothing — there is
         // nothing local left to strand.

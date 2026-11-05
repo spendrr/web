@@ -50,7 +50,21 @@ export function useT() {
   // unstable identity there would defeat that memoization on every render
   // (e.g. re-running the wallet.sync()/balance()/history()/maintenance()
   // effect on every single Dashboard render instead of only when it should).
-  return useCallback((cs: string): string => (lang === "en" ? (DICT[cs] ?? cs) : cs), [lang]);
+  return useCallback((cs: string): string => translateTo(lang, cs), [lang]);
+}
+
+// A Czech word can have two English meanings ("Přijmout" is Receive on the home
+// screen and Accept on a contact request). The second gets a context suffix after
+// "@@": the English table has its own entry, Czech shows the text before it.
+function translateTo(lang: Lang, cs: string): string {
+  if (lang === "en" && DICT[cs] !== undefined) return DICT[cs];
+  const ctx = cs.indexOf("@@");
+  return ctx === -1 ? cs : cs.slice(0, ctx);
+}
+
+// For code outside React (the error screen cannot use hooks).
+export function translate(cs: string): string {
+  return translateTo(current, cs);
 }
 
 export function localeFor(lang: Lang): string {
@@ -814,7 +828,6 @@ const DICT: Record<string, string> = {
   // this coverage matters more than its line count suggests.
   "Dostal jsi dárek": "You got a gift",
   "Bitcoin na tebe čeká": "Bitcoin is waiting for you",
-  "vzkaz": "message",
   "Něco se nepovedlo.": "Something went wrong.",
   "Na tomhle zařízení už peněženku máš. Odemkni ji a dárek se do ní připíše.":
     "You already have a wallet on this device. Unlock it and the gift will be added to it.",
@@ -1112,7 +1125,7 @@ const DICT: Record<string, string> = {
   "Dárek se nepodařilo vytvořit": "The gift couldn't be created",
   "Tenhle dárek už je vyzvednutý": "This gift has already been claimed",
   "Dárek se nepodařilo vyzvednout": "The gift couldn't be claimed",
-  "Je tvůj": "It's yours",
+  "Je tvůj!": "It's yours!",
   "Připisuju dárek do peněženky": "Adding the gift to your wallet",
 
   // The Home buttons' hold-menus (ActionMenu.tsx)
@@ -2039,6 +2052,63 @@ const DICT: Record<string, string> = {
   "Zprávy (beta)": "Messages (beta)",
   "V betě, zapnutí v Nastavení: šifrované zprávy s @jmény, platby a žádosti v konverzaci.": "In beta, turn on in Settings: encrypted messages with @names, payments and requests in the chat.",
   "Opakované platby a žádosti s připomínkou při otevření appky.": "Recurring payments and requests, with a reminder when you open the app.",
+  // Intervals (chat/messages.ts describeIntervalT) and the second meaning of "Přijmout".
+  "denně": "daily",
+  "týdně": "weekly",
+  "měsíčně": "monthly",
+  "každých {n} dní": "every {n} days",
+  "každých {n} týdnů": "every {n} weeks",
+  "každých {n} měsíců": "every {n} months",
+  "Přijmout@@accept": "Accept",
+  // Gaps found by tests/i18nCoverage.test.ts.
+  "Přejetím doprava sem otevřeš Utility.": "Swipe right here to open Utility.",
+  "Potlačit automatickou obnovu VTXO": "Suppress automatic VTXO refresh",
+  "Tenhle odkaz jde zaplatit jen ve Spendrru.": "This link can only be paid in Spendrr.",
+  "Platbu přijme a hned pošle dál služba Spendrr. Nemůže ji utratit ani přesměrovat, ale vidí její výši.":
+    "Spendrr receives the payment and forwards it at once. It cannot spend or redirect it, but it sees the amount.",
+  "Vyhrazené jméno. Uložit ho jde jen jeho majiteli.": "Reserved name. Only its owner can save it.",
+  "Kavárna": "Cafe",
+  "Večerka": "Corner shop",
+  "Pekařství": "Bakery",
+  "Oblečení": "Clothing",
+  "Kadeřnictví": "Hairdresser",
+  "Knihkupectví": "Bookshop",
+  "Dárky": "Gifts",
+  "Klenotnictví": "Jeweller",
+  "Čerpací stanice": "Petrol station",
+  "Ostatní": "Other",
+  "Oranžová": "Orange",
+  "Fialová": "Purple",
+  "Červená": "Red",
+  "Modrá": "Blue",
+  "Petrolejová": "Teal",
+  "Aplikace narazila na neočekávanou chybu. Tvůj seed phrase je bezpečně uložený — zkus stránku načíst znovu.":
+    "The app hit an unexpected error. Your seed phrase is safely stored; try reloading the page.",
+  "Načíst znovu": "Reload",
+  "Pomalé spojení. Dárek je pořád tvůj, zkus to znovu.": "Slow connection. The gift is still yours, try again.",
+  "Dárek je prázdný nebo už byl vyzvednut.": "The gift is empty or was already claimed.",
+  "Dárek už byl nejspíš vyzvednut, nebo je pomalé spojení. Zkus to za chvíli znovu.":
+    "The gift was probably already claimed, or the connection is slow. Try again in a moment.",
+  "Kurz se nepodařilo načíst.": "Could not load the exchange rate.",
+  "Neplatná odpověď kurzu.": "Invalid rate response.",
+  "Prázdná historie ceny.": "Empty price history.",
+  "Poplatky se nepodařilo načíst.": "Could not load fees.",
+  "Neplatná odpověď poplatků.": "Invalid fee response.",
+  "Poslední blok se nepodařilo načíst.": "Could not load the latest block.",
+  "Neplatná odpověď bloku.": "Invalid block response.",
+  "Nelze přečíst cizí obnovu": "Cannot read another refresh",
+  "Časový limit volání peněženky vypršel": "The wallet call timed out",
+  "ArkInfo není k dispozici": "ArkInfo is not available",
+  "Ověření proběhlo, ale zařízení nevrátilo očekávaný klíč. Zkus to prosím znovu.":
+    "Verified, but the device did not return the expected key. Please try again.",
+  "Ověření bylo zrušeno nebo vypršelo. Zkus to prosím znovu.": "Verification was cancelled or timed out. Please try again.",
+  "Ověření otiskem trvalo příliš dlouho a bylo zrušeno. Zkus to prosím znovu.":
+    "Fingerprint verification took too long and was cancelled. Please try again.",
+  "Ověření otiskem selhalo nebo bylo zrušeno.": "Fingerprint verification failed or was cancelled.",
+  "Nastavení otisku trvalo příliš dlouho a bylo zrušeno. Zkus to prosím znovu.":
+    "Fingerprint setup took too long and was cancelled. Please try again.",
+  "Vytvoření otisku se nezdařilo nebo bylo zrušeno.": "Fingerprint setup failed or was cancelled.",
+  "Odemykání otiskem není na tomto zařízení nastavené.": "Fingerprint unlock is not set up on this device.",
 };
 
 export function tf(template: string, vars: Record<string, string | number>): string {

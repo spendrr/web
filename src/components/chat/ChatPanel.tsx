@@ -44,7 +44,7 @@ import { unannouncedSends, type LocalSend } from "../../lib/chat/chatHistory";
 import { chatLastRead, markChatRead } from "../../lib/chat/chatRead";
 import { useReadReceiptsOn } from "../../lib/chat/chatEnabled";
 import { markConversationSeen } from "../../lib/chat/chatPush";
-import { MAX_TEXT_CHARS, REACTIONS, describeInterval, type Interval } from "../../lib/chat/messages";
+import { MAX_TEXT_CHARS, REACTIONS, describeIntervalT, type Interval } from "../../lib/chat/messages";
 import { detectRecurrence } from "../../lib/chat/recurrence";
 import type { FiatCurrency } from "../../lib/currency";
 import { localeFor, tf, useLang, useT } from "../../lib/i18n";
@@ -1205,7 +1205,7 @@ function Conversation({
         <div className="cht-callout">
           <span>{contact?.name ? t("Nový kontakt") : t("Neznámý odesílatel")}</span>
           <button type="button" className="primary small" onClick={() => acceptContact(peer)}>
-            {t("Přijmout")}
+            {t("Přijmout@@accept")}
           </button>
           <button
             type="button"
@@ -1224,7 +1224,7 @@ function Conversation({
           {schedules.map((s) => (
             <span key={s.id} className="cht-schedule">
               {s.kind === "send" ? t("Posílám") : t("Platím")} <b className="cht-num">{fmt.sats(s.sats)} sats</b>{" "}
-              {describeInterval(s.every)}
+              {describeIntervalT(s.every, t)}
               <button
                 type="button"
                 className="cht-schedule-x"
@@ -1401,7 +1401,7 @@ function Conversation({
               <span className="cht-chip-main">
                 {recurrence.kind === "send" ? t("Opakovaná platba") : t("Opakovaný požadavek")}
               </span>
-              <span className="cht-chip-when">{describeInterval(recurrence.every)}</span>
+              <span className="cht-chip-when">{describeIntervalT(recurrence.every, t)}</span>
               <svg
                 className="cht-chip-go"
                 viewBox="0 0 24 24"
@@ -1541,7 +1541,7 @@ function Bubble({
   if (p?.t === "schedule") {
     return (
       <p className="cht-system">
-        {tf(t("Bude posílat {sats} sats {when}"), { sats: fmt(p.sats), when: describeInterval(p.every) })}
+        {tf(t("Bude posílat {sats} sats {when}"), { sats: fmt(p.sats), when: describeIntervalT(p.every, t) })}
       </p>
     );
   }
@@ -1564,7 +1564,7 @@ function Bubble({
     body = (
       <>
         <span className="cht-money-label">
-          {p.every ? tf(t("Žádost {when}"), { when: describeInterval(p.every) }) : t("Žádost")}
+          {p.every ? tf(t("Žádost {when}"), { when: describeIntervalT(p.every, t) }) : t("Žádost")}
         </span>
         <span className="cht-money-amount">
           {fmt(p.sats)} <small>sats</small>
@@ -1578,7 +1578,7 @@ function Bubble({
         {!m.outgoing && canAct && p.every && !answered && (
           <span className="cht-actions">
             <button type="button" className="primary small" onClick={() => onReply(true)}>
-              {t("Přijmout")}
+              {t("Přijmout@@accept")}
             </button>
             <button type="button" className="secondary small" onClick={() => onReply(false)}>
               {t("Odmítnout")}

@@ -388,61 +388,34 @@
   --text-dim: color-mix(in srgb, var(--text) 60%, var(--bg));
 }
 
-.st-theme {
-  display: inline-grid;
-  place-items: center;
-  /* Same box as the small Open pill: 2 x 8px padding + 2 x 2.5px border + one line of 15px/1.55. */
-  width: calc(23.25px + 21px);
-  height: calc(23.25px + 21px);
+/* The switch itself is learn.css's .theme-btn, so it looks and sits like on /learn.
+   Here data-theme (status-theme.js) decides which icon shows: what a tap switches to. */
+button.theme-btn {
   padding: 0;
-  border-radius: 50%;
-  border: 2.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text-h);
-  box-shadow: 1.5px 1.5px 0 var(--border);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  font: inherit;
 }
 
-.st-theme svg {
-  grid-area: 1 / 1;
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition:
-    transform 0.4s var(--spring),
-    opacity 0.2s ease;
-}
-
-.st-theme:active {
-  box-shadow: 0 0 0 var(--border);
-  transform: translate(1.5px, 1.5px);
-}
-
-.st-theme:focus-visible {
-  outline: 3px solid var(--accent-2);
-  outline-offset: 3px;
-}
-
-/* Shows what a tap switches to; the other icon spins away. */
-:root[data-theme="dark"] .st-theme-moon,
-:root[data-theme="light"] .st-theme-sun {
+:root[data-theme="dark"] .theme-btn .i-moon,
+:root[data-theme="light"] .theme-btn .i-sun {
   opacity: 0;
   transform: rotate(-90deg) scale(0.4);
 }
 
-.st-theme:active svg {
-  transform: scale(0.9);
+:root[data-theme="dark"] .theme-btn .i-sun,
+:root[data-theme="light"] .theme-btn .i-moon {
+  opacity: 1;
+  transform: none;
+}
+
+/* Before the first answer: the rows are there with their names, only the checks are missing. */
+.st-pill--wait {
+  visibility: hidden;
 }
 
 body,
 .st-card,
 .st-svc,
-.st-theme,
+.theme-btn,
 .st-pill {
   transition:
     background-color 0.25s ease,
@@ -451,11 +424,10 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .st-theme svg,
   body,
   .st-card,
   .st-svc,
-  .st-theme,
+  .theme-btn,
   .st-pill {
     transition: none;
   }
