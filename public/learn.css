@@ -1686,10 +1686,15 @@ section h2 {
   color: var(--accent);
 }
 
-/* Stacked under the button (narrow screens): on the same left edge as the button, a bit lower. */
+/* Stacked under the button (narrow screens): a bit lower, and its icon starts where the button's own
+   content does, past the border and padding, not on the outline. */
 @media (max-width: 480px) {
   .end-actions {
     row-gap: 32px;
+  }
+
+  .end-src {
+    padding-left: 14.5px;
   }
 }
 
