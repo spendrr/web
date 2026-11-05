@@ -34,22 +34,33 @@ jobs:
             echo "::error::Deployed build was made from uncommitted changes, nothing can reproduce it."
             exit 1
           fi
-          echo "commit=$(echo "$info" | jq -r .commit)" >> "$GITHUB_OUTPUT"
-          echo "tag=v$(echo "$info" | jq -r .version)" >> "$GITHUB_OUTPUT"
+          # The file comes from the deployment being checked: only a plain commit hash and
+          # release number may leave this step.
+          commit=$(echo "$info" | jq -r '.commit | strings')
+          version=$(echo "$info" | jq -r '.version | strings')
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$version" =~ ^[0-9]+\.[0-9]{2}$ ]]; then
+            echo "::error::build-info.json has no valid commit and version."
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Check out the deployed release
+        env:
+          DEPLOYED_TAG: ${{ steps.deployed.outputs.tag }}
+          DEPLOYED_COMMIT: ${{ steps.deployed.outputs.commit }}
         run: |
-          t="${{ steps.deployed.outputs.tag }}"
+          t="$DEPLOYED_TAG"
           if ! git rev-parse -q --verify "refs/tags/$t" >/dev/null; then
             echo "::error::Deployed release $t is not published in this repository."
             exit 1
           fi
           git checkout --quiet "$t"
-          if [ "$(jq -r .commit build-meta.json)" != "${{ steps.deployed.outputs.commit }}" ]; then
+          if [ "$(jq -r .commit build-meta.json)" != "$DEPLOYED_COMMIT" ]; then
             echo "::error::Tag $t was built from a different source commit than the one deployed."
             exit 1
           fi
@@ -68,10 +79,12 @@ jobs:
 
       - name: Build the deployed release
         if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          DEPLOYED_COMMIT: ${{ steps.deployed.outputs.commit }}
         run: |
           npm ci
           npm run build
-          node scripts/verify-deploy.mjs manifest dist "${{ steps.deployed.outputs.commit }}" > manifest.json
+          node scripts/verify-deploy.mjs manifest dist "$DEPLOYED_COMMIT" > manifest.json
 
       - name: Compare with what spendrr.app serves
         run: node scripts/verify-deploy.mjs verify manifest.json

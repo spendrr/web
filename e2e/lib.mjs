@@ -1,7 +1,7 @@
 // Helpers for the regtest E2E (see e2e/README.md). Drives the real UI of a
 // `vite --mode regtest` build against the local Ark server + esplora started
 // by the harness; nothing here talks to mainnet.
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { basename, dirname } from "node:path";
 import { chromium } from "playwright";
 
@@ -299,13 +299,18 @@ function bitcoinCli() {
   const port = line.split("=")[1];
   if (!port) throw new Error("central bitcoind not found");
   const dir = process.env.BITCOIND_EXEC ? dirname(process.env.BITCOIND_EXEC) : "/opt/homebrew/bin";
-  btcCli = `${dir}/bitcoin-cli -regtest -rpcport=${port} -rpcuser=test -rpcpassword=test -rpcwallet=central`;
+  btcCli = {
+    bin: `${dir}/bitcoin-cli`,
+    args: ["-regtest", `-rpcport=${port}`, "-rpcuser=test", "-rpcpassword=test", "-rpcwallet=central"],
+  };
   return btcCli;
 }
 
 export async function mineDirect(n = 1) {
-  const address = execSync(`${bitcoinCli()} getnewaddress`).toString().trim();
-  execSync(`${bitcoinCli()} generatetoaddress ${n} ${address}`);
+  // Separate arguments, never a shell string: the address is whatever the RPC answered.
+  const { bin, args } = bitcoinCli();
+  const address = execFileSync(bin, [...args, "getnewaddress"]).toString().trim();
+  execFileSync(bin, [...args, "generatetoaddress", String(n), address]);
 }
 
 // Stops the Ark server for good (the harness owns it; run.sh starts a fresh

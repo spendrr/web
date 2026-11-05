@@ -10,6 +10,7 @@ import {
 import { encryptMnemonic, loadVault, saveVault } from "../lib/vault/crypto";
 import { hasBiometricUnlock } from "../lib/vault/webauthn";
 import { createDeviceVault, hasDeviceVault } from "../lib/vault/deviceVault";
+import { walletTabLock } from "../lib/wallet/walletTabLock";
 import { requestPersistentStorage } from "../lib/vault/storageProtection";
 import { generateGiftPassword } from "../lib/gift/giftPassword";
 import { offerPasswordToManager } from "../lib/vault/credentialStore";
@@ -110,14 +111,27 @@ export default function GiftClaimModal({
   // resumes (bark finishes a stored arkoor send on the next sync, to the
   // address it was started with). A fresh seed would overwrite the only copy
   // of that wallet's seed, so the retry opens the existing one instead.
+  //
+  // The cross-tab wallet lock is taken before any vault is looked at, and kept through
+  // saving and opening (prepareSession finds it already held): two tabs opening gift links
+  // together would otherwise both see no vault and the later write would replace the seed
+  // the first tab's wallet was just created from.
   const runFreshOpen = useCallback(async () => {
     if (startedFreshRef.current) return;
     startedFreshRef.current = true;
     setPhase("preparing");
     setErrorMsg(null);
+    let opened = false;
     try {
+      if (!(await walletTabLock.acquire())) {
+        startedFreshRef.current = false;
+        setErrorMsg(t("Peněženka je otevřená v jiném okně"));
+        setPhase("error");
+        return;
+      }
       if (hasDeviceVault()) {
         await onOpenDevice();
+        opened = true;
         return;
       }
       if (loadVault() !== null) {
@@ -128,6 +142,7 @@ export default function GiftClaimModal({
           return;
         }
         await onOpenVault(pw);
+        opened = true;
         return;
       }
       const mnemonic = await generateMnemonic();
@@ -137,6 +152,7 @@ export default function GiftClaimModal({
         await createDeviceVault(mnemonic);
         void requestPersistentStorage({ force: true });
         await onOpenFresh(mnemonic);
+        opened = true;
         return;
       }
       const pw = generateGiftPassword();
@@ -152,12 +168,16 @@ export default function GiftClaimModal({
       // (backed by setPendingGiftPassword above) is the real safety net.
       await offerPasswordToManager(CREDENTIAL_USERNAME, pw);
       await onOpenFresh(mnemonic);
+      opened = true;
     } catch (e) {
       startedFreshRef.current = false;
       surfaceError(e, setErrorMsg);
       setPhase("error");
+    } finally {
+      // Only an open session keeps the lock; every other way out hands it back.
+      if (!opened) walletTabLock.release();
     }
-  }, [onOpenFresh, onOpenDevice, onOpenVault, gift.passwordless]);
+  }, [onOpenFresh, onOpenDevice, onOpenVault, gift.passwordless, t]);
 
   // Fresh recipient: eagerly, the moment the modal shows. The actual gift
   // claim waits for liveWallet in the effect below.
