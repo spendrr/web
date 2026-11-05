@@ -144,7 +144,7 @@
   --accent-ink: #ffffff;
   --accent-2: #7c3aed;
   --plus: #2f8a4e;
-  /* History icons and card line in the V2 home screen (learn-img/). */
+  /* History icons and card line as in the app (design-v2.css, .history-icon): the dark values must match its --g-* ones. */
   --in-bg: #beddc1;
   --in-ring: #16130d;
   --in-ink: #16130d;
@@ -175,12 +175,12 @@
     --text-h: #f9f5ec;
     --accent-2: #a78bfa;
     --plus: #5cc683;
-    --in-bg: #112513;
-    --in-ring: #3d5f41;
-    --in-ink: #beddc1;
-    --out-bg: #301714;
-    --out-ring: #734843;
-    --out-ink: #dfb7b0;
+    --in-bg: #2c5a34;
+    --in-ring: #4c8656;
+    --in-ink: #f3ecde;
+    --out-bg: #7a2e27;
+    --out-ring: #b45c52;
+    --out-ink: #f3ecde;
     --h-plus: #5cc683;
     --card-line: #a49b87;
     --band: #050403;
@@ -220,12 +220,12 @@
     --text-h: #f9f5ec;
     --accent-2: #a78bfa;
     --plus: #5cc683;
-    --in-bg: #112513;
-    --in-ring: #3d5f41;
-    --in-ink: #beddc1;
-    --out-bg: #301714;
-    --out-ring: #734843;
-    --out-ink: #dfb7b0;
+    --in-bg: #2c5a34;
+    --in-ring: #4c8656;
+    --in-ink: #f3ecde;
+    --out-bg: #7a2e27;
+    --out-ring: #b45c52;
+    --out-ink: #f3ecde;
     --h-plus: #5cc683;
     --card-line: #a49b87;
     --band: #050403;
