@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-05: Cards and ₿names
+
+- You send a gift as a card with a motif that you can save or print. (beta)
+- Pay to ₿name@domain; the record is verified through DNS. (beta)
+
 ## 2026-11-04: Paste address
 
 - The Send button turns into Paste while the address is empty. (beta)

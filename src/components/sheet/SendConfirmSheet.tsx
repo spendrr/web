@@ -54,6 +54,8 @@ export interface SendConfirmPlan {
   destination: string;
   amountSats: number | undefined;
   recipient?: { name: string; address: string; changed: boolean };
+  // A BIP 353 name (user@domain) whose DNSSEC-validated record `destination` came from.
+  bip353?: { name: string; validUntil?: number };
 }
 
 export function SendConfirmSheet({
@@ -107,7 +109,7 @@ export function SendConfirmSheet({
   // then would hide a payment that is still in flight.
   const back = busy ? undefined : () => closeThen(onBack);
   const armStyle = armMs === undefined ? undefined : ({ "--arm-ms": `${armMs}ms` } as CSSProperties);
-  const { recipient } = plan;
+  const { recipient, bip353 } = plan;
 
   return (
     <Sheet closing={closing} onBackdrop={back} screenKey="send-confirm">
@@ -123,6 +125,8 @@ export function SendConfirmSheet({
                 </>
               }
             />
+          ) : bip353 && fitsTitle(bip353.name) ? (
+            <TitleSwap a={t("Zkontroluj platbu")} b={<LightningTitle label={t("Platíš")} value={`\u20bf${bip353.name}`} />} />
           ) : plan.lightningAddress && fitsTitle(plan.destination) ? (
             <TitleSwap a={t("Zkontroluj platbu")} b={<LightningTitle label={t("Platíš")} value={plan.destination} />} />
           ) : (
@@ -146,6 +150,14 @@ export function SendConfirmSheet({
               </span>
             </div>
           )}
+          {bip353 && (
+            <div className="sht-send-row">
+              <span className="sht-send-label">{t("Komu")}</span>
+              <span className="sht-send-addr">
+                <LightningAddress key={bip353.name} value={bip353.name} />
+              </span>
+            </div>
+          )}
           <button
             type="button"
             className={`sht-send-row sht-send-copy${copied ? " is-copied" : ""}`}
@@ -164,7 +176,7 @@ export function SendConfirmSheet({
               );
             }}
           >
-            <span className="sht-send-label">{recipient ? t("Adresa") : t("Komu")}</span>
+            <span className="sht-send-label">{recipient || bip353 ? t("Adresa") : t("Komu")}</span>
             <span className="sht-send-addr">
               {copyState !== "idle" ? (
                 <code>{copied ? t("Zkopírováno") : t("Nelze zkopírovat")}</code>

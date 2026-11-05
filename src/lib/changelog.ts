@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "5. 11. 2026",
+    title: "Karty a ₿jména",
+    items: [
+      { text: "Dárek pošleš jako kartu s motivem, kterou uložíš nebo vytiskneš.", beta: true },
+      { text: "Platíš na ₿jméno@doména a záznam se ověří přes DNS.", beta: true },
+    ],
+  },
+  {
     date: "4. 11. 2026",
     title: "Vložit adresu",
     items: [

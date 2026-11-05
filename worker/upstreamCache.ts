@@ -36,6 +36,10 @@ export interface CachedUpstreamOptions {
   fetcher: () => Promise<ProxiedJson>;
   // Runs once, for a genuine miss only (never a hit), before the upstream call.
   allowMiss?: () => Promise<boolean>;
+  // Which failure statuses may be answered with the stale copy. Default: all of
+  // them. A source whose 4xx/404 is a real answer (the name was removed) passes
+  // `(s) => s >= 500` so a definite answer is never replaced by an old one.
+  staleOn?: (status: number) => boolean;
   inFlight: Map<string, Promise<CachedResult>>;
 }
 
@@ -89,7 +93,7 @@ export async function cachedUpstream(opts: CachedUpstreamOptions, joinable: bool
 
   const run = (async (): Promise<CachedResult> => {
     const serveStaleOr = async (failure: ProxiedJson): Promise<CachedResult> => {
-      if (opts.staleTtlSeconds > 0) {
+      if (opts.staleTtlSeconds > 0 && (!opts.staleOn || opts.staleOn(failure.status))) {
         const stale = await readSafely(cache, staleKey);
         if (stale) return { status: stale.status, body: await stale.text(), stale: true };
       }
