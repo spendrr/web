@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "5. 11. 2026",
+    title: "Dárky: přijetí",
+    items: [
+      "Dárek se připíše, až klepneš na Přijmout dárek.",
+      "Hlášky nahoře zavřeš přejetím do strany.",
+    ],
+  },
+  {
+    date: "5. 11. 2026",
     title: "Karty a ₿jména",
     items: [
       { text: "Dárek pošleš jako kartu s motivem, kterou uložíš nebo vytiskneš.", beta: true },

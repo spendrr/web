@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-05: Gifts: accepting
+
+- The gift is added once you tap Accept the gift.
+- Swipe the messages at the top sideways to close them.
+
 ## 2026-11-05: Cards and ₿names
 
 - You send a gift as a card with a motif that you can save or print. (beta)
