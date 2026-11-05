@@ -3,9 +3,9 @@
 //
 // The push subscribe path used to PUT `endpoint:<endpoint>` on every call: on
 // mount/unlock and on every 30 s-debounced balance change, for every device.
-// Workers KV on the Free plan allows 1,000 writes a day (and one write a
+// Workers KV allows only a small number of writes a day (and one write a
 // second per key), so that write alone sets the ceiling for how many push
-// users the app can have. A KV read is cheap (100k a day), so the age is kept
+// users the app can have. A KV read is cheap, so the age is kept
 // in the entry's metadata, read together with the value, and the write happens
 // once per REFRESH_AFTER_SECONDS per key instead of once per call.
 //

@@ -769,7 +769,7 @@ async function onRumor(rumor: Rumor, sendReq?: number): Promise<void> {
 }
 
 // Each check is a Worker request (and on a miss a Durable Object request) on
-// the Free plan's account-wide budget, and the claim is chosen by whoever
+// the account-wide budget, and the claim is chosen by whoever
 // writes. So a (sender, name) pair is checked at most every few hours, failures
 // included, and all checks share a small per-minute allowance.
 const NAME_CHECK_TTL_MS = 6 * 60 * 60 * 1000;
@@ -821,7 +821,7 @@ export function verifyContactName(peer: string): void {
 // yet. Without a name there is nothing to publish; chat then only works with
 // people we write to first.
 // Every check is a mailbox proof, a Worker request, a Durable Object request
-// and a call to the Ark server, all on the Free plan's daily budget. So the
+// and a call to the Ark server, all on the account's daily budget. So the
 // answer is remembered: a bound name is re-checked weekly (moderation, another
 // device), no name every few minutes at most (the user may be registering one
 // right now), and the profile screen drops the memory when the name changes

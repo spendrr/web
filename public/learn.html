@@ -2,9 +2,11 @@
 <html lang="cs">
   <head>
     <meta charset="UTF-8" />
+    <script src="/learn-lang.js"></script>
     <!-- Landing page, deliberately outside the React app: no wallet code, no
-         WASM, no JavaScript at all. Served by the [assets] layer at /learn
-         (Cloudflare's html_handling maps /learn to learn.html). The CSP in
+         WASM, and one tiny script (learn-lang.js, the language redirect). Served
+         by the [assets] layer at /learn (Cloudflare's html_handling maps /learn
+         to learn.html), never by the Worker: a visit costs no Worker request. The CSP in
          public/_headers forbids inline styles, hence learn.css, and every
          animation there is CSS. The phones are the V2 app drawn in HTML, not
          screenshots: sizes measured from the app rendered by

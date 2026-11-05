@@ -3,7 +3,7 @@
 // moment, so a burst is one request, and signed with the shared secret.
 //
 // Every poke costs the Cloudflare account one Worker request plus one Durable
-// Object request per shard in it, out of 100k a day each for everything. Two
+// Object request per shard in it, out of daily budgets shared by everything. Two
 // budgets keep that bounded whatever the Ark server streams at us:
 // - per mailbox: a short burst, then one poke a minute. A mailbox that is
 //   over gets its poke later, never lost (and the shard sweep reads it anyway).

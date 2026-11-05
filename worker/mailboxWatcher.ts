@@ -1,9 +1,9 @@
 // Sharded Durable Object replacing both the old global per-minute cron
 // (checkAllMailboxes/checkOneMailbox, see git history — shared ONE
 // Cloudflare per-invocation subrequest budget across every subscriber,
-// capping the app at ~40 push subscribers on the free plan) and a brief
+// capping the app at ~40 push subscribers) and a brief
 // one-DO-per-mailbox design (see git history again — solved the subrequest
-// problem but ran into a *different* free-tier cap: Durable Objects get
+// problem but ran into a *different* cap: Durable Objects get
 // ~3M requests/month, and a request-per-mailbox-per-minute schedule burns
 // that budget at ~69 subscribers, since every alarm firing is one request
 // regardless of how much work it does inside).
@@ -16,8 +16,7 @@
 // subscriber count at all past the point where mailboxes start sharing
 // shards, while the actual network calls inside one alarm or poke (bounded
 // by CHECKS_PER_INVOCATION: an alarm sweeps a rotating slice) stay under
-// Cloudflare's *separate* per-invocation external-subrequest cap (50 on the
-// free plan). SHARD_COUNT x SHARD_TARGET_MAX_MAILBOXES is the subscriber
+// Cloudflare's *separate* per-invocation external-subrequest cap (50). SHARD_COUNT x SHARD_TARGET_MAX_MAILBOXES is the subscriber
 // ceiling; the slice size sets how long a full sweep takes.
 //
 // The actual payment/expiry-check logic (checkMailboxForPayments,
@@ -75,7 +74,7 @@ const BATCH_SIZE = 20;
 // How many mailbox reads one invocation (an alarm or a poke) spends. A check is
 // one read, or up to MAX_BACKLOG_PAGES_PER_TICK while a mailbox's first read is
 // still draining its history (readCost), and every read is a subrequest. The
-// Free plan allows 50 per invocation; the rest is headroom for the tip-height
+// limit is 50 per invocation; the rest is headroom for the tip-height
 // and price fetches checkVtxoExpiry shares, a push sent for a payment, and the
 // relay calls.
 // Once the budget is spent, every later fetch in the same invocation fails

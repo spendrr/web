@@ -314,6 +314,32 @@ describe("LnLedgerCore.listPending", () => {
     expect((await core.listPending(0)).map((p) => p.hash)).toEqual([hash]);
   });
 
+  it("reports when the next open invoice that is not due comes due, or null with none open", async () => {
+    const { core, advance } = setup();
+    expect((await core.pendingWorklist(30_000)).nextDueMs).toBeNull();
+
+    const hash = "a".repeat(64);
+    await core.reserve(invoice(hash));
+    // younger than the age filter: not listed, due once it is 30 s old
+    const young = await core.pendingWorklist(30_000);
+    expect(young.items).toEqual([]);
+    expect(young.nextDueMs).toBe(30_000);
+
+    advance(20 * MIN);
+    await core.markChecked([hash]); // age 20 min: looked at again after 5 min
+    const waiting = await core.pendingWorklist(30_000);
+    expect(waiting.items).toEqual([]);
+    expect(waiting.nextDueMs).toBe(5 * MIN);
+
+    advance(5 * MIN);
+    const due = await core.pendingWorklist(30_000);
+    expect(due.items.map((p) => p.hash)).toEqual([hash]);
+    expect(due.nextDueMs).toBe(0);
+
+    await core.settle(hash, "p".padEnd(64, "0"));
+    expect((await core.pendingWorklist(30_000)).nextDueMs).toBeNull();
+  });
+
   it("carries each invoice's expiry, including for a record from before the field existed", async () => {
     const { core, storage } = setup();
     const hash = "a".repeat(64);

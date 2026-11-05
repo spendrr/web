@@ -1,11 +1,17 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WalletClient } from "../src/lib/wallet/bark";
 import { cachedLookup, fetchMyName, lookupName, releaseMyName, saveName, setMyLnAddress } from "../src/lib/names/names";
 
-const wallet = {
-  mailboxIdentifier: async () => "02" + "aa".repeat(32),
-  mailboxAuthorization: async () => "02" + "aa".repeat(32) + "00".repeat(8) + "bb".repeat(64),
-} as unknown as WalletClient;
+// A fresh object per test: fetchMyName remembers its answer per wallet.
+const newWallet = () =>
+  ({
+    mailboxIdentifier: async () => "02" + "aa".repeat(32),
+    mailboxAuthorization: async () => "02" + "aa".repeat(32) + "00".repeat(8) + "bb".repeat(64),
+  }) as unknown as WalletClient;
+let wallet = newWallet();
+beforeEach(() => {
+  wallet = newWallet();
+});
 
 function respond(status: number, body?: unknown) {
   const fetchMock = vi.fn(async () =>
@@ -173,7 +179,7 @@ describe("fetchMyName", () => {
     respond(200, { name: "pavel", address: "ark1x" });
     expect(await fetchMyName(wallet)).toEqual({ name: "pavel", address: "ark1x", lnAddress: false });
     respond(404, { error: "No name." });
-    expect(await fetchMyName(wallet)).toBeNull();
+    expect(await fetchMyName(newWallet())).toBeNull();
   });
 
   it("throws when it cannot tell, so a failure is never read as 'no name'", async () => {

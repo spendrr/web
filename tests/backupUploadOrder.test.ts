@@ -1,5 +1,5 @@
 // handleBackupUploadTmp must spend the per-IP limiter BEFORE it reads the body:
-// on the Workers Free plan (10 ms CPU) reading, parsing and validating up to
+// with a tight CPU limit per request, reading, parsing and validating up to
 // 20 MB per request is what a flood would otherwise make us pay for.
 import { describe, expect, it } from "vitest";
 import worker from "../worker/index";

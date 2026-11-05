@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { PUBLIC_PRICE_URL } from "../src/lib/price";
+import { allPublicDataUrls } from "../src/lib/publicData";
 
 function loadGuard() {
   const sent: string[] = [];
@@ -79,5 +80,22 @@ describe("fetch-guard: the public price exception", () => {
       await expect(g.fetch(url, init)).rejects.toThrow("Blocked unexpected network request");
     }
     expect(g.sent).toEqual([]);
+  });
+
+  it("lets exactly the app's public data files through, GET only, and nothing near them", async () => {
+    const urls = allPublicDataUrls();
+    expect(urls.length).toBe(18);
+    const g = loadGuard();
+    for (const url of urls) await g.fetch(url, { credentials: "omit" });
+    expect(g.sent).toEqual(urls.map((u) => `GET ${u}`));
+    for (const [url, init] of [
+      ["https://data.spendrr.app/history/gbp-1.json", undefined],
+      ["https://data.spendrr.app/history/eur-2.json", undefined],
+      ["https://data.spendrr.app/history/eur-1.json?x=1", undefined],
+      ["https://data.spendrr.app/history/", undefined],
+      ["https://data.spendrr.app/fees.json", { method: "POST", body: "secret" }],
+    ] as [string, RequestInit | undefined][]) {
+      await expect(g.fetch(url, init)).rejects.toThrow("Blocked unexpected network request");
+    }
   });
 });

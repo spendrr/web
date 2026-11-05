@@ -33,9 +33,9 @@ describe("isSubscribeDue", () => {
     expect(isSubscribeDue({ ...sent, at: 10 * H }, key, 100_000, 0)).toBe(true);
   });
 
-  it("the price only when it drifted more than 0.5 %, and an unknown price never forces one", () => {
-    expect(isSubscribeDue(sent, key, 100_400, 1000)).toBe(false);
-    expect(isSubscribeDue(sent, key, 99_400, 1000)).toBe(true);
+  it("the price only when it drifted more than 1 %, and an unknown price never forces one", () => {
+    expect(isSubscribeDue(sent, key, 100_900, 1000)).toBe(false);
+    expect(isSubscribeDue(sent, key, 98_900, 1000)).toBe(true);
     expect(isSubscribeDue(sent, key, undefined, 1000)).toBe(false);
     expect(isSubscribeDue({ key, at: 0 }, key, 100_000, 1000)).toBe(true);
   });

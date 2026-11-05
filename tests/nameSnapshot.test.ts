@@ -1,6 +1,6 @@
 // The name snapshot: a compact set of the names the registry knows anything
 // about, so a lookup of any other name is answered at the edge and never costs a
-// Durable Object request (Workers Free: 100,000 a day for the whole account).
+// Durable Object request (a budget shared by the whole account).
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../worker/index";

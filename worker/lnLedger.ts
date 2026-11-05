@@ -165,8 +165,13 @@ export function invoiceExpiresAt(record: Pick<ReceiveRecord, "expiresAt" | "pr" 
 export const VERIFY_CHECK_GAP_MS = 5_000;
 export const VERIFY_CHECKS_PER_MINUTE = 20;
 
+// How soon the cron looks at an unpaid invoice again, by its age. A payer's
+// wallet that polls /verify settles it within seconds on its own; this is the
+// backup for one that does not. Every look is a node request and a ledger
+// request, so the first minutes are tighter and the long tail is not.
 export function nextCheckDelayMs(ageMs: number): number {
-  if (ageMs < 15 * 60 * 1000) return 0;
+  if (ageMs < 3 * 60 * 1000) return 0;
+  if (ageMs < 15 * 60 * 1000) return 2 * 60 * 1000;
   if (ageMs < 2 * 60 * 60 * 1000) return 5 * 60 * 1000;
   return 30 * 60 * 1000;
 }
@@ -458,16 +463,26 @@ export class LnLedgerCore {
   // `limit` of them, so a backlog is worked through over several ticks
   // instead of one tick running past its subrequest budget.
   async listPending(olderThanMs: number, limit = 5000): Promise<PendingItem[]> {
+    return (await this.pendingWorklist(olderThanMs, limit)).items;
+  }
+
+  // The worklist plus when the next not yet due invoice comes due (ms from now,
+  // null when no invoice is open at all). The cron skips idle ticks only up to
+  // that moment, so an open invoice is never looked at later than it would be.
+  async pendingWorklist(olderThanMs: number, limit = 5000): Promise<{ items: PendingItem[]; nextDueMs: number | null }> {
     const now = this.now();
-    const cutoff = now - olderThanMs;
     const page = await this.storage.list<{ name: string }>({ prefix: "p:", limit: 5000 });
     const due: (PendingItem & { dueAt: number })[] = [];
+    let nextDueAt: number | null = null;
     for (const [key, value] of page) {
       const hash = key.slice(2);
       const record = await this.storage.get<ReceiveRecord>(recordKey(hash));
-      if (!record || record.createdAt > cutoff) continue;
-      const dueAt = record.nextCheckAt ?? record.createdAt;
-      if (dueAt > now) continue;
+      if (!record) continue;
+      const dueAt = Math.max(record.nextCheckAt ?? record.createdAt, record.createdAt + olderThanMs);
+      if (dueAt > now) {
+        nextDueAt = nextDueAt === null ? dueAt : Math.min(nextDueAt, dueAt);
+        continue;
+      }
       due.push({
         hash,
         name: value.name,
@@ -478,7 +493,10 @@ export class LnLedgerCore {
       });
     }
     due.sort((a, b) => a.dueAt - b.dueAt);
-    return due.slice(0, limit).map(({ dueAt: _dueAt, ...item }) => item);
+    const items = due.slice(0, limit).map(({ dueAt: _dueAt, ...item }) => item);
+    // Anything due now (listed or beyond the limit) means the next tick is needed at once.
+    const nextDueMs = due.length > 0 ? 0 : nextDueAt === null ? null : nextDueAt - now;
+    return { items, nextDueMs };
   }
 
   // Cron: these were looked at and are still unpaid. Pushes each one's next
@@ -647,9 +665,12 @@ export class LnLedger {
       await this.core.scrubLegacySources();
       const health = body.node === "ok" ? await this.core.reportHealthy() : await this.core.reportUnreachable();
       const refusing = await this.core.isKilled();
-      const pending = body.node === "ok" ? await this.core.listPending(num("olderThanMs") ?? 0, num("limit") ?? undefined) : [];
+      const work =
+        body.node === "ok"
+          ? await this.core.pendingWorklist(num("olderThanMs") ?? 0, num("limit") ?? undefined)
+          : { items: [], nextDueMs: null };
       const summary = body.summary === true ? await this.core.statusSummary() : undefined;
-      return json({ pruned, health: { ...health, refusing }, pending, summary });
+      return json({ pruned, health: { ...health, refusing }, pending: work.items, nextDueMs: work.nextDueMs, summary });
     }
     if (path === "/checked") {
       const hashes = Array.isArray(body.hashes) ? body.hashes.filter((h): h is string => typeof h === "string") : null;

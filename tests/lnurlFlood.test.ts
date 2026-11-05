@@ -1,5 +1,5 @@
 // What the public Lightning-address routes cost in Durable Object requests
-// (Workers Free: 100,000 a day for the whole account), through the real Worker
+// (a daily budget shared by the whole account), through the real Worker
 // handler with the DOs, limiters and edge cache replaced by fakes.
 import { beforeEach, describe, expect, it } from "vitest";
 import worker from "../worker/index";

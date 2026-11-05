@@ -10,8 +10,8 @@
 // the thread it would exfiltrate from.
 //
 // Every network call this thread legitimately makes is same-origin (/api/*,
-// proxied by worker/index.ts), save one: the public price file (see
-// PUBLIC_PRICE_URL below, one exact URL, GET only). Honest limit:
+// proxied by worker/index.ts), save a fixed list of public files on
+// data.spendrr.app (price, fees, last block, charts: exact URLs, GET only). Honest limit:
 // same-origin includes /api/backup/*, which
 // stores caller-chosen data under a caller-chosen key and serves it back to
 // anyone, so this guard cannot stop a determined exfiltration from this
@@ -29,15 +29,29 @@
     }
   }
 
-  // The one cross-origin request this thread makes: the price, a public file
+  // The cross-origin requests this thread makes: the price, a public file
   // the Worker's cron writes to our own R2 bucket (src/lib/price.ts), so the
   // most frequent request of an open app costs no Worker request. This exact
   // URL only (no query, no other path), GET only, fetch only: whatever a
   // compromised dependency tried to carry in it ends up at our own bucket's
   // domain, which nobody but the cron writes to and nobody else can read.
   var PUBLIC_PRICE_URL = "https://data.spendrr.app/price.json";
+  // The other public copies (src/lib/publicData.ts): the fee estimates, the last
+  // block and the price charts. A FIXED list of exact URLs, built from fixed
+  // names, never a host or a prefix: the same reasoning as the price above.
+  var PUBLIC_DATA = "https://data.spendrr.app";
+  var ALLOWED_CROSS_ORIGIN = {};
+  ALLOWED_CROSS_ORIGIN[PUBLIC_PRICE_URL] = true;
+  ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/fees.json"] = true;
+  ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/tip.json"] = true;
+  ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/lnaddr.json"] = true;
+  ["czk", "eur", "usd"].forEach(function (currency) {
+    [1, 7, 30, 90, 365].forEach(function (days) {
+      ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/history/" + currency + "-" + days + ".json"] = true;
+    });
+  });
   function isAllowedCrossOrigin(request) {
-    return request.url === PUBLIC_PRICE_URL && request.method === "GET";
+    return request.method === "GET" && Object.prototype.hasOwnProperty.call(ALLOWED_CROSS_ORIGIN, request.url);
   }
 
   var realFetch = window.fetch.bind(window);

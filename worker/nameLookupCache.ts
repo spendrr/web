@@ -1,7 +1,7 @@
 // Edge cache in front of the NameRegistry Durable Object's read-only /lookup.
 //
-// One global Durable Object answers every name lookup, and on the Workers Free
-// plan Durable Object requests are capped at 100,000 a DAY for the whole account,
+// One global Durable Object answers every name lookup, and Durable Object
+// requests share one daily budget for the whole account,
 // push alarms and name writes included. Lookups come from three places: the
 // send form resolving @name, /@name profile pages (every link preview a chat
 // app fetches), and repeats of both. Without a cache each one is a DO request,

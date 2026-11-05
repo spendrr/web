@@ -2,8 +2,8 @@
 // edge so that a lookup of any OTHER name is answered without a Durable Object
 // request.
 //
-// Why: one global Durable Object answers every name lookup, and Workers Free
-// caps Durable Object requests at 100,000 a DAY for the whole account (push
+// Why: one global Durable Object answers every name lookup, and Durable Object
+// requests share one daily budget for the whole account (push
 // alarms, bump, the Lightning ledger included). nameLookupCache.ts already makes
 // a repeated lookup of one name free, but a caller inventing names pays a
 // request per new name; the per-source limiter bounds that per source (60 a

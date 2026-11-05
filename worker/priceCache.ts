@@ -17,8 +17,10 @@ import {
   appendRing,
   buildHistory,
   CURRENCIES,
+  historyPublishPlan,
   isPoints,
   isRing,
+  publicHistoryKey,
   ringColumn,
   SERIES,
   seriesNameFor,
@@ -175,11 +177,10 @@ export async function fetchJsonCached(
 // 6 minute TTL, against a 10,000 budget), not with the number of users. Here the
 // per-minute cron keeps ONE copy in R2, refreshed every PRICE_CACHE_TTL_SECONDS
 // whatever the traffic, and every colo reads that copy. Cost is fixed at about
-// 7,200 credits a month. It lives in R2, not KV, on purpose: Workers Free allows
-// 1,000 KV writes and 100,000 KV reads a day for the whole account, and the
-// price data alone would have taken ~300 writes (30%) and, read per request,
-// could have overrun the reads. R2 has no daily cap on either (1M writes and
-// 10M reads a month included); it is the bucket the backups already use, under
+// 7,200 credits a month. It lives in R2, not KV, on purpose: KV has a small daily
+// write and read budget for the whole account, and the price data alone would
+// have taken a large share of the writes and, read per request, could have
+// overrun the reads. R2 has no daily cap on either; it is the bucket the backups already use, under
 // the `price/` prefix, which no backup key (64 hex characters) can collide with.
 //
 // Request path: colo cache (60 s) -> shared copy -> the old on-demand path
@@ -498,4 +499,32 @@ export async function sharedHistoryBody(
     }
   }
   return body;
+}
+
+// Cron half of the public charts. Never throws. A series that is missing or
+// older than twice its ttl is skipped, so the app falls back to the Worker.
+export async function publishPublicHistoryStep(env: Env, scheduledTime: number): Promise<void> {
+  try {
+    if (!env.PRICE_PUBLIC || !env.WALLET_BACKUPS) return;
+    const { currency, days } = historyPublishPlan(Math.floor(scheduledTime / 60_000));
+    if (days.length === 0) return;
+    const stored = await readStoredPrice(env);
+    const tail = stored?.ring ? ringColumn(stored.ring, currency) : [];
+    const now = Date.now();
+    const series = new Map<SeriesName, StoredSeries | null>();
+    for (const d of days) {
+      const name = seriesNameFor(d);
+      if (name === null) continue;
+      if (!series.has(name)) series.set(name, await readSeries(env, currency, name));
+      const s = series.get(name);
+      if (!s || now - s.at > SERIES[name].ttlMs * 2) continue;
+      // `at`: when this copy was built; the app trusts it only while recent.
+      const body = JSON.stringify({ at: now, prices: buildHistory(s.prices, d, tail, now) });
+      await env.PRICE_PUBLIC.put(publicHistoryKey(currency, d), body, {
+        httpMetadata: { contentType: "application/json", cacheControl: `public, max-age=${PUBLIC_PRICE_MAX_AGE_SECONDS}` },
+      });
+    }
+  } catch (e) {
+    console.error("public history write failed", e instanceof Error ? e.message : e);
+  }
 }

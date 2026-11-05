@@ -12,7 +12,7 @@
 // rectangles get analytic coverage from a signed distance; paths are flattened
 // and filled with a supersampled scanline (nonzero rule, as SVG).
 //
-// Cheap on purpose: the free plan gives an invocation ~10ms of CPU, and a cache
+// Cheap on purpose: an invocation gets only a few ms of CPU, and a cache
 // miss renders once per address (the image is immutable for an address, see
 // handleAvatarPng in index.ts).
 

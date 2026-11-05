@@ -98,7 +98,7 @@ export async function maybeTouchName(
     if (storage.getItem(HAS_KEY) !== "1") return;
     const last = Number(storage.getItem(TOUCHED_KEY));
     if (Number.isFinite(last) && last > 0 && now - last < NAME_TOUCH_INTERVAL_MS) return;
-    const mine = await fetchMyName(wallet);
+    const mine = await fetchMyName(wallet, { fresh: true });
     if (mine === null) {
       setHasHandle(false, storage);
       return;
