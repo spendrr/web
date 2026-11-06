@@ -57,6 +57,7 @@ import {
   uploadBackupNow,
   waitForLocalStateToSettle,
 } from "./lib/backup/backup";
+import { restoreIntentForOnboarding, shouldAttemptRestore } from "./lib/backup/restoreDecision";
 
 import MnemonicGrid from "./components/MnemonicGrid";
 import ImportSeedForm from "./components/ImportSeedForm";
@@ -450,7 +451,7 @@ function App() {
   // two-step prepareSession/openHeldWallet shape — this realm is where
   // React, jsqr and every other dependency live, i.e. the largest attack
   // surface the app has, and it used to decrypt the vault itself.
-  const openSessionInner = useCallback(async (source: PrepareSource, allowDbWipeRetry: boolean, tryRestoreBackup = false) => {
+  const openSessionInner = useCallback(async (source: PrepareSource, allowDbWipeRetry: boolean, tryRestoreBackup = false, freshSeed = false) => {
     // Step one: the worker decrypts the vault (or unwraps the biometric
     // one), holds the seed, and derives the cloud-backup keys from it. A
     // wrong password fails here, before any WASM/IndexedDB work — the
@@ -507,7 +508,8 @@ function App() {
     // itself fails for any reason, default to "data present" — restoring
     // unnecessarily risks clobbering current local state with an older
     // backup, which is worse than just skipping this safety net for once.
-    const shouldAttemptRestore = tryRestoreBackup || !(await hasAnyLocalWalletData().catch(() => true));
+    // A seed the app just generated has no backup to look for (restoreDecision.ts).
+    const attemptRestore = await shouldAttemptRestore({ tryRestoreBackup, freshSeed }, hasAnyLocalWalletData);
     // Set only when a restore was actually attempted and threw. Continuing
     // into the normal open is still right (see the catch below), but backing
     // *up* afterwards is not: applyFetchedBackup() writes the two databases
@@ -540,9 +542,14 @@ function App() {
     // That's the exact loss this whole feature exists to prevent (see
     // ARCHITECTURE.md's STOP_GAP note), so the latch has to persist until a
     // restore genuinely succeeds.
+    // The latch is one flag for the browser and guards the server backup of the
+    // wallet whose restore failed. A reset drops it (resetLocalState.ts); a
+    // fresh seed drops one that survived from before that (a reset on an older
+    // build), since no backup exists for it that the latch could protect.
+    if (freshSeed) clearRestoreFailure();
     let restoreFailed = isRestoreFailureLatched();
     let restoreSucceeded = false;
-    if (shouldAttemptRestore) {
+    if (attemptRestore) {
       try {
         // backupKeys is null only when the worker couldn't derive them (or
         // couldn't hand them across) — treat that as "restore unavailable",
@@ -816,9 +823,9 @@ function App() {
   // this cleanup can't be missed by a future caller — and so the diff stays
   // readable in a file where that matters.
   const openSession = useCallback(
-    async (source: PrepareSource, allowDbWipeRetry: boolean, tryRestoreBackup = false) => {
+    async (source: PrepareSource, allowDbWipeRetry: boolean, tryRestoreBackup = false, freshSeed = false) => {
       try {
-        await openSessionInner(source, allowDbWipeRetry, tryRestoreBackup);
+        await openSessionInner(source, allowDbWipeRetry, tryRestoreBackup, freshSeed);
       } catch (e) {
         // Harmless when prepareSession itself was what failed (a wrong
         // password holds no seed and opens no wallet — close is then a
@@ -867,7 +874,8 @@ function App() {
       setError(null);
       try {
         setJustOnboarded(true);
-        await openSession({ kind: "mnemonic", mnemonic }, true, isImport);
+        const { tryRestoreBackup, freshSeed } = restoreIntentForOnboarding(isImport);
+        await openSession({ kind: "mnemonic", mnemonic }, true, tryRestoreBackup, freshSeed);
       } catch (e) {
         setError(describeOpenError(e));
       } finally {
