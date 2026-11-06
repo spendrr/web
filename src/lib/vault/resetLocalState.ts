@@ -6,6 +6,7 @@
 // The emergency-exit destination address and last-seen-movement-id are also
 // wallet-specific state that must not leak into whatever wallet gets
 // created/imported next.
+import { clearRestoreFailure } from "../backup/backup";
 import { clearVault } from "./crypto";
 import { clearDeviceVault } from "./deviceVault";
 import { clearNeedsSeedBackup, clearPendingGiftPassword } from "../gift/giftStore";
@@ -49,6 +50,9 @@ export async function clearAllLocalWalletState(): Promise<void> {
   // The refresh engine's state per wallet: tracked batches, quarantine and a
   // log of coin ids and amounts that must not outlive the wallet.
   clearEngineStates();
+  // A failed restore latches uploads off for the wallet it belonged to; the
+  // next wallet on this device must not inherit that.
+  clearRestoreFailure();
   try {
     // Best-effort: unsubscribing needs a network round-trip to our own
     // Worker, which can fail (offline, etc.) — that shouldn't block or fail
