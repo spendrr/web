@@ -1,7 +1,8 @@
 // Relays the money chat writes to and reads from, also published as the user's
 // NIP-17 DM relay list (kind 10050) and in NIP-05. Shared by the app, the chat
 // worker's network guard, CSP (public/_headers) and the Worker. A change here
-// needs the same change in public/_headers' connect-src.
+// needs the same change in the chat worker's connect-src in public/_headers
+// (tests/cspRealms.test.ts fails otherwise).
 //
 // Public relays for the POC; which ones stay is the outcome of the phase 0
 // reliability measurement (docs/money-chat-design.md).
