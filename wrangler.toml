@@ -22,8 +22,8 @@ directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 # Otherwise Cloudflare serves matching paths as static assets directly and
-# the Worker's fetch() below (manifest.json dark/light branching, the
-# /api/price/* CoinGecko proxy, /api/push/* subscribe/unsubscribe) never
+# the Worker's fetch() below (the /api/price/*
+# CoinGecko proxy, /api/push/* subscribe/unsubscribe) never
 # runs — the SPA fallback below means every unmatched path 200s with
 # index.html instead of ever reaching the Worker.
 # "/@*" and "/%40*" are the profile links (spendrr.app/@name): the Worker adds
@@ -32,11 +32,12 @@ not_found_handling = "single-page-application"
 # "/.well-known/lnurlp/*" is the Lightning-address payRequest a sender's
 # wallet fetches first (docs/ln-address-plan.md) — LUD-16 fixes that path.
 # "/.well-known/nostr.json" is NIP-05 for the same names (money chat, beta).
-# "/tip/*" and "/donate" are the standalone tip page: the Worker serves the
-# static /tip page (dist/tip.html) for them, the page reads the name from the URL.
+# "/tip/*" is the standalone tip page: the Worker serves the static /tip page
+# (dist/tip.html) for it, the page reads the name from the URL. /donate is a
+# plain asset (dist/donate.html, a copy of tip.html made by vite.config.ts).
 # /learn is NOT here: it is a plain static asset (a visit costs no Worker request);
 # its language redirect runs in the browser, public/learn-lang.js.
-run_worker_first = ["/manifest.json", "/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/tip/*", "/donate", "/donate/", "/app/*"]
+run_worker_first = ["/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/tip/*", "/app/*"]
 
 # Per-source-IP cap on the /api/price/* CoinGecko proxy (see worker/index.ts)
 # so one abusive client can't exhaust the shared Demo API key's quota for

@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Light or dark manifest (splash and status bar colour of an installed
+         app), picked from the system setting by a static script because the
+         CSP allows no inline scripts. Both files are plain assets. -->
+    <script src="/manifest-pick.js"></script>
+    <noscript><link rel="manifest" href="/manifest.json" /></noscript>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Default until src/lib/ui/theme.ts takes over on load — kept in sync with
          the light/dark values there. A single plain tag (no `media` query) so
