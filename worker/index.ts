@@ -512,16 +512,13 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (request.method === "GET" && url.pathname === "/api/bump/lab/get") {
     return handleBumpLabGet(request, env);
   }
-  if (url.pathname === "/manifest.json") {
-    return handleManifest(request, env);
-  }
   if (url.pathname === "/app/update.json" || url.pathname.startsWith("/app/apk/")) {
     return handleAppRelease(request, env.APP_RELEASES, url.pathname);
   }
   if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/assetlinks.json") {
     return handleAssetLinks();
   }
-  if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/donate" || url.pathname === "/donate/" || url.pathname.startsWith("/tip/"))) {
+  if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/tip/")) {
     return handleTipPage(request, url, env);
   }
   if (request.method === "GET" || request.method === "HEAD") {
@@ -532,7 +529,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 }
 
 // public/_headers only reaches what the asset layer serves. Everything this
-// Worker builds itself (every /api/* answer, the LNURL routes, the manifest)
+// Worker builds itself (every /api/* answer, the LNURL routes)
 // went out without them, checked with curl on 2026-09-30. Added here once for
 // all routes instead of in each handler: a new route cannot forget them.
 // nosniff stops a browser reading a JSON or PNG answer as HTML/script, and
@@ -635,50 +632,6 @@ async function pingHealthcheck(env: Env, suffix = ""): Promise<void> {
   } catch {
     // Nothing more to do — see the comment above.
   }
-}
-
-// Android's installed-PWA ("WebAPK") status bar reads its background from
-// this static file, baked into the native shell at install time — unlike a
-// regular browser tab, it does NOT react to the page's live
-// `<meta name="theme-color">` afterwards. But the app itself supports both
-// a light and dark look (src/lib/ui/theme.ts), and Android separately decides
-// status-bar *icon* color (light/dark content) purely from the device's
-// system-wide appearance setting, not from contrast against the actual
-// background — so serving one fixed color here means one of the two modes
-// always gets invisible icons. Chrome sends `Sec-CH-Prefers-Color-Scheme`
-// on the manifest fetch (once the document response opts in below), letting
-// this pick the manifest variant that actually matches the icon color
-// Android is about to choose. Must stay in sync with src/index.css's
-// light/dark `--bg` and src/lib/ui/theme.ts's meta tag colors.
-const DARK_THEME_COLOR = "#100e0a";
-
-// Request headers that would make the asset layer answer 304 or 206 with no
-// usable body. The dark variant is built from the whole file, so a browser
-// revalidating its copy (If-None-Match) must not reach the asset layer as is:
-// `response.json()` on that empty 304 threw, and every dark-mode Chrome that
-// had the manifest cached got a 503.
-const MANIFEST_CONDITIONAL_HEADERS = ["If-None-Match", "If-Modified-Since", "If-Match", "If-Unmodified-Since", "If-Range", "Range"];
-
-async function handleManifest(request: Request, env: Env): Promise<Response> {
-  const prefersDark = request.headers.get("Sec-CH-Prefers-Color-Scheme") === "dark";
-  if (!prefersDark) return env.ASSETS.fetch(request);
-
-  const plain = new Headers(request.headers);
-  for (const h of MANIFEST_CONDITIONAL_HEADERS) plain.delete(h);
-  const response = await env.ASSETS.fetch(new Request(request, { headers: plain }));
-  if (!response.ok) return response;
-
-  const manifest = (await response.json()) as Record<string, unknown>;
-  manifest.theme_color = DARK_THEME_COLOR;
-  manifest.background_color = DARK_THEME_COLOR;
-
-  // The file's own validators and length describe the light file, not this body.
-  const headers = new Headers(response.headers);
-  for (const h of ["ETag", "Last-Modified", "Content-Length", "Content-Encoding"]) headers.delete(h);
-  headers.set("Content-Type", "application/manifest+json");
-  headers.set("Vary", "Sec-CH-Prefers-Color-Scheme");
-  headers.set("Cache-Control", "no-cache");
-  return new Response(JSON.stringify(manifest), { headers });
 }
 
 // Tap-to-pay's clock-sync ping: a bare timestamp echo so the client can
@@ -2595,10 +2548,8 @@ async function handleNameAdmin(request: Request, url: URL, env: Env): Promise<Re
 // "/@name" to "/%40name" no longer happens here; the app reads both spellings.
 //
 // Never breaks the page: any failure (registry down, rate limited, no such
-// name) serves the ordinary app. Two headers from the "/" entry are dropped:
-// the ETag, which would describe the plain HTML rather than this one, and
-// Critical-CH, which forces a visible reload on a first visit and this is often
-// a stranger's first page. Accept-CH stays, so later requests carry the hint.
+// name) serves the ordinary app. The ETag is dropped: it would describe the
+// plain HTML rather than this one.
 // GET /api/avatar/<ark address>.png: the address's avatar as a PNG, for link
 // previews (profileMeta.ts's og:image). Keyed by the address, not the name,
 // so the image is immutable and cacheable forever: a name that moves to
@@ -2630,7 +2581,7 @@ async function handleAvatarPng(request: Request, url: URL, env: Env, ctx: Execut
   return response;
 }
 
-// /tip/<name> and /donate are one static page (tip.html, served at /tip) that
+// /tip/<name> is one static page (tip.html, served at /tip) that
 // reads the name from its own URL. Nothing is looked up here: the page asks the
 // ordinary name and LNURL routes, which carry their own limiters.
 async function handleTipPage(request: Request, url: URL, env: Env): Promise<Response> {
@@ -2646,7 +2597,6 @@ async function handleProfilePage(request: Request, env: Env, name: string): Prom
   const headers = new Headers(base.headers);
   headers.delete("etag");
   headers.delete("content-length");
-  headers.delete("critical-ch");
   headers.set("cache-control", "no-cache");
   const plain = () => new Response(base.body, { status: 200, headers });
 
