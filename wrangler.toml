@@ -32,12 +32,12 @@ not_found_handling = "single-page-application"
 # "/.well-known/lnurlp/*" is the Lightning-address payRequest a sender's
 # wallet fetches first (docs/ln-address-plan.md) — LUD-16 fixes that path.
 # "/.well-known/nostr.json" is NIP-05 for the same names (money chat, beta).
-# "/tip/*" is the standalone tip page: the Worker serves the static /tip page
-# (dist/tip.html) for it, the page reads the name from the URL. /donate is a
-# plain asset (dist/donate.html, a copy of tip.html made by vite.config.ts).
+# The standalone tip page needs no Worker: /tip/* is rewritten to the static
+# /tip page by public/_redirects (the page reads the name from the URL), and
+# /donate is a plain asset (dist/donate.html, a copy made by vite.config.ts).
 # /learn is NOT here: it is a plain static asset (a visit costs no Worker request);
 # its language redirect runs in the browser, public/learn-lang.js.
-run_worker_first = ["/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/tip/*", "/app/*"]
+run_worker_first = ["/api/*", "/@*", "/%40*", "/.well-known/lnurlp/*", "/.well-known/nostr.json", "/.well-known/assetlinks.json", "/app/*"]
 
 # Per-source-IP cap on the /api/price/* CoinGecko proxy (see worker/index.ts)
 # so one abusive client can't exhaust the shared Demo API key's quota for
