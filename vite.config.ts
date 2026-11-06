@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
@@ -87,6 +87,20 @@ function buildInfoPlugin(): PluginOption {
         fileName: 'build-info.json',
         source: JSON.stringify({ commit, version, dirty }) + '\n',
       })
+    },
+  }
+}
+
+// /donate is the tip page under another path: dist/donate.html is a byte copy of
+// dist/tip.html, so the asset layer serves /donate with no Worker request (the
+// page reads its name from its own URL, src/tip/path.ts).
+function donatePagePlugin(): PluginOption {
+  return {
+    name: 'donate-page',
+    apply: 'build',
+    writeBundle(options) {
+      const dir = options.dir ?? 'dist'
+      copyFileSync(join(dir, 'tip.html'), join(dir, 'donate.html'))
     },
   }
 }
@@ -369,6 +383,7 @@ export default defineConfig(({ mode }) => {
       ...(mode === 'signet' || mode === 'regtest' ? [signetApiStubPlugin()] : []),
       buildInfoPlugin(),
       thirdPartyLicensesPlugin(),
+      donatePagePlugin(),
     ],
     build: {
       // tip.html is the standalone tip/donate page (src/tip/), served at /tip by

@@ -24,7 +24,9 @@ import {
 // LNURL callback any Lightning wallet uses, so the Worker's limiters and
 // ledger caps apply as for any payer.
 
-const POLL_MS = 3000;
+// Gaps between settlement checks: quick while a payer is most likely paying,
+// then slower. A hidden tab does not ask at all and checks once on return.
+const POLL_STEPS_MS = [3000, 3000, 5000, 10_000];
 const POLL_GIVE_UP_MS = 10 * 60 * 1000;
 
 type Step =
@@ -397,20 +399,41 @@ function InvoiceView({
     const verify = invoice.verify;
     const ctl = new AbortController();
     const started = Date.now();
-    const h = setInterval(() => {
-      if (Date.now() - started > POLL_GIVE_UP_MS) {
-        clearInterval(h);
+    let step = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let done = false;
+    let inFlight = false;
+    const schedule = () => {
+      timer = setTimeout(() => void check(), POLL_STEPS_MS[Math.min(step, POLL_STEPS_MS.length - 1)]);
+      step += 1;
+    };
+    const check = async () => {
+      if (done) return;
+      if (Date.now() - started > POLL_GIVE_UP_MS) return;
+      if (document.hidden || inFlight) return; // visibilitychange resumes
+      inFlight = true;
+      const settled = await tipSettled(verify, ctl.signal).finally(() => {
+        inFlight = false;
+      });
+      if (done || ctl.signal.aborted) return;
+      if (settled) {
+        done = true;
+        onPaidRef.current();
         return;
       }
-      void tipSettled(verify, ctl.signal).then((settled) => {
-        if (settled && !ctl.signal.aborted) {
-          clearInterval(h);
-          onPaidRef.current();
-        }
-      });
-    }, POLL_MS);
+      schedule();
+    };
+    const onVisible = () => {
+      if (document.hidden || done) return;
+      clearTimeout(timer);
+      void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    schedule();
     return () => {
-      clearInterval(h);
+      done = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
       ctl.abort();
     };
   }, [invoice.verify, paid]);

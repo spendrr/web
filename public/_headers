@@ -15,14 +15,3 @@
 # index.html keeps max-age=0, which is what picks up a new deploy.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
-
-# Opts into the Sec-CH-Prefers-Color-Scheme client hint on the document
-# response so the browser attaches it to the manifest.json fetch that
-# follows — worker/index.ts uses it to serve a dark-themed manifest to a
-# system-dark device instead of always the light one. Critical-CH forces a
-# one-time reload of the very first visit (before the origin has ever sent
-# Accept-CH) so the manifest fetch on that first load already carries it.
-/
-  Accept-CH: Sec-CH-Prefers-Color-Scheme
-  Critical-CH: Sec-CH-Prefers-Color-Scheme
-  Vary: Sec-CH-Prefers-Color-Scheme
