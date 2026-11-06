@@ -518,9 +518,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/assetlinks.json") {
     return handleAssetLinks();
   }
-  if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/tip/")) {
-    return handleTipPage(request, url, env);
-  }
   if (request.method === "GET" || request.method === "HEAD") {
     const profileName = handleFromPath(url.pathname);
     if (profileName !== null) return handleProfilePage(request, env, profileName);
@@ -2579,16 +2576,6 @@ async function handleAvatarPng(request: Request, url: URL, env: Env, ctx: Execut
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
-}
-
-// /tip/<name> is one static page (tip.html, served at /tip) that
-// reads the name from its own URL. Nothing is looked up here: the page asks the
-// ordinary name and LNURL routes, which carry their own limiters.
-async function handleTipPage(request: Request, url: URL, env: Env): Promise<Response> {
-  const page = await env.ASSETS.fetch(new Request(new URL("/tip", url).toString(), { headers: request.headers }));
-  const out = new Response(page.body, page);
-  out.headers.set("cache-control", "no-cache");
-  return out;
 }
 
 async function handleProfilePage(request: Request, env: Env, name: string): Promise<Response> {

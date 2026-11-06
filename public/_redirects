@@ -1,0 +1,3 @@
+# The tip page reads its name from its own URL: serve the one static page for
+# every /tip/<name> without a Worker request.
+/tip/* /tip 200
