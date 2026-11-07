@@ -28,7 +28,19 @@ self.addEventListener("push", (event) => {
       // agree on when the toast alone is enough.
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const appIsForeground = windows.some((c) => c.visibilityState === "visible" && c.focused);
-      if (appIsForeground) return;
+      if (appIsForeground) {
+        // No notification, but the push is the earliest sign of a payment:
+        // wake the open app so it reads now instead of at its next poll.
+        // Carries no data; the app only treats it as a reason to refresh.
+        if (data.type !== "chat" && data.type !== "expiry") {
+          // Only the window that suppressed the notification: a hidden one
+          // would find the payment and raise its own OS notification.
+          for (const c of windows) {
+            if (c.visibilityState === "visible" && c.focused) c.postMessage({ type: "spendrr-payment-hint" });
+          }
+        }
+        return;
+      }
       if (data.type === "chat") {
         const n = await self.spendrrChatPush.chatNotification(data, Date.now());
         if (!n) return;

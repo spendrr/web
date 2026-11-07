@@ -1891,6 +1891,27 @@ export default function Dashboard({
     };
   }, [refresh, checkPendingReceive]);
 
+  // A payment push reached the service worker while this window is in the
+  // foreground (public/sw.js): read now instead of at the next poll. A cycle
+  // already in flight may have started before the payment landed, so wait for
+  // it and run a fresh one rather than joining its (older) result.
+  useEffect(() => {
+    let live = true;
+    const onMessage = (e: MessageEvent) => {
+      if ((e.data as { type?: unknown } | null)?.type !== "spendrr-payment-hint") return;
+      void (async () => {
+        await waitForIdleRefresh();
+        if (!live) return;
+        checkPendingReceive(await refresh());
+      })();
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => {
+      live = false;
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+    };
+  }, [refresh, checkPendingReceive, waitForIdleRefresh]);
+
   const balanceKnown = balance !== null;
   // The first on-chain poll waits for the balance (or a fallback timer), so it
   // doesn't queue ahead of the first balance read.
