@@ -76,6 +76,8 @@ const DICT: Record<string, string> = {
   // App.tsx
   "Načítám": "Loading",
   "Snazší start": "An easier start",
+  "Lightning adresy": "Lightning addresses",
+  "Posílání na Lightning adresu znovu funguje i u Wallet of Satoshi.": "Sending to a Lightning address works again, Wallet of Satoshi included.",
   "Vložit adresu": "Paste address",
   "Tlačítko Odeslat se při prázdné adrese změní na Vložit.": "The Send button turns into Paste while the address is empty.",
   "Zůstatek na hlavní obrazovce je menší a zabírá méně místa.": "The balance on the main screen is smaller and takes less space.",

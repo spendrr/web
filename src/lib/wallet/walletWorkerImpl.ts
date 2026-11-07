@@ -33,7 +33,7 @@ import {
   type ExitLockSync,
   type ExitStartResult,
 } from "../exit/exitLocks";
-import { decodeLnurlHost } from "../send/lnurl";
+import { decodeLnurlHost, decodeLnurlUrl } from "../send/lnurl";
 import {
   decryptMnemonic,
   decryptVaultBytes,
@@ -109,6 +109,35 @@ function arbitraryDomainHostsFor(method: string, args: unknown[]): string[] {
     return host ? [host] : [];
   }
   return [];
+}
+
+// LUD-06 lets the payRequest's `callback` live on another domain than the
+// address (Wallet of Satoshi: walletofsatoshi.com -> livingroomofsatoshi.com).
+// The worker resolves the recipient's own first-hop document itself (already
+// allowed by allow() above) and exempts only the https callback host named
+// there, so the SDK can never pick a host. Any failure grants nothing extra.
+async function lnurlCallbackHostFor(method: string, args: unknown[]): Promise<string | null> {
+  const first = args[0] as Record<string, unknown> | undefined;
+  let url: string | null = null;
+  if (method === "payLightningAddress" && typeof first?.lightningAddress === "string") {
+    const addr = first.lightningAddress.trim();
+    const at = addr.lastIndexOf("@");
+    if (at < 1) return null;
+    url = `https://${addr.slice(at + 1)}/.well-known/lnurlp/${encodeURIComponent(addr.slice(0, at))}`;
+  } else if (method === "payLnurl" && typeof first?.lnurl === "string") {
+    url = decodeLnurlUrl(first.lnurl);
+  }
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { callback?: unknown };
+    if (typeof body.callback !== "string") return null;
+    const cb = new URL(body.callback);
+    return cb.protocol === "https:" ? cb.host : null;
+  } catch {
+    return null;
+  }
 }
 
 // The per-target method allowlist and the send-amount classification both
@@ -718,9 +747,15 @@ async function runRequest(msg: Request): Promise<unknown> {
       const releaseArbitraryDomain = needsArbitraryDomain
         ? arbitraryDomain.allow(arbitraryDomainHostsFor(msg.method, msg.args))
         : null;
+      let releaseCallbackHost: (() => void) | null = null;
       try {
+        if (needsArbitraryDomain) {
+          const cbHost = await lnurlCallbackHostFor(msg.method, msg.args);
+          if (cbHost) releaseCallbackHost = arbitraryDomain.allowExact([cbHost]);
+        }
         return await (fn as (...a: unknown[]) => unknown).apply(target, msg.args);
       } finally {
+        releaseCallbackHost?.();
         releaseArbitraryDomain?.();
       }
     }

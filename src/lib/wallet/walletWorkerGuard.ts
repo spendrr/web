@@ -341,17 +341,29 @@ const arbitraryDomainStack: Set<string>[] = [];
 // recipient-chosen domain at all.
 export const arbitraryDomain = {
   allow(hosts: Iterable<string>): () => void {
-    const entry = new Set(hosts);
-    arbitraryDomainStack.push(entry);
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      const idx = arbitraryDomainStack.lastIndexOf(entry);
-      if (idx !== -1) arbitraryDomainStack.splice(idx, 1);
-    };
+    return pushEntry(arbitraryDomainStack, hosts);
+  },
+  // For a host the recipient's own document named (LNURL callback): that exact
+  // host only, never its subdomains, so a callback on a shared suffix such as
+  // workers.dev does not open every sibling under it.
+  allowExact(hosts: Iterable<string>): () => void {
+    return pushEntry(arbitraryExactStack, hosts);
   },
 };
+
+const arbitraryExactStack: Set<string>[] = [];
+
+function pushEntry(stack: Set<string>[], hosts: Iterable<string>): () => void {
+  const entry = new Set(hosts);
+  stack.push(entry);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const idx = stack.lastIndexOf(entry);
+    if (idx !== -1) stack.splice(idx, 1);
+  };
+}
 
 // A host matches an exception entry if it's that exact host, or a subdomain
 // of it (`api.domain.com` for an entry of `domain.com`). LNURL-pay's own spec
@@ -364,12 +376,15 @@ function matchesArbitraryDomainEntry(host: string, entry: string): boolean {
   return host === entry || host.endsWith(`.${entry}`);
 }
 
-function isAllowedHost(host: string): boolean {
+export function isAllowedHost(host: string): boolean {
   if (ALWAYS_ALLOWED_HOSTS.has(host)) return true;
   for (const entrySet of arbitraryDomainStack) {
     for (const entry of entrySet) {
       if (matchesArbitraryDomainEntry(host, entry)) return true;
     }
+  }
+  for (const entrySet of arbitraryExactStack) {
+    if (entrySet.has(host)) return true;
   }
   return false;
 }
