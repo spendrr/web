@@ -14,6 +14,8 @@ import {
   fetchViaIndependentEsplora,
   rememberExitAnswer,
   independentEsploraFailed,
+  arbitraryDomain,
+  isAllowedHost,
   isAllowedSameOriginRequest,
   redirectEsploraUrl,
   WITHHELD_RETRY_STATUS,
@@ -284,5 +286,28 @@ describe("withoutEsploraRetry (bark's esplora retry panics on wasm)", () => {
         expect([429, 500, 503]).not.toContain(res.status);
       }),
     );
+  });
+});
+
+describe("arbitraryDomain exceptions", () => {
+  it("the recipient's domain covers its subdomains", () => {
+    const release = arbitraryDomain.allow(["walletofsatoshi.com"]);
+    expect(isAllowedHost("api.walletofsatoshi.com")).toBe(true);
+    release();
+    expect(isAllowedHost("api.walletofsatoshi.com")).toBe(false);
+  });
+
+  it("a callback host is allowed exactly, not its subdomains or siblings", () => {
+    const release = arbitraryDomain.allowExact(["livingroomofsatoshi.com"]);
+    expect(isAllowedHost("livingroomofsatoshi.com")).toBe(true);
+    expect(isAllowedHost("evil.livingroomofsatoshi.com")).toBe(false);
+    release();
+    expect(isAllowedHost("livingroomofsatoshi.com")).toBe(false);
+  });
+
+  it("a callback on a shared suffix does not open its siblings", () => {
+    const release = arbitraryDomain.allowExact(["workers.dev"]);
+    expect(isAllowedHost("attacker.workers.dev")).toBe(false);
+    release();
   });
 });

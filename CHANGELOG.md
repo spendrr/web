@@ -2,6 +2,10 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-07: Lightning addresses
+
+- Sending to a Lightning address works again, Wallet of Satoshi included.
+
 ## 2026-11-05: Gifts: accepting
 
 - The gift is added once you tap Accept the gift.
