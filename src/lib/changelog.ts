@@ -47,6 +47,11 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "7. 11. 2026",
+    title: "Lightning adresy",
+    items: ["Posílání na Lightning adresu znovu funguje i u Wallet of Satoshi."],
+  },
+  {
     date: "5. 11. 2026",
     title: "Dárky: přijetí",
     items: [

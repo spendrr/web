@@ -19,6 +19,17 @@ import { BECH32_CHARSET, BECH32_CONST, bech32HrpExpand, bech32Polymod, convertBi
 // comment for why an empty exception fails the call closed instead of
 // falling back to a blanket bypass.
 export function decodeLnurlHost(lnurl: string): string | null {
+  const url = decodeLnurlUrl(lnurl);
+  if (url === null) return null;
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+}
+
+// The URL itself (same validation as decodeLnurlHost), or null.
+export function decodeLnurlUrl(lnurl: string): string | null {
   const trimmed = lnurl.trim();
   // Mixed case is invalid per BIP173 — work on the lowercase form for the
   // charset/checksum, but reject anything that isn't consistently cased.
@@ -50,11 +61,7 @@ export function decodeLnurlHost(lnurl: string): string | null {
   } catch {
     return null;
   }
-  try {
-    return new URL(url).host;
-  } catch {
-    return null;
-  }
+  return url;
 }
 
 // The inverse of decodeLnurlHost above: bech32-encodes a payRequest URL as
