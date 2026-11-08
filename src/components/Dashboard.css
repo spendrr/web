@@ -3001,6 +3001,19 @@ button.qr-torch-a11y {
   --txd-scale: 0.55;
 }
 
+/* A message can run to several lines: right-aligned like every other value in
+   the card, the label stays on the first line, and an unbroken string wraps
+   instead of running out of the sheet. */
+.txd-note-row {
+  align-items: flex-start;
+}
+
+.txd-note {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 .txd-amount--in .txd-amount-num {
   color: var(--success);
 }

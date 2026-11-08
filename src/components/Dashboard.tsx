@@ -6310,13 +6310,13 @@ function TxDetailModal({
         </div>
       )}
       {isBeta && chatInfo?.note && (
-        <div className="info-row">
+        <div className="info-row txd-note-row">
           <span>{t("Zpráva")}</span>
           <strong className="txd-note">{chatInfo.note}</strong>
         </div>
       )}
       {isBeta && !chatInfo?.note && lnComment && (
-        <div className="info-row">
+        <div className="info-row txd-note-row">
           <span>{t("Zpráva")}</span>
           <strong className="txd-note">{lnComment}</strong>
         </div>
