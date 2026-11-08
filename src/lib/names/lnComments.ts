@@ -19,6 +19,14 @@ export const LN_MATCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 // A payment cannot show up in the wallet before it was paid; this much clock
 // difference between the node and the phone is tolerated.
 const CLOCK_SLACK_MS = 5 * 60 * 1000;
+// The ledger notices a payment on a once-a-minute sweep, so a payment that just
+// arrived still reads "pending" there. Such an invoice is accepted for a
+// movement that shows up within this long of it being issued (a payer pays in
+// seconds), and only when no settled receipt fits the movement.
+export const LN_PENDING_WINDOW_MS = 5 * 60 * 1000;
+// A movement this young that found no message is asked about again next time
+// instead of being remembered as "none": its receipt may not be there yet.
+export const LN_YOUNG_MS = 10 * 60 * 1000;
 
 export type LnMovement = { id: number; sats: number; atMs: number };
 
@@ -28,16 +36,17 @@ export type LnMovement = { id: number; sats: number; atMs: number };
 // another payment fits better is left without. A receipt with no comment still
 // takes its movement, so its neighbour cannot be given someone else's message.
 export function matchLnComments(movements: readonly LnMovement[], receipts: readonly LnReceipt[]): Map<number, string | null> {
-  const pairs: { m: number; r: number; gap: number }[] = [];
+  const pairs: { m: number; r: number; gap: number; settled: boolean }[] = [];
   movements.forEach((m, mi) => {
     receipts.forEach((r, ri) => {
       if (r.amountSats !== m.sats) return;
-      const after = m.atMs - r.settledAt;
-      if (after < -CLOCK_SLACK_MS || after > LN_MATCH_WINDOW_MS) return;
-      pairs.push({ m: mi, r: ri, gap: Math.abs(after) });
+      const after = m.atMs - r.at;
+      if (after < -CLOCK_SLACK_MS || after > (r.settled ? LN_MATCH_WINDOW_MS : LN_PENDING_WINDOW_MS)) return;
+      pairs.push({ m: mi, r: ri, gap: Math.abs(after), settled: r.settled });
     });
   });
-  pairs.sort((a, b) => a.gap - b.gap);
+  // Paid receipts first, then the ones the ledger has not caught up with.
+  pairs.sort((a, b) => Number(b.settled) - Number(a.settled) || a.gap - b.gap);
   const usedM = new Set<number>();
   const usedR = new Set<number>();
   const out = new Map<number, string | null>();
@@ -107,6 +116,7 @@ export async function loadLnComment(
   movements: readonly LnMovement[],
   fetcher: Fetcher,
   storage: Storage = localStorage,
+  now: number = Date.now(),
 ): Promise<string | null> {
   const known = cachedLnComment(target.id, storage);
   if (known !== undefined) return known;
@@ -114,9 +124,10 @@ export async function loadLnComment(
   const matched = matchLnComments(movements, receipts);
   const entries = load(storage);
   for (const m of movements) {
-    // Only the sheet's own movement is settled as "none" for sure: another one
-    // without a receipt may simply be older than the server's list.
-    if (!matched.has(m.id) && m.id !== target.id) continue;
+    // Only the sheet's own movement, once it is no longer young, is settled as
+    // "none": another one without a receipt may simply be older than the
+    // server's list, and a young one may not have its receipt yet.
+    if (!matched.has(m.id) && (m.id !== target.id || now - m.atMs < LN_YOUNG_MS)) continue;
     delete entries[String(m.id)];
     entries[String(m.id)] = matched.get(m.id) ?? "";
   }

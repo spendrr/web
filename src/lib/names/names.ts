@@ -305,17 +305,24 @@ export async function setMyLnAddress(
 // invoice and the Ark payment that reaches the wallet carry none of it. Throws
 // on a network or server problem, which the caller must not remember as "no
 // comment".
-export type LnReceipt = { amountSats: number; settledAt: number; comment: string | null };
+// `at` is when it was paid (settled) or, while the ledger has not noticed the
+// payment yet (it settles on a once-a-minute sweep, after the Ark payment has
+// already reached the wallet), when the invoice was issued.
+export type LnReceipt = { amountSats: number; at: number; settled: boolean; comment: string | null };
 
 export async function fetchLnaddrReceipts(wallet: WalletClient): Promise<LnReceipt[]> {
   const { status, json } = await post("/api/lnaddr/receipts", await mailboxProof(wallet));
   if (status !== 200 || !Array.isArray(json)) throw new Error(`lnaddr/receipts ${status}`);
   const out: LnReceipt[] = [];
   for (const r of json as Record<string, unknown>[]) {
-    if (r?.state !== "settled" || typeof r.amountSats !== "number" || typeof r.settledAt !== "number") continue;
+    if (r?.state !== "settled" && r?.state !== "pending") continue;
+    const settled = r.state === "settled";
+    const at = settled ? r.settledAt : r.createdAt;
+    if (typeof r.amountSats !== "number" || typeof at !== "number") continue;
     out.push({
       amountSats: r.amountSats,
-      settledAt: r.settledAt,
+      at,
+      settled,
       comment: typeof r.comment === "string" && r.comment !== "" ? r.comment : null,
     });
   }
