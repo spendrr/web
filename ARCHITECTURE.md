@@ -56,7 +56,7 @@ The build must stay reproducible (no timestamps or machine values).
 - Worker guard (`wallet.worker.ts` bootstrap, `walletWorkerGuard.ts`) and `public/fetch-guard.js` install
   before any other code. Allowlist: Ark + esplora hosts, same-origin GET/HEAD under `/assets/` only. No
   same-origin write from the worker ever. The main thread is same-origin only, except a FIXED list of exact URLs on
-  `data.spendrr.app`, GET only (the public price, fees, last block and charts: `fetch-guard.js`, `src/lib/publicData.ts`);
+  `data.spendrr.app`, GET only (the public price, fees, last block, charts and the registered-name hashes: `fetch-guard.js`, `src/lib/publicData.ts`);
   never widen that to a host or a prefix. New arbitrary-domain methods go in `ARBITRARY_DOMAIN_METHODS`, not
   the host allowlist. Derive the checked URL via `new Request(input, init).url`.
 - BIP 353 send (`src/lib/bip353/`, `worker/bip353.ts`): `/api/bip353` is untrusted transport, ALL DNSSEC validation

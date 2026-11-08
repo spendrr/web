@@ -45,6 +45,8 @@
   ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/fees.json"] = true;
   ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/tip.json"] = true;
   ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/lnaddr.json"] = true;
+  // Hashes of the registered names (src/lib/names/nameSnapshotClient.ts): an exact URL like the rest.
+  ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/names.bin"] = true;
   ["czk", "eur", "usd"].forEach(function (currency) {
     [1, 7, 30, 90, 365].forEach(function (days) {
       ALLOWED_CROSS_ORIGIN[PUBLIC_DATA + "/history/" + currency + "-" + days + ".json"] = true;

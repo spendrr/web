@@ -21,8 +21,12 @@
 // uint32, 4 bytes each): a lookup is a binary search, 100,000 names are 400 KB,
 // decoding is a view over the response body (no base64, no JSON, which would cost
 // a Worker's 10 ms CPU at that size), and a collision only sends an unknown name
-// to the registry (the answer is still the registry's). The bytes never leave the
-// Worker and the object.
+// to the registry (the answer is still the registry's). The same bytes are also
+// published at data.spendrr.app/names.bin for the app (publishNameSnapshot in
+// index.ts), so a typed name that is not in the set never costs a Worker request.
+// What that shows anybody: for a candidate name whether it MAY be registered,
+// without the per-source limiter, which the directory (a lookup answers publicly)
+// allows anyway one request at a time. No address is in it.
 //
 // Staleness, and why it is safe: a name registered, blocked or quarantined after
 // the copy in use was taken reads as "free" (or "reserved") for up to
@@ -33,6 +37,7 @@
 // (invalidateNameSnapshot). When the snapshot cannot be had, callers fall back to
 // exactly the behaviour before it existed.
 import type { LookupCache } from "./nameLookupCache";
+import { decodeNameSnapshot, type NameSnapshot } from "../src/lib/names/nameHashSet";
 
 export const NAME_SNAPSHOT_TTL_SECONDS = 60;
 // After a failed fetch nothing asks again for this long; callers use the
@@ -42,57 +47,7 @@ const FAILURE_MEMO_MS = 10_000;
 // What the registry answers /snapshot with; anything else is not a snapshot.
 export const NAME_SNAPSHOT_CONTENT_TYPE = "application/vnd.spendrr.name-snapshot.v1";
 
-// FNV-1a over the name's UTF-16 code units (a handle is ASCII).
-export function nameHash(name: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < name.length; i++) {
-    h ^= name.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
-
-export function encodeNameHashes(hashes: Iterable<number>): Uint8Array {
-  const sorted = Uint32Array.from(new Set(hashes)).sort();
-  const bytes = new Uint8Array(sorted.length * 4);
-  const view = new DataView(bytes.buffer);
-  sorted.forEach((h, i) => view.setUint32(i * 4, h, true));
-  return bytes;
-}
-
-export function encodeNameSnapshot(names: Iterable<string>): Uint8Array {
-  return encodeNameHashes(Array.from(names, nameHash));
-}
-
-export class NameSnapshot {
-  private readonly view: DataView;
-  readonly count: number;
-
-  constructor(bytes: Uint8Array) {
-    this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    this.count = bytes.byteLength / 4;
-  }
-
-  has(name: string): boolean {
-    const target = nameHash(name);
-    let lo = 0;
-    let hi = this.count - 1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >>> 1;
-      const value = this.view.getUint32(mid * 4, true);
-      if (value === target) return true;
-      if (value < target) lo = mid + 1;
-      else hi = mid - 1;
-    }
-    return false;
-  }
-}
-
-export function decodeNameSnapshot(bytes: ArrayBuffer | Uint8Array): NameSnapshot | null {
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  if (view.byteLength % 4 !== 0) return null;
-  return new NameSnapshot(view);
-}
+export { nameHash, encodeNameHashes, encodeNameSnapshot, NameSnapshot, decodeNameSnapshot } from "../src/lib/names/nameHashSet";
 
 // The registry's /snapshot response, or null when it is not one (an error, or
 // a registry that answers something else).
