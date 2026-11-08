@@ -1,14 +1,40 @@
-# style-src/font-src are 'self' only since the webfonts were self-hosted
-# (src/fonts.css) — fonts.googleapis.com and fonts.gstatic.com used to be
-# the only third-party origins here apart from connect-src's deliberately
-# broad `https:` (which Lightning-address/LNURL sends need; see ARCHITECTURE.md).
+# Content-Security-Policy per realm. A browser takes a worker's policy from the
+# response of the worker's own script, NOT from the page that started it (a
+# worker script served without the header is unrestricted), so each realm gets
+# the narrowest connect-src it actually needs:
+#   - page and everything else (/*): same origin plus the exact public files on
+#     data.spendrr.app that fetch-guard.js allows (tests/cspRealms.test.ts keeps the
+#     two equal). The main thread is where react and the other dependencies run, so
+#     this is the line that stops a compromised one sending data to a third host.
+#   - wallet worker: any https host. Lightning addresses and LNURL name arbitrary
+#     domains (ARBITRARY_DOMAIN_METHODS); the worker's own guard narrows it to
+#     the Ark and esplora hosts outside those calls. Only realm with 'wasm-unsafe-eval'.
+#   - chat worker: the fixed relay list (src/lib/chat/relays.ts, tests/cspRealms.test.ts).
+# Cloudflare sends BOTH headers when two rules set one (the browser enforces
+# both), so a worker rule must detach the one from /* first. Order matters:
+# the detach only removes headers set by rules ABOVE it, so /* stays first.
+# Checked with wrangler dev (2026-11-06). A new worker bundle name needs its own rule.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https: wss://relay.damus.io wss://nos.lol wss://relay.primal.net wss://purplepag.es wss://nostr.mom wss://nostr.wine wss://offchain.pub wss://relay.snort.social wss://relay.satlantis.io; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://data.spendrr.app/price.json https://data.spendrr.app/fees.json https://data.spendrr.app/tip.json https://data.spendrr.app/lnaddr.json https://data.spendrr.app/history/czk-1.json https://data.spendrr.app/history/czk-7.json https://data.spendrr.app/history/czk-30.json https://data.spendrr.app/history/czk-90.json https://data.spendrr.app/history/czk-365.json https://data.spendrr.app/history/eur-1.json https://data.spendrr.app/history/eur-7.json https://data.spendrr.app/history/eur-30.json https://data.spendrr.app/history/eur-90.json https://data.spendrr.app/history/eur-365.json https://data.spendrr.app/history/usd-1.json https://data.spendrr.app/history/usd-7.json https://data.spendrr.app/history/usd-30.json https://data.spendrr.app/history/usd-90.json https://data.spendrr.app/history/usd-365.json; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+# The wallet worker, also started a second time for gifts (same script).
+/assets/wallet.worker-*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https:
+
+/assets/chat.worker-*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self' wss://relay.damus.io wss://nos.lol wss://relay.primal.net wss://purplepag.es wss://nostr.mom wss://nostr.wine wss://offchain.pub wss://relay.snort.social wss://relay.satlantis.io
+
+# The status page reads the probe Worker on its own account (public/status.js).
+/status*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://spendrr-status.spendrr-info.workers.dev; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
 
 # Build output is content-hashed (/assets/<name>-<hash>.<ext>), so a name never
 # changes meaning: no revalidation round trip per file on every reload.

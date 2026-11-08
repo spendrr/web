@@ -59,6 +59,14 @@ The build must stay reproducible (no timestamps or machine values).
   `data.spendrr.app`, GET only (the public price, fees, last block, charts and the registered-name hashes: `fetch-guard.js`, `src/lib/publicData.ts`);
   never widen that to a host or a prefix. New arbitrary-domain methods go in `ARBITRARY_DOMAIN_METHODS`, not
   the host allowlist. Derive the checked URL via `new Request(input, init).url`.
+- CSP is per realm (`public/_headers`, `tests/cspRealms.test.ts`) and is the only network boundary the browser
+  enforces; the JS guards are a second layer. A worker takes its policy from its OWN script's response, never from
+  the page, and a worker script without the header is unrestricted. Page and everything under `/*`: same origin +
+  the exact `data.spendrr.app` files of `fetch-guard.js`. Wallet worker: `https:` (LNURL) and the only
+  `'wasm-unsafe-eval'`. Chat worker: exactly `ALL_CHAT_RELAYS`. Cloudflare sends two headers when two rules set one
+  and the browser enforces both, so a worker rule detaches the one from `/*` (`! Content-Security-Policy`) and must
+  sit BELOW it. A new worker bundle or off-origin host needs its rule; a `_headers` line is capped at 2000
+  characters. CSP does not cover navigation, WebRTC or same-origin writes (`/api/backup/*`).
 - BIP 353 send (`src/lib/bip353/`, `worker/bip353.ts`): `/api/bip353` is untrusted transport, ALL DNSSEC validation
   is in the client against `ROOT_ANCHORS` (take values only from IANA root-anchors; keep both KSKs during a rollover).
   A record that fails validation never falls back to another destination (not to a Lightning address); only "no
