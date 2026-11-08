@@ -5366,7 +5366,16 @@ function SendPanel({
             className={justScanned ? "just-scanned" : undefined}
             value={destination}
             onChange={(e) => {
-              setDestination(e.target.value);
+              const v = e.target.value;
+              // A pasted BIP21 URI is unwrapped exactly like a scanned one
+              // (ark=/lightning=/lno= beside the address, amount).
+              if (/^\s*(?:bitcoin|ark):/i.test(v)) {
+                const { destination: dest, amountSats } = parseScannedPayload(v);
+                setDestination(dest);
+                if (amountSats !== undefined) setAmount(String(amountSats));
+              } else {
+                setDestination(v);
+              }
               setResolvedKind(null);
             }}
             onFocus={() => setDestinationFocused(true)}
