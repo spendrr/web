@@ -14,11 +14,15 @@ export interface ExpiryCopy {
   urgent: string;
   up: string;
   down: string;
+  // The price when the app was last open (USD), so sw.js can tell how far Bitcoin
+  // has moved since the user last looked, whatever the Worker holds.
+  baselinePriceUsd?: number;
 }
 
-export function expiryCopy(t: (s: string) => string, locale: string): ExpiryCopy {
+export function expiryCopy(t: (s: string) => string, locale: string, baselinePriceUsd?: number): ExpiryCopy {
   return {
     lang: locale,
+    ...(baselinePriceUsd !== undefined && baselinePriceUsd > 0 ? { baselinePriceUsd } : {}),
     first: t("Mince čekají na obnovu. Otevři Spendrr."),
     reminder: t("Obnova mincí pořád čeká. Otevři Spendrr."),
     urgent: t("Mince brzy vyprší. Otevři Spendrr hned."),
@@ -28,13 +32,13 @@ export function expiryCopy(t: (s: string) => string, locale: string): ExpiryCopy
 }
 
 // Best-effort: without the Cache API the push keeps the Worker's Czech text.
-export async function writeExpiryCopy(t: (s: string) => string): Promise<void> {
+export async function writeExpiryCopy(t: (s: string) => string, baselinePriceUsd?: number): Promise<void> {
   try {
     if (typeof caches === "undefined") return;
     const cache = await caches.open(COPY_CACHE);
     await cache.put(
       COPY_PATH,
-      new Response(JSON.stringify(expiryCopy(t, localeFor(getLang()))), { headers: { "content-type": "application/json" } }),
+      new Response(JSON.stringify(expiryCopy(t, localeFor(getLang()), baselinePriceUsd)), { headers: { "content-type": "application/json" } }),
     );
   } catch {
     // Ignored.

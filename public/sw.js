@@ -97,9 +97,18 @@ self.addEventListener("push", (event) => {
           const base = copy && typeof copy[data.data.stage] === "string" ? copy[data.data.stage] : null;
           if (base) {
             let body = base;
-            const pct = Number(data.data.pct);
+            // From the price at the device's own last look when it has both prices
+            // (the Worker's figure counts from its last subscribe, up to a week
+            // ago), else the Worker's.
+            let pct = Number(data.data.pct);
+            const price = Number(data.data.price);
+            const baseline = Number(copy.baselinePriceUsd);
+            if (price > 0 && baseline > 0) {
+              const moved = ((price - baseline) / baseline) * 100;
+              pct = Math.abs(moved) < 0.1 ? NaN : Math.round(moved * 10) / 10;
+            }
             const move = pct > 0 ? copy.up : pct < 0 ? copy.down : null;
-            if (data.data.stage === "first" && data.data.pct !== undefined && Number.isFinite(pct) && typeof move === "string") {
+            if (data.data.stage === "first" && Number.isFinite(pct) && typeof move === "string") {
               const shown = Math.abs(pct).toLocaleString(typeof copy.lang === "string" ? copy.lang : undefined, {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1,

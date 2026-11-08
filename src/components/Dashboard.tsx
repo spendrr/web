@@ -956,10 +956,6 @@ export default function Dashboard({
     void writeExitNotificationHint(exitHint ? { ...exitHint, at: Date.now() } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rewritten only when the words change
   }, [exitTracker.loaded, exitHintKey]);
-  // The expiry nudge is worded on this device (sw.js), in the current language.
-  useEffect(() => {
-    void writeExpiryCopy(t);
-  }, [t]);
   const [showExitSheet, setShowExitSheet] = useState(false);
   // An exit that still has transactions to get on-chain pays their fees
   // from the confirmed on-chain balance; boarding it into Ark would stall
@@ -1049,6 +1045,14 @@ export default function Dashboard({
     return () => window.clearTimeout(timer);
   }, [onchainAddress, onchainBalance, requestOnchainAddress]);
   const [rates, setRates] = useState<Record<FiatCurrency, number> | null>(null);
+  // The expiry nudge is worded on this device (sw.js), in the current language,
+  // and its "Bitcoin moved since your last look" percentage is counted there from
+  // the price at the last look, so it stays right however long the Worker's own
+  // copy of the price (sent with a subscribe) is.
+  const usdRate = rates?.usd;
+  useEffect(() => {
+    void writeExpiryCopy(t, usdRate);
+  }, [t, usdRate]);
   // Mirrors `rates` for fetchBalanceAndHistory below to read without being a
   // dependency of it — `rates` gets a genuinely new object reference on
   // almost every ~60s price-poll tick (see that effect), and putting it in

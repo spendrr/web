@@ -514,7 +514,14 @@ export async function checkVtxoExpiry(
     title: "Spendrr",
     body,
     type: "expiry",
-    data: { stage, ...(pct !== undefined ? { pct: String(pct) } : {}) },
+    // `price` lets the device count the move from the price at its own last look;
+    // `pct` (from the price sent with the last subscribe, up to a week old) is the
+    // fallback for a device without it.
+    data: {
+      stage,
+      ...(pct !== undefined ? { pct: String(pct) } : {}),
+      ...(stage === "first" && currentPriceUsd ? { price: String(currentPriceUsd) } : {}),
+    },
   });
   if (!sendResult.ok) {
     console.error("push send (expiry) failed", mailboxId, sendResult.status);
