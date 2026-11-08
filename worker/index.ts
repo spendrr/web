@@ -2274,8 +2274,10 @@ const DAILY_NAME_WRITE_CAP = 1000;
 //  - per source (a whole IPv4 / IPv6 /48, hashed), so one caller cannot spend
 //    the account-wide budget alone and lock everyone else out of registering.
 // Address changes for a name a mailbox already holds are never blocked by these.
-const DAILY_NAME_CLAIM_CAP = 50;
-const DAILY_NAME_CLAIM_CAP_PER_SOURCE = 5;
+// The per-source share is generous on purpose: a mobile carrier's CGNAT puts many
+// phones behind one IPv4, and a person turned away here cannot take a name today.
+const DAILY_NAME_CLAIM_CAP = 200;
+const DAILY_NAME_CLAIM_CAP_PER_SOURCE = 20;
 
 async function dailyCount(env: Env, key: string): Promise<number> {
   try {
