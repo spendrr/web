@@ -149,6 +149,8 @@ import { useChatPayments, type ChatPaymentInfo } from "../lib/chat/chatHistory";
 import Avatar from "./Avatar";
 import { NAME_DOMAIN, handleFromProfileUrl, parseHandleDestination } from "../lib/names/handle";
 import { cachedLookup, fetchMyName, lookupName, type LookupOutcome, type NameAbsentStatus } from "../lib/names/names";
+import { nameLookupDelayMs } from "../lib/names/lookupDelay";
+import { shouldTriggerBackup } from "../lib/backup/backupTrigger";
 import { getCachedName, hasHandleFlag, maybeTouchName, setCachedName, type CachedName } from "../lib/names/nameTouch";
 import { lastLnAddressServiceOk, lnAddressServiceOk } from "../lib/names/lnAddrHealth";
 import {
@@ -1550,6 +1552,7 @@ export default function Dashboard({
     // the new value) skip re-rendering the whole Dashboard tree for that
     // tick, instead of every button and panel on screen re-rendering every
     // 8 seconds even when idle.
+    const firstLoad = prevBalanceRef.current === null && prevHistoryRef.current === null;
     const balanceChanged = !prevBalanceRef.current || !balancesEqual(prevBalanceRef.current, bal);
     prevBalanceRef.current = bal;
     setBalance((prev) => (prev && balancesEqual(prev, bal) ? prev : bal));
@@ -1603,8 +1606,8 @@ export default function Dashboard({
     prevHistoryRef.current = ordered;
     setHistory((prev) => (historiesEqual(prev, ordered) ? prev : ordered));
     setHistoryLoaded(true);
+    if (shouldTriggerBackup({ firstLoad, balanceChanged, historyChanged })) onWalletStateChanged?.();
     if (balanceChanged || historyChanged) {
-      onWalletStateChanged?.();
       // Re-reports the soonest VTXO expiry (+ current price, for the nudge
       // copy) whenever it might actually have moved — same "only on a real
       // change" gate as the backup trigger above, not the ~8s poll cadence.
@@ -3784,22 +3787,6 @@ function RequestIcon() {
   );
 }
 
-// Tabler's "clipboard" glyph (MIT), drawn with the scan icon's stroke.
-function PasteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path
-        d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
 // Taps on Send this soon after a paste are ignored (a double tap on Paste).
 const SEND_AFTER_PASTE_GUARD_MS = 350;
 
@@ -4012,6 +3999,8 @@ const NAME_REFRESH_MS = 30_000;
 // typing, not for the next keystroke. A name this wallet has paid before skips
 // the wait: it is almost certainly the whole name.
 const NAME_LOOKUP_DEBOUNCE_MS = 400;
+// Longer, when what is typed is the beginning of a name already paid (lookupDelay.ts).
+const NAME_LOOKUP_PREFIX_DEBOUNCE_MS = 1_500;
 // A failed first lookup is tried once more after this, before "could not
 // verify" is shown: a dropped connection or a momentary rate limit usually
 // clears in that time.
@@ -4504,7 +4493,11 @@ function SendPanel({
       }
       await settle(result);
     };
-    const timer = setTimeout(() => void resolve(), cached || pinned ? 0 : NAME_LOOKUP_DEBOUNCE_MS);
+    const prefixOfPaidName = !cached && !pinned && pinnedNamesStartingWith(nameQuery, 1).length > 0;
+    const timer = setTimeout(
+      () => void resolve(),
+      nameLookupDelayMs({ answeredLocally: !!(cached || pinned), prefixOfPaidName }, NAME_LOOKUP_DEBOUNCE_MS, NAME_LOOKUP_PREFIX_DEBOUNCE_MS),
+    );
     // A handle's address can change while the form sits open, and the plan
     // freezes whatever this last said. Refreshing keeps that at most this old.
     const refresh = setInterval(() => {
@@ -5505,7 +5498,6 @@ function SendPanel({
         {pasteBeta ? (
           <span className="send-swap" data-mode={pasteMode ? "paste" : "send"}>
             <span className="send-swap-paste" aria-hidden={!pasteMode}>
-              <PasteIcon />
               {t("Vložit ze schránky")}
             </span>
             <span className="send-swap-send" aria-hidden={pasteMode}>

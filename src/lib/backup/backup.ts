@@ -615,11 +615,20 @@ export function createBackupUploader(keys: BackupKeys): { trigger: () => void; c
 // — separate from the debounced trigger above since this should run once
 // immediately, not wait out a debounce window. Same keys-not-mnemonic
 // contract as createBackupUploader.
-export function uploadBackupNow(keys: BackupKeys): void {
+// Resolves true when the upload (or the decision to skip an unchanged state)
+// went through, false when it failed (recorded the same way as before). The
+// caller can then arm the cancellable uploader for one more try.
+export function uploadBackupNow(keys: BackupKeys): Promise<boolean> {
   recordAttempt();
-  runUploadExclusive(keys)
-    .then(() => recordSuccess())
-    .catch(handleUploadFailure);
+  return runUploadExclusive(keys)
+    .then(() => {
+      recordSuccess();
+      return true;
+    })
+    .catch((e: unknown) => {
+      handleUploadFailure(e);
+      return false;
+    });
 }
 
 interface SettleCheckable {

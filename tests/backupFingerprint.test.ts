@@ -145,6 +145,16 @@ describe("performUpload and block checkpoints", () => {
     expect(await upload()).toContain("/api/backup/commit");
   });
 
+  it("uploadBackupNow says it worked", async () => {
+    server();
+    expect(await uploadBackupNow(keys)).toBe(true);
+  });
+
+  it("uploadBackupNow says it failed, so the caller can try once more", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
+    expect(await uploadBackupNow(keys)).toBe(false);
+  });
+
   it("a failed upload records no fingerprint", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
     localStorage.removeItem("btc-wallet-backup-last-attempt-at");

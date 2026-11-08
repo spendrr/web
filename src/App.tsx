@@ -733,7 +733,14 @@ function App() {
           wallet,
           sessionEngineMode() === "live" ? () => wallet.sync() : () => settleMaintenanceDelegated(wallet),
         );
-        uploadBackupNow(backupKeys);
+        const uploaded = await uploadBackupNow(backupKeys);
+        // The dashboard's first read no longer arms the uploader (it used to, by
+        // accident, which was also a second try 30 s after every open). A failed
+        // one-shot is retried once here instead, through the uploader, which is
+        // cancelled with the wallet (a bare timer holding these keys could commit
+        // another wallet's state under this wallet's key). Not when a conflict or a
+        // failed restore has switched uploads off.
+        if (!uploaded && !isRestoreFailureLatched()) backupTriggerRef.current?.trigger();
       })();
       backupTriggerRef.current = createBackupUploader(backupKeys);
       // Reused (not re-derived) to encrypt the one-time mnemonic of each

@@ -3106,11 +3106,6 @@ button.qr-torch-a11y {
   transition: opacity 0.18s ease;
 }
 
-.send-submit .send-swap svg {
-  width: 18px;
-  height: 18px;
-}
-
 .send-submit .send-swap[data-mode="paste"] .send-swap-send,
 .send-submit .send-swap[data-mode="send"] .send-swap-paste {
   opacity: 0;
