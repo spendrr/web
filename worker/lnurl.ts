@@ -46,9 +46,16 @@ export interface PayRequest {
 // response and the invoice memo (same text) come from one place. Kept short
 // and plain — it becomes the BOLT11 description, visible in every wallet's
 // payment confirmation screen.
+// What a payer's wallet shows for the payment, in every language: no word of
+// one, just the app and the name (the payer's language is not known to the
+// Worker when the invoice is made).
+export function lnAddressText(name: string): string {
+  return `\u26A1 Spendrr: @${name}`;
+}
+
 export function lnAddressMetadata(name: string, origin: string): [string, string][] {
   return [
-    ["text/plain", `Platba pro @${name} (Spendrr)`],
+    ["text/plain", lnAddressText(name)],
     ["text/identifier", `${name}${lnAddressDomain(origin)}`],
   ];
 }

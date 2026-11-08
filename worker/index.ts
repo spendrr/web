@@ -62,6 +62,7 @@ import {
   classifyBarkdStatus,
   type BarkdFailure,
   isPlausiblePaymentHash,
+  lnAddressText,
   lnAddressMetadataString,
   lnurlErrorResponse,
   lnurlJsonResponse,
@@ -2914,7 +2915,9 @@ async function handleLnurlCallback(request: Request, url: URL, env: Env): Promis
     return lnurlErrorResponse(budget.error === "killed" ? "Dočasně nedostupné." : "Příliš mnoho otevřených faktur.");
   }
 
-  const description = lnAddressMetadataString(target.name, url.origin);
+  // The invoice's own description is the short text, not the LUD-06 metadata
+  // array: wallets print it as it is.
+  const description = lnAddressText(target.name);
   const invoiceResult = await callBarkd<{ invoice: string }>(env, "/api/v1/lightning/receives/invoice/for-address", {
     method: "POST",
     body: { amount_sat: amountResult.sats, address: target.address, description },

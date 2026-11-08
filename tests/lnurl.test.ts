@@ -7,6 +7,7 @@ import {
   buildVerifyResponse,
   isPlausiblePaymentHash,
   lnAddressMetadataString,
+  lnAddressText,
   parseCallbackAmountMsat,
   parseCallbackComment,
 } from "../worker/lnurl";
@@ -55,7 +56,7 @@ describe("buildPayRequest", () => {
     expect(req.maxSendable).toBe(MAX_SENDABLE_MSAT);
     expect(req.commentAllowed).toBe(MAX_COMMENT_CHARS);
     expect(JSON.parse(req.metadata)).toEqual([
-      ["text/plain", "Platba pro @pavel (Spendrr)"],
+      ["text/plain", "\u26A1 Spendrr: @pavel"],
       ["text/identifier", "pavel@spendrr.app"],
     ]);
   });
@@ -85,5 +86,12 @@ describe("isPlausiblePaymentHash", () => {
     expect(isPlausiblePaymentHash("a".repeat(63))).toBe(false);
     expect(isPlausiblePaymentHash("a".repeat(65))).toBe(false);
     expect(isPlausiblePaymentHash("g".repeat(64))).toBe(false);
+  });
+});
+
+describe("lnAddressText", () => {
+  it("is the same short, wordless text in the invoice and in the pay request", () => {
+    expect(lnAddressText("pavel")).toBe("\u26A1 Spendrr: @pavel");
+    expect(lnAddressMetadataString("pavel", "https://spendrr.app")).toContain(lnAddressText("pavel"));
   });
 });
