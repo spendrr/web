@@ -40,7 +40,7 @@
 // mailbox gives up is quarantined for NAME_QUARANTINE_MS: nobody else can take
 // it, so a payment meant for the old owner never lands with a stranger. The
 // mailbox that gave it up may take it back.
-import { NAME_SNAPSHOT_CONTENT_TYPE, encodeNameHashes, nameHash } from "./nameSnapshot";
+import { NAME_SNAPSHOT_CONTENT_TYPE, NAME_SNAPSHOT_TAKEN_HEADER, encodeNameHashes, nameHash } from "./nameSnapshot";
 import { checkHandle, isReservedName, type HandleProblem } from "../src/lib/names/handle";
 
 export const NAME_QUARANTINE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -676,6 +676,7 @@ export class NameRegistry {
   private stale = true;
   private rebuilding = false;
   private builtAt = 0;
+  private lastSnapshotAt = 0;
   private bytes: Uint8Array | null = null;
 
   constructor(state: NameState, env: { RESERVED_NAME_OWNERS?: string } | null) {
@@ -740,7 +741,13 @@ export class NameRegistry {
       return json(await this.core.lookup(name));
     }
     if (path === "/snapshot") {
-      return new Response(await this.snapshotBytes(), { headers: { "content-type": NAME_SNAPSHOT_CONTENT_TYPE } });
+      // Taken before the copy is read, and strictly increasing: a copy started
+      // later holds every write a copy started earlier does, so the publisher can
+      // tell which of two overlapping publications is the newer one.
+      const takenAt = (this.lastSnapshotAt = Math.max(Date.now(), this.lastSnapshotAt + 1));
+      return new Response(await this.snapshotBytes(), {
+        headers: { "content-type": NAME_SNAPSHOT_CONTENT_TYPE, [NAME_SNAPSHOT_TAKEN_HEADER]: String(takenAt) },
+      });
     }
     if (path === "/set") {
       const name = str("name");

@@ -6,7 +6,8 @@
 // Dashboard already shows for receiving: index 0, so it stays inside the
 // recovery scan's gap limit and is the same address after a re-import.
 import type { WalletClient } from "../wallet/bark";
-import { checkHandle, normalizeHandle } from "./handle";
+import { checkHandle, isReservedName, normalizeHandle } from "./handle";
+import { currentClientNameSnapshot } from "./nameSnapshotClient";
 import { withTimeout } from "../wallet/walletCall";
 
 const PROOF_TIMEOUT_MS = 20_000;
@@ -66,8 +67,18 @@ export async function lookupName(name: string, signal?: AbortSignal): Promise<Lo
   // (and a slot in the per-IP limiter, and a call into the one global registry)
   // for an answer already known here. Reserved names are NOT turned away: some
   // have an owner and resolve, which only the registry knows.
-  if (!checkHandle(name, { allowReserved: true }).ok) return remember(name, { kind: "absent", status: "invalid" });
+  const check = checkHandle(name, { allowReserved: true });
+  if (!check.ok) return remember(name, { kind: "absent", status: "invalid" });
   if (signal?.aborted) return { kind: "error" };
+  // A name whose hash is not in the published snapshot is not registered (nor
+  // quarantined or blocked): the answer the Worker would give from the same set,
+  // without a request. Not remembered: it costs nothing to ask again, and a copy
+  // that is a minute old should not outlive itself in the 30 s memory.
+  const snapshot = await currentClientNameSnapshot();
+  if (signal?.aborted) return { kind: "error" };
+  if (snapshot && !snapshot.has(check.handle)) {
+    return { kind: "absent", status: isReservedName(check.handle) ? "reserved" : "free" };
+  }
   let entry = inflight.get(name);
   if (!entry) {
     const controller = new AbortController();

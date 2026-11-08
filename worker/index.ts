@@ -80,7 +80,8 @@ import { isCanonicalBase64, readBodyCapped } from "./requestGuard";
 import { handleBip353 } from "./bip353";
 import { getSliding, putSliding, touchSliding, type SlidingRead } from "./kvSliding";
 import { cachedNameLookup, invalidateNameLookup } from "./nameLookupCache";
-import { currentNameSnapshot, invalidateNameSnapshot } from "./nameSnapshot";
+import { NAME_SNAPSHOT_CONTENT_TYPE, NAME_SNAPSHOT_TAKEN_HEADER, currentNameSnapshot, invalidateNameSnapshot } from "./nameSnapshot";
+import { wrapNameFile } from "../src/lib/names/nameHashSet";
 import { cachedUpstream, type CachedResult } from "./upstreamCache";
 import { upstreamSignal } from "./upstream";
 import { relayConfigured, relayHealthy, verifyHook } from "./pushRelay";
@@ -581,6 +582,7 @@ export default {
       refreshHistoryIfStale(env),
       publishPublicHistoryStep(env, event.scheduledTime),
       publishPublicChainData(env, event.scheduledTime),
+      publishPublicNames(env, event.scheduledTime),
       // The status report takes the ledger's part from the sweep's own
       // ledger call (one Durable Object request a tick, not two). Chained, so
       // the relay ping then reuses reportStatus's cached /health answer.
@@ -989,6 +991,74 @@ export async function publishPublicChainData(env: Env, scheduledTime: number): P
   } catch (e) {
     console.error("public tip write failed", e instanceof Error ? e.message : e);
   }
+}
+
+// The hashes of the registered names, published for the app (PRICE_PUBLIC, behind
+// data.spendrr.app/names.bin; nameSnapshot.ts, src/lib/names/nameSnapshotClient.ts):
+// a typed name that is not in it is answered by the app itself, no Worker request.
+// Written after every write that changes what a name reads as (set, release, the
+// admin actions) and by the cron every 30 minutes, which also catches a quarantine
+// that ended (a name leaving the set is only ever "ask the Worker" for the app, so
+// that can wait). Best-effort: a failure leaves the previous copy and the app
+// asks the Worker, as before. The registry holds every write already when it
+// answers /snapshot, so the copy written here includes the write that triggered it.
+const PUBLIC_NAMES_KEY = "names.bin";
+const PUBLIC_NAMES_CRON_MINUTE = 3; // of every 30
+
+// Longest a name write waits for its own publication: the response is not held
+// hostage by a stalled registry call or bucket write. A copy that did not make
+// it is replaced by the next write or the cron.
+const PUBLISH_NAMES_TIMEOUT_MS = 4000;
+const PUBLISH_NAMES_ATTEMPTS = 3;
+
+export async function publishNameSnapshot(env: Env): Promise<void> {
+  if (!env.PRICE_PUBLIC) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      console.error("public name snapshot write timed out");
+      resolve();
+    }, PUBLISH_NAMES_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([writeNameSnapshot(env, env.PRICE_PUBLIC), timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+// Two writes can publish at once; whichever copy was TAKEN later holds the
+// other's names, so a copy never replaces one taken after it, and the write is
+// conditional on the object still being the one that was looked at (R2 etag).
+async function writeNameSnapshot(env: Env, bucket: R2Bucket): Promise<void> {
+  try {
+    const res = await nameRegistryStub(env).fetch("https://name-registry.internal/snapshot", { method: "POST", body: "{}" });
+    if (!res.ok || res.headers.get("content-type") !== NAME_SNAPSHOT_CONTENT_TYPE) return;
+    const takenAt = Number(res.headers.get(NAME_SNAPSHOT_TAKEN_HEADER));
+    if (!Number.isFinite(takenAt) || takenAt <= 0) return;
+    const hashes = new Uint8Array(await res.arrayBuffer());
+    // The registry always holds a name or two; an empty answer is a fault and is
+    // not published over a good copy.
+    if (hashes.byteLength === 0) return;
+    const body = wrapNameFile(hashes).buffer as ArrayBuffer;
+    for (let attempt = 0; attempt < PUBLISH_NAMES_ATTEMPTS; attempt++) {
+      const current = await bucket.head(PUBLIC_NAMES_KEY);
+      if (current && Number(current.customMetadata?.taken) >= takenAt) return;
+      const written = await bucket.put(PUBLIC_NAMES_KEY, body, {
+        httpMetadata: { contentType: "application/octet-stream", cacheControl: `public, max-age=${PUBLIC_CHAIN_MAX_AGE_SECONDS}` },
+        customMetadata: { taken: String(takenAt) },
+        onlyIf: current ? { etagMatches: current.etag } : { etagDoesNotMatch: "*" },
+      });
+      if (written) return;
+    }
+  } catch (e) {
+    console.error("public name snapshot write failed", e instanceof Error ? e.message : e);
+  }
+}
+
+export async function publishPublicNames(env: Env, scheduledTime: number): Promise<void> {
+  if (Math.floor(scheduledTime / 60_000) % 30 !== PUBLIC_NAMES_CRON_MINUTE) return;
+  await publishNameSnapshot(env);
 }
 
 const HEX_66 = /^[0-9a-f]{66}$/;
@@ -2455,6 +2525,7 @@ async function handleNameSet(request: Request, env: Env): Promise<Response> {
   // old name expires by itself within the cache TTL.
   await invalidateNameLookup(caches.default, check.handle);
   await invalidateNameSnapshot(caches.default);
+  await publishNameSnapshot(env);
   return new Response(JSON.stringify({ name: result.name, address: result.address, action: result.action }), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -2477,6 +2548,7 @@ async function handleNameRelease(request: Request, env: Env): Promise<Response> 
   if (!result.ok) return jsonError(404, result.error);
   await invalidateNameLookup(caches.default, result.name);
   await invalidateNameSnapshot(caches.default);
+  await publishNameSnapshot(env);
   return new Response(null, { status: 204 });
 }
 
@@ -2532,6 +2604,7 @@ async function handleNameAdmin(request: Request, url: URL, env: Env): Promise<Re
     const named = typeof (body as { name?: unknown }).name === "string" ? checkHandle((body as { name: string }).name, { allowReserved: true }) : null;
     if (named?.ok) await invalidateNameLookup(caches.default, named.handle);
     await invalidateNameSnapshot(caches.default);
+    await publishNameSnapshot(env);
   }
   return new Response(await res.text(), {
     status: res.status,
