@@ -1799,11 +1799,14 @@ const LOOKUP_KEY_RE = /^[0-9a-f]{64}$/;
 const IV_HEX_RE = /^[0-9a-f]{24}$/; // 12-byte AES-GCM IV
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
 
-// A full IndexedDB dump for a real wallet is expected to stay well under a
-// few MB even with a long history — this ceiling is generous headroom for
-// growth while still bounding the abuse surface (a single request body this
-// Worker will ever buffer in memory).
-const MAX_BACKUP_BODY_BYTES = 20 * 1024 * 1024;
+// A compressed backup of a heavily used wallet measured about 3.6 MB (2026-11-08,
+// the largest current one; older uncompressed ones were up to 19 MB and are
+// replaced by a compressed upload). The ceiling leaves headroom for growth while
+// bounding the abuse surface (a single request body this Worker will ever buffer
+// in memory, and what one fake backup can occupy). A backup over
+// BACKUP_LARGE_BYTES is logged so growth shows before it reaches the ceiling.
+const MAX_BACKUP_BODY_BYTES = 10 * 1024 * 1024;
+const BACKUP_LARGE_BYTES = 5 * 1024 * 1024;
 
 // Global daily cap on brand-new lookupKeys handleBackupUploadTmp accepts —
 // see the isKnownLookupKey check there for what this protects against and
@@ -1882,6 +1885,7 @@ async function handleBackupUploadTmp(request: Request, env: Env): Promise<Respon
   if (typeof ciphertext !== "string" || !isCanonicalBase64(ciphertext)) {
     return jsonError(400, "Invalid ciphertext.");
   }
+  if (ciphertext.length > BACKUP_LARGE_BYTES) console.warn("large backup upload", ciphertext.length);
   if (typeof sha256 !== "string" || !SHA256_HEX_RE.test(sha256)) return jsonError(400, "Invalid sha256.");
 
   // Two buckets on the same limiter. The per-lookupKey one bounds a single
