@@ -133,6 +133,8 @@ import InstallAppSheet from "./InstallAppSheet";
 import SeedBackupSheet from "./SeedBackupSheet";
 import { neverShowInstallHint, shouldAutoShowInstallHint, snoozeInstallHint } from "../lib/vault/storageProtection";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
+import { amountScaleClass } from "../lib/ui/amountScale";
+import { useLnComment } from "../lib/names/lnComments";
 import { SendConfirmSheet } from "./sheet/SendConfirmSheet";
 import { useBackLayer } from "../lib/ui/backLayers";
 import { createTapCounter, TAP_MAX_GAP_MS } from "../lib/ui/tapCounter";
@@ -6163,6 +6165,9 @@ function TxDetailModal({
   const lang = useLang();
   const isBeta = useDesignVersion() === "v2";
   const positive = m.effectiveBalanceSats >= 0;
+  // A message the payer attached to a Lightning-address payment: asked once per
+  // payment, only for an incoming one (beta).
+  const lnComment = useLnComment(wallet, isBeta && positive && m.effectiveBalanceSats > 0 ? m.paymentHash : undefined);
   const noAddresses = LIGHTNING_KINDS.has(movementKind(m)) || !!m.lightningInvoice;
   const sentTo = noAddresses ? [] : m.sentToAddresses;
   // This wallet's own address, not the sender's.
@@ -6292,6 +6297,12 @@ function TxDetailModal({
           <strong className="txd-note">{chatInfo.note}</strong>
         </div>
       )}
+      {isBeta && !chatInfo?.note && lnComment && (
+        <div className="info-row">
+          <span>{t("Zpráva")}</span>
+          <strong className="txd-note">{lnComment}</strong>
+        </div>
+      )}
       {sentTo.map((addr, i) => (
         <CopyRow key={`s${i}`} label={t("Adresa")} value={formatAddressValue(addr)} />
       ))}
@@ -6374,7 +6385,7 @@ function TxDetailSheet({
           <div className="balance-value balance-dots txd-dots">• • • • • •</div>
         ) : (
           <div className="txd-hero">
-            <div className={`txd-amount ${sats >= 0 ? "txd-amount--in" : "txd-amount--out"}`}>
+            <div className={`txd-amount ${sats >= 0 ? "txd-amount--in" : "txd-amount--out"}${amountScaleClass(sats)}`}>
               <span className="txd-amount-num">
                 {sign}
                 {Math.abs(sats).toLocaleString(localeFor(lang))}

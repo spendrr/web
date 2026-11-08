@@ -17,6 +17,7 @@ import { clearStoredReceiveAddress } from "../wallet/onchainReceiveAddress";
 import { clearEngineStates } from "../refreshEngine/runner";
 import { clearPushSlots } from "../chat/pushSlots";
 import { setChatPushSettings } from "../chat/chatEnabled";
+import { clearLnComments } from "../names/lnComments";
 
 const ONCHAIN_SCANNED_KEY = "btc-wallet-onchain-scanned";
 const LAST_SEEN_MOVEMENT_KEY = "btc-wallet-last-seen-movement-id";
@@ -50,6 +51,8 @@ export async function clearAllLocalWalletState(): Promise<void> {
   // The refresh engine's state per wallet: tracked batches, quarantine and a
   // log of coin ids and amounts that must not outlive the wallet.
   clearEngineStates();
+  // Messages payers attached to this wallet's Lightning payments.
+  clearLnComments();
   // A failed restore latches uploads off for the wallet it belonged to; the
   // next wallet on this device must not inherit that.
   clearRestoreFailure();

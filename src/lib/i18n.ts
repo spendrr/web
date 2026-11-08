@@ -76,6 +76,9 @@ const DICT: Record<string, string> = {
   // App.tsx
   "Načítám": "Loading",
   "Snazší start": "An easier start",
+  "Detail platby": "Payment details",
+  "Velké částky v detailu platby se zmenší a vejdou se na řádek.": "Large amounts in the payment details shrink to fit on one line.",
+  "Zpráva, kterou ti plátce připojí k platbě na Lightning adresu, se ukáže v detailu.": "A message the payer attaches to a Lightning address payment shows in the details.",
   "Lightning adresy": "Lightning addresses",
   "Posílání na Lightning adresu znovu funguje i u Wallet of Satoshi.": "Sending to a Lightning address works again, Wallet of Satoshi included.",
   "Vložit adresu": "Paste address",

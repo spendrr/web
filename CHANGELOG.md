@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-08: Payment details
+
+- Large amounts in the payment details shrink to fit on one line.
+- A message the payer attaches to a Lightning address payment shows in the details. (beta)
+
 ## 2026-11-07: Lightning addresses
 
 - Sending to a Lightning address works again, Wallet of Satoshi included.

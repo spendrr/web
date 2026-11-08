@@ -213,7 +213,7 @@ function errorFrom(status: number, body: unknown): NameError {
 
 async function post(path: string, body: unknown): Promise<{ status: number; json: unknown }> {
   // Everything but the read changes what fetchMyName would answer.
-  const writes = path !== "/api/names/mine";
+  const writes = path !== "/api/names/mine" && path !== "/api/lnaddr/comment";
   if (writes) mineEpoch++;
   try {
     const res = await fetch(path, {
@@ -298,6 +298,23 @@ export async function setMyLnAddress(
   } catch {
     return { ok: false, error: "network" };
   }
+}
+
+// The comment a payer attached to one of this wallet's Lightning-address
+// invoices (docs/ln-address-plan.md), by payment hash. `found: false` is final:
+// the ledger files an invoice when it is issued, so an unknown hash will never
+// have one. Throws on a network or server problem, which the caller must not
+// remember as "no comment".
+export async function fetchLnaddrComment(
+  wallet: WalletClient,
+  hash: string,
+): Promise<{ found: boolean; comment: string | null }> {
+  const { status, json } = await post("/api/lnaddr/comment", { ...(await mailboxProof(wallet)), hash });
+  const j = json as { found?: unknown; comment?: unknown } | null;
+  if (status === 200 && typeof j?.found === "boolean") {
+    return { found: j.found, comment: typeof j.comment === "string" && j.comment !== "" ? j.comment : null };
+  }
+  throw new Error(`lnaddr/comment ${status}`);
 }
 
 // `action` mirrors what the registry actually did (worker/names.ts's

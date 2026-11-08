@@ -527,6 +527,19 @@ export class LnLedgerCore {
     return records;
   }
 
+  // What the payer attached to one invoice (LUD-12), for the owner only: the
+  // record must be filed under this mailbox's receipts (the same index
+  // receiptsForMailbox reads), so another owner's hash answers "not found" like
+  // an unknown one. `found: false` is final: a record exists from the moment
+  // the invoice is issued, before anyone can pay it.
+  async commentForHash(mailboxId: string, hash: string): Promise<{ found: boolean; comment: string | null }> {
+    const record = await this.storage.get<ReceiveRecord>(recordKey(hash));
+    if (!record) return { found: false, comment: null };
+    const filed = await this.storage.get<1>(receiptKey(mailboxId, record.createdAt, hash));
+    if (filed === undefined) return { found: false, comment: null };
+    return { found: true, comment: record.comment };
+  }
+
   async getHealth(): Promise<HealthState | null> {
     return (await this.storage.get<HealthState>(HEALTH_KEY)) ?? null;
   }
@@ -683,6 +696,12 @@ export class LnLedger {
       if (mailboxId === null) return json({ error: "Invalid body" }, 400);
       const limit = num("limit") ?? undefined;
       return json(await this.core.receiptsForMailbox(mailboxId, limit));
+    }
+    if (path === "/comment") {
+      const mailboxId = str("mailboxId");
+      const hash = str("hash");
+      if (mailboxId === null || hash === null) return json({ error: "Invalid body" }, 400);
+      return json(await this.core.commentForHash(mailboxId, hash));
     }
     // `refusing` (either switch on) is what the Worker mirrors into KV for
     // the receive screen (lnAddrHealth.ts), so that never costs a request.

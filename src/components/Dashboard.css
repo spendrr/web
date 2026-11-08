@@ -2969,7 +2969,7 @@ button.qr-torch-a11y {
 }
 
 .txd-amount-num {
-  font-size: clamp(44px, 15vw, 64px);
+  font-size: calc(clamp(44px, 15vw, 64px) * var(--txd-scale, 1));
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -2977,10 +2977,28 @@ button.qr-torch-a11y {
 }
 
 .txd-amount-unit {
-  font-size: 22px;
+  /* Shrinks half as fast as the number, so "sats" keeps its proportion. */
+  font-size: calc(22px * (1 + var(--txd-scale, 1)) / 2);
   font-weight: 800;
   line-height: 1;
   color: var(--text-h);
+}
+
+/* Same steps as .balance-main--scale-* (the headline balance). */
+.txd-amount--scale-100k {
+  --txd-scale: 0.85;
+}
+
+.txd-amount--scale-1m {
+  --txd-scale: 0.7225;
+}
+
+.txd-amount--scale-10m {
+  --txd-scale: 0.614;
+}
+
+.txd-amount--scale-100m {
+  --txd-scale: 0.55;
 }
 
 .txd-amount--in .txd-amount-num {
