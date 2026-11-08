@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WalletClient } from "../src/lib/wallet/bark";
+
+// These tests are about the Worker path of lookupName; the published snapshot has its own file.
+vi.mock("../src/lib/names/nameSnapshotClient", () => ({ currentClientNameSnapshot: async () => null, resetNameSnapshotClient: () => {} }));
 import { cachedLookup, fetchMyName, lookupName, releaseMyName, saveName, setMyLnAddress } from "../src/lib/names/names";
 
 // A fresh object per test: fetchMyName remembers its answer per wallet.

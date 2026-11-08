@@ -12,6 +12,8 @@ export const PUBLIC_DATA_ORIGIN = "https://data.spendrr.app";
 export const PUBLIC_FEES_URL = `${PUBLIC_DATA_ORIGIN}/fees.json`;
 export const PUBLIC_TIP_URL = `${PUBLIC_DATA_ORIGIN}/tip.json`;
 export const PUBLIC_LNADDR_URL = `${PUBLIC_DATA_ORIGIN}/lnaddr.json`;
+// Hashes of the registered names (src/lib/names/nameHashSet.ts), binary.
+export const PUBLIC_NAMES_URL = `${PUBLIC_DATA_ORIGIN}/names.bin`;
 
 export function publicHistoryUrl(currency: string, days: number): string {
   return `${PUBLIC_DATA_ORIGIN}/${publicHistoryPath(currency, days)}`;
@@ -19,7 +21,7 @@ export function publicHistoryUrl(currency: string, days: number): string {
 
 // Every URL the app may read from the public bucket, for the guard's test.
 export function allPublicDataUrls(): string[] {
-  const urls = [PUBLIC_FEES_URL, PUBLIC_TIP_URL, PUBLIC_LNADDR_URL];
+  const urls = [PUBLIC_FEES_URL, PUBLIC_TIP_URL, PUBLIC_LNADDR_URL, PUBLIC_NAMES_URL];
   for (const c of PUBLIC_HISTORY_CURRENCIES) for (const d of PUBLIC_HISTORY_DAYS) urls.push(publicHistoryUrl(c, d));
   return urls;
 }

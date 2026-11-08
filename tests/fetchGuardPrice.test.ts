@@ -84,7 +84,7 @@ describe("fetch-guard: the public price exception", () => {
 
   it("lets exactly the app's public data files through, GET only, and nothing near them", async () => {
     const urls = allPublicDataUrls();
-    expect(urls.length).toBe(18);
+    expect(urls.length).toBe(19);
     const g = loadGuard();
     for (const url of urls) await g.fetch(url, { credentials: "omit" });
     expect(g.sent).toEqual(urls.map((u) => `GET ${u}`));
