@@ -315,6 +315,11 @@ async function sendPushOnce(
   });
 }
 
+// The amount of a payment event in whole sats, or 0 when it is not known.
+export function eventSats(event: MailboxReceiveEvent): number {
+  return event.kind === "lightning" ? Math.floor(event.amountMsat / 1000) : event.amountSat;
+}
+
 function describeEvent(event: MailboxReceiveEvent): string {
   // Protocol (Lightning vs. Ark) is an implementation detail the recipient
   // has no use for, so it's deliberately left out of the copy here.
@@ -439,7 +444,14 @@ export async function checkMailboxForPayments(
     const fcm = isFcmEndpoint(record.subscription.endpoint);
     for (const event of events) {
       const body = fcm ? FCM_PAYMENT_BODY : describeEvent(event);
-      const sendResult = await sendPush(env, record.subscription, { title: "Spendrr", body });
+      // Web push: the amount goes along as data so sw.js words the line in the
+      // app's own language from the copy the app left on the device; the Czech
+      // body is what an app without the copy shows. (FCM keeps its fixed body.)
+      const sats = fcm ? undefined : eventSats(event);
+      const message: PushMessage = fcm
+        ? { title: "Spendrr", body }
+        : { title: "Spendrr", body, type: "payment", ...(sats ? { data: { sats: String(sats) } } : {}) };
+      const sendResult = await sendPush(env, record.subscription, message);
       console.log("push sent", mailboxId.slice(0, 10), sendResult.status, new URL(record.subscription.endpoint).host);
       if (!sendResult.ok) {
         console.error("push send failed", mailboxId, sendResult.status);

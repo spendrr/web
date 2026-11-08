@@ -121,6 +121,13 @@ describe("Service Worker text", () => {
     expect(sw.describe({ k: "payment", s: 1500 }, "pepa", "text", 1).body).toBe("Platba 1 500 sats");
   });
 
+  it("uses the words the app left for its language", () => {
+    const en = { message: "New message", payment: "Payment", request: "Request", schedule: "Recurring payment", reply: "Reply to request" };
+    expect(sw.describe({ k: "request", s: 500, o: "lunch" }, "pepa", "text", 1, en).body).toBe("Request 500 sats · lunch");
+    expect(sw.describe({ k: "text", x: "secret" }, "pepa", "name", 1, en).body).toBe("New message");
+    expect(sw.describe({ k: "reply" }, "pepa", "text", 1, en).body).toBe("Reply to request");
+  });
+
   it("applies the device's own level whatever the blob carries", () => {
     expect(sw.describe({ k: "text", x: "tajné" }, "pepa", "name", 1)).toEqual({ title: "@pepa", body: "Nová zpráva" });
     expect(sw.describe({ k: "request", s: 500 }, "pepa", "name", 1).body).toBe("Žádost");

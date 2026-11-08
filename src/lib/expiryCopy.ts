@@ -1,4 +1,4 @@
-// The words of the expiry nudge, in the app's language, left on the device for
+// The words of the expiry nudge, payment and chat pushes, in the app's language, left on the device for
 // public/sw.js (same pattern as the exit hint, exitNudge.ts): the Worker sends
 // only the stage and the price move, so it never needs to know the language.
 // Keep the keys in step with sw.js and the stages in worker/mailboxShared.ts.
@@ -17,6 +17,11 @@ export interface ExpiryCopy {
   // The price when the app was last open (USD), so sw.js can tell how far Bitcoin
   // has moved since the user last looked, whatever the Worker holds.
   baselinePriceUsd?: number;
+  // A payment push ("{sats}" is filled in by sw.js) and the words of a chat push
+  // (public/sw-chat.js).
+  payment: string;
+  paymentNoAmount: string;
+  chat: { message: string; payment: string; request: string; schedule: string; reply: string };
 }
 
 export function expiryCopy(t: (s: string) => string, locale: string, baselinePriceUsd?: number): ExpiryCopy {
@@ -28,6 +33,15 @@ export function expiryCopy(t: (s: string) => string, locale: string, baselinePri
     urgent: t("Mince brzy vyprší. Otevři Spendrr hned."),
     up: t("BTC mezitím vyrostl o {pct} % 📈."),
     down: t("BTC mezitím spadl o {pct} % 📉."),
+    payment: t("Přijatá platba {sats} sats"),
+    paymentNoAmount: t("Přijatá platba"),
+    chat: {
+      message: t("Nová zpráva"),
+      payment: t("Platba"),
+      request: t("Žádost"),
+      schedule: t("Opakovaná platba"),
+      reply: t("Odpověď na žádost"),
+    },
   };
 }
 

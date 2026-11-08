@@ -9,7 +9,7 @@
 importScripts("/sw-chat.js");
 
 self.addEventListener("push", (event) => {
-  let data = { title: "Spendrr", body: "Přišla ti platba." };
+  let data = { title: "Spendrr", body: "Přišla ti platba." }; // the app's copy words it in its language when it has left one
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {
@@ -116,6 +116,25 @@ self.addEventListener("push", (event) => {
               body = move.replace("{pct}", shown) + " " + base;
             }
             data = { ...data, body };
+          }
+        } catch {
+          // No copy: the Worker's text.
+        }
+      }
+      // A payment: worded in the app's language from the copy it left on this
+      // device (src/lib/expiryCopy.ts), with the amount the Worker sent along.
+      // Without the copy the Worker's Czech text stays.
+      if (data.type === "payment" || (data.type === undefined && tag === "spendrr-payment")) {
+        try {
+          const cache = await caches.open("spendrr-expiry-copy");
+          const res = await cache.match("/__expiry-copy");
+          const copy = res ? await res.json() : null;
+          const sats = data.data && Number(data.data.sats);
+          if (copy && sats > 0 && typeof copy.payment === "string") {
+            const shown = sats.toLocaleString(typeof copy.lang === "string" ? copy.lang : undefined);
+            data = { ...data, body: copy.payment.replace("{sats}", shown) };
+          } else if (copy && typeof copy.paymentNoAmount === "string") {
+            data = { ...data, body: copy.paymentNoAmount };
           }
         } catch {
           // No copy: the Worker's text.

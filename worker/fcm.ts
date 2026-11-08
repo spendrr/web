@@ -128,7 +128,7 @@ async function getAccessToken(sa: ServiceAccount): Promise<string | null> {
 export interface PushMessage {
   title: string;
   body: string;
-  type?: "expiry" | "chat";
+  type?: "expiry" | "chat" | "payment";
   // Extra data fields (string values, as FCM requires).
   data?: Record<string, string>;
 }

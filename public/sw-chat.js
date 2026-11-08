@@ -67,52 +67,80 @@
     return typeof v === "string" ? v.slice(0, max) : "";
   }
 
+  // The words of a chat notification. The Czech set is the fallback; the app
+  // leaves its own language's set in the cache (src/lib/expiryCopy.ts, same entry
+  // sw.js reads for the expiry nudge), so the text is worded on the device.
+  const CS_WORDS = {
+    message: "Nová zpráva",
+    payment: "Platba",
+    request: "Žádost",
+    schedule: "Opakovaná platba",
+    reply: "Odpověď na žádost",
+  };
+
+  async function words() {
+    try {
+      const cache = await caches.open("spendrr-expiry-copy");
+      const res = await cache.match("/__expiry-copy");
+      const copy = res ? await res.json() : null;
+      const c = copy && typeof copy.chat === "object" && copy.chat ? copy.chat : null;
+      if (!c) return CS_WORDS;
+      const out = { ...CS_WORDS };
+      for (const k of Object.keys(CS_WORDS)) if (typeof c[k] === "string" && c[k]) out[k] = c[k].slice(0, 80);
+      return out;
+    } catch {
+      return CS_WORDS;
+    }
+  }
+
   // Title and text. `level` is the user's own choice on this device, applied
   // again here whatever the sender put in the blob.
-  function describe(body, name, level, count) {
+  function describe(body, name, level, count, w = CS_WORDS) {
     const showName = level !== "none" && typeof name === "string" && name.length > 0;
     const title = (showName ? "@" + name : "Spendrr") + (count > 1 ? " (" + count + ")" : "");
-    if (level === "none") return { title, body: "Nová zpráva" };
+    if (level === "none") return { title, body: w.message };
     const full = level === "text";
     const amount = full && typeof body.s === "number" && body.s > 0 ? sats(body.s) + " sats" : "";
     const note = full ? str(body.o, 80) : "";
     const tail = (amount ? " " + amount : "") + (note ? " · " + note : "");
     switch (body.k) {
       case "payment":
-        return { title, body: "Platba" + tail };
+        return { title, body: w.payment + tail };
       case "request":
-        return { title, body: "Žádost" + tail };
+        return { title, body: w.request + tail };
       case "schedule":
-        return { title, body: "Opakovaná platba" + tail };
+        return { title, body: w.schedule + tail };
       case "reply":
-        return { title, body: "Odpověď na žádost" };
+        return { title, body: w.reply };
       default:
-        return { title, body: (full && str(body.x, 200)) || "Nová zpráva" };
+        return { title, body: (full && str(body.x, 200)) || w.message };
     }
   }
 
-  const FALLBACK = { title: "Spendrr", body: "Nová zpráva", tag: "spendrr-chat", data: {} };
+  const FALLBACK = { title: "Spendrr", body: CS_WORDS.message, tag: "spendrr-chat", data: {} };
 
   // What to show for one chat push, or null for a replay (nothing to show).
   async function chatNotification(data, nowMs) {
-    if (!data || typeof data.s !== "string" || typeof data.b !== "string") return FALLBACK;
+    const w = await words();
+    const fallback = { ...FALLBACK, body: w.message };
+    if (!data || typeof data.s !== "string" || typeof data.b !== "string") return fallback;
     let db;
     try {
       db = await openDb();
     } catch {
-      return FALLBACK;
+      return fallback;
     }
     try {
       const rec = await run(db, "slots", "readonly", (s) => s.get(data.s));
-      if (!rec || !rec.key) return FALLBACK;
+      if (!rec || !rec.key) return fallback;
       const body = await openBlob(rec.key, data.b);
-      if (!body) return FALLBACK;
+      if (!body) return fallback;
       if (body.n <= (rec.n || 0)) return null;
       const level = (await run(db, "meta", "readonly", (s) => s.get("level"))) || "text";
       const count = (rec.count || 0) + Math.max(1, Math.min(99, Number(body.c) || 1));
       await run(db, "slots", "readwrite", (s) => s.put({ ...rec, n: body.n, count }, data.s));
       const stale = typeof body.t !== "number" || nowMs / 1000 - body.t > MAX_AGE_S;
-      const text = stale ? { title: FALLBACK.title, body: FALLBACK.body } : describe(body, rec.name, level, count);
+      const text = stale ? { title: FALLBACK.title, body: w.message } : describe(body, rec.name, level, count, w);
       return {
         ...text,
         // A payment from the chat replaces the generic payment push and the
@@ -121,7 +149,7 @@
         data: { chatSlot: data.s, chat: true, at: nowMs },
       };
     } catch {
-      return FALLBACK;
+      return fallback;
     } finally {
       db.close();
     }

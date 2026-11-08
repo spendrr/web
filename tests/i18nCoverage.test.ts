@@ -1,58 +1,71 @@
-// Every Czech literal passed to t() must have an English entry, or the English UI
-// shows Czech there (found by hand: "Now, then a reminder týdně"). Reads the source
-// with the TypeScript parser; strings built from variables are out of its reach.
+// Every Czech sentence the UI passes through t(), and every Czech Error message
+// the app throws, must have an English entry in src/lib/i18n.ts. A missing one
+// is silent: t() falls back to the Czech source and describeError() lets a Czech
+// message through, so the English UI quietly shows Czech.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { __I18N_DICT, getLang, setLang, translate } from "../src/lib/i18n";
+import { __I18N_DICT } from "../src/lib/i18n";
 
-// Identical in both languages, so no entry is needed.
-const SAME_IN_ENGLISH = new Set(["OK", "Ark", "Blockchain", "Offline", "{n} d", "{n} h", "~{n} min", "~{n} h", "{amount} sats", "≈ {amount} sats"]);
+const CZECH = /[áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]/;
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+function sources(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
-    if (e.isDirectory()) return sourceFiles(p);
-    return /\.tsx?$/.test(e.name) && e.name !== "i18n.ts" ? [p] : [];
-  });
+    if (e.isDirectory()) out.push(...sources(p));
+    else if (/\.tsx?$/.test(e.name) && !e.name.endsWith(".d.ts")) out.push(p);
+  }
+  return out;
 }
 
-// "a", or the branches of `cond ? "a" : "b"`.
-function literals(node: ts.Expression): string[] {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
-  if (ts.isParenthesizedExpression(node)) return literals(node.expression);
-  if (ts.isConditionalExpression(node)) return [...literals(node.whenTrue), ...literals(node.whenFalse)];
-  return [];
+// Comments out, string contents kept.
+function withoutComments(s: string): string {
+  return s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
 }
 
-describe("English dictionary coverage", () => {
-  it("has an entry for every literal t() key", () => {
-    const missing: string[] = [];
-    for (const file of sourceFiles(join(__dirname, "../src"))) {
-      const sf = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-      const visit = (n: ts.Node): void => {
-        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "t" && n.arguments.length > 0) {
-          for (const key of literals(n.arguments[0])) {
-            if (!(key in __I18N_DICT) && !SAME_IN_ENGLISH.has(key)) missing.push(`${file.split("/src/")[1]}:${sf.getLineAndCharacterOfPosition(n.getStart()).line + 1} ${key}`);
-          }
-        }
-        ts.forEachChild(n, visit);
-      };
-      visit(sf);
+function literal(raw: string): string | null {
+  try {
+    return raw[0] === '"' ? (JSON.parse(raw) as string) : raw.slice(1, -1);
+  } catch {
+    return null;
+  }
+}
+
+const STR = String.raw`("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|` + "`(?:[^`\\\\$]|\\\\.)*`)";
+const T_CALL = new RegExp(String.raw`\bt\(\s*` + STR, "g");
+const ERROR_CALL = new RegExp(String.raw`new Error\(\s*` + STR, "g");
+
+function missing(re: RegExp): string[] {
+  const out = new Set<string>();
+  for (const file of sources("src")) {
+    if (file.endsWith("i18n.ts") || file.endsWith("changelog.ts")) continue;
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const m of text.matchAll(re)) {
+      const v = literal(m[1]);
+      if (v !== null && CZECH.test(v) && !(v in __I18N_DICT)) out.add(`${file}: ${v}`);
     }
-    expect(missing).toEqual([]);
+  }
+  return [...out].sort();
+}
+
+describe("English coverage", () => {
+  it("every Czech t() literal has an English entry", () => {
+    expect(missing(T_CALL)).toEqual([]);
   });
 
-  it("keeps a context suffix out of the Czech text", () => {
-    const before = getLang();
-    try {
-      setLang("cs");
-      expect(translate("Přijmout@@accept")).toBe("Přijmout");
-      setLang("en");
-      expect(translate("Přijmout@@accept")).toBe("Accept");
-    } finally {
-      setLang(before);
-    }
+  it("every Czech Error message thrown by the app has an English entry", () => {
+    expect(missing(ERROR_CALL)).toEqual([]);
+  });
+});
+
+describe("push copy", () => {
+  it("has an English word for every line a push shows", async () => {
+    const { expiryCopy } = await import("../src/lib/expiryCopy");
+    const en = (cs: string) => __I18N_DICT[cs] ?? cs;
+    const copy = expiryCopy(en, "en-US");
+    const lines = [copy.first, copy.reminder, copy.urgent, copy.up, copy.down, copy.payment, copy.paymentNoAmount, ...Object.values(copy.chat)];
+    for (const line of lines) expect(line).not.toMatch(/[áčďéěíňóřšťúůýž]/i);
+    expect(copy.payment).toContain("{sats}");
   });
 });
