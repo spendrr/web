@@ -213,7 +213,7 @@ function errorFrom(status: number, body: unknown): NameError {
 
 async function post(path: string, body: unknown): Promise<{ status: number; json: unknown }> {
   // Everything but the read changes what fetchMyName would answer.
-  const writes = path !== "/api/names/mine" && path !== "/api/lnaddr/comment";
+  const writes = path !== "/api/names/mine" && path !== "/api/lnaddr/receipts";
   if (writes) mineEpoch++;
   try {
     const res = await fetch(path, {
@@ -300,21 +300,26 @@ export async function setMyLnAddress(
   }
 }
 
-// The comment a payer attached to one of this wallet's Lightning-address
-// invoices (docs/ln-address-plan.md), by payment hash. `found: false` is final:
-// the ledger files an invoice when it is issued, so an unknown hash will never
-// have one. Throws on a network or server problem, which the caller must not
-// remember as "no comment".
-export async function fetchLnaddrComment(
-  wallet: WalletClient,
-  hash: string,
-): Promise<{ found: boolean; comment: string | null }> {
-  const { status, json } = await post("/api/lnaddr/comment", { ...(await mailboxProof(wallet)), hash });
-  const j = json as { found?: unknown; comment?: unknown } | null;
-  if (status === 200 && typeof j?.found === "boolean") {
-    return { found: j.found, comment: typeof j.comment === "string" && j.comment !== "" ? j.comment : null };
+// What this wallet was paid through its Lightning address (newest first, at
+// most 200 on the server), with the comment each payer attached (LUD-12). The
+// invoice and the Ark payment that reaches the wallet carry none of it. Throws
+// on a network or server problem, which the caller must not remember as "no
+// comment".
+export type LnReceipt = { amountSats: number; settledAt: number; comment: string | null };
+
+export async function fetchLnaddrReceipts(wallet: WalletClient): Promise<LnReceipt[]> {
+  const { status, json } = await post("/api/lnaddr/receipts", await mailboxProof(wallet));
+  if (status !== 200 || !Array.isArray(json)) throw new Error(`lnaddr/receipts ${status}`);
+  const out: LnReceipt[] = [];
+  for (const r of json as Record<string, unknown>[]) {
+    if (r?.state !== "settled" || typeof r.amountSats !== "number" || typeof r.settledAt !== "number") continue;
+    out.push({
+      amountSats: r.amountSats,
+      settledAt: r.settledAt,
+      comment: typeof r.comment === "string" && r.comment !== "" ? r.comment : null,
+    });
   }
-  throw new Error(`lnaddr/comment ${status}`);
+  return out;
 }
 
 // `action` mirrors what the registry actually did (worker/names.ts's

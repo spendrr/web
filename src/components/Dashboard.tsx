@@ -134,7 +134,7 @@ import SeedBackupSheet from "./SeedBackupSheet";
 import { neverShowInstallHint, shouldAutoShowInstallHint, snoozeInstallHint } from "../lib/vault/storageProtection";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
 import { amountScaleClass } from "../lib/ui/amountScale";
-import { useLnComment } from "../lib/names/lnComments";
+import { useLnComment, type LnMovement } from "../lib/names/lnComments";
 import { SendConfirmSheet } from "./sheet/SendConfirmSheet";
 import { useBackLayer } from "../lib/ui/backLayers";
 import { createTapCounter, TAP_MAX_GAP_MS } from "../lib/ui/tapCounter";
@@ -5995,6 +5995,7 @@ const HistoryPanel = memo(function HistoryPanel({
           balanceHidden={balanceHidden}
           wallet={wallet}
           chatInfo={chatPayments.get(selected.id)}
+          history={history}
           onClose={() => setSelected(null)}
         />
       )}
@@ -6011,6 +6012,19 @@ const HistoryPanel = memo(function HistoryPanel({
 // still carrying the invoice in sentToAddresses, duplicating the Faktura
 // row with the same value under "Adresa" too. Whether m.lightningInvoice is
 // populated is the more reliable signal, so it's checked alongside the kind.
+// An incoming Ark receive with no Lightning hash of its own: how a payment to
+// the wallet's Lightning address reaches it (docs/ln-address-plan.md, flow).
+function isLnAddressCandidate(m: Movement): boolean {
+  const kind = movementKind(m);
+  return (
+    m.effectiveBalanceSats > 0 && (kind === "arkoor" || kind === "receive") && !m.paymentHash && !m.lightningInvoice && !isRefreshMovement(m)
+  );
+}
+
+function lnMovementOf(m: Movement): LnMovement {
+  return { id: m.id, sats: m.effectiveBalanceSats, atMs: new Date(m.completedAt ?? m.createdAt).getTime() };
+}
+
 const LIGHTNING_KINDS = new Set(["lightning", "lightning_send", "lightning_receive"]);
 
 // Best-effort, decorative context, not a precise accounting figure — finds
@@ -6143,7 +6157,7 @@ function useOnchainTxDetail(
 // knows about it worked out against the whole history.
 function ChatTxDetail({ history, ...props }: Parameters<typeof TxDetailModal>[0] & { history: readonly Movement[] }) {
   const chatPayments = useChatPayments(history);
-  return <TxDetailModal {...props} chatInfo={chatPayments.get(props.movement.id)} />;
+  return <TxDetailModal {...props} history={history} chatInfo={chatPayments.get(props.movement.id)} />;
 }
 
 function TxDetailModal({
@@ -6152,6 +6166,7 @@ function TxDetailModal({
   balanceHidden,
   wallet,
   chatInfo,
+  history,
   onClose,
 }: {
   movement: Movement;
@@ -6159,15 +6174,18 @@ function TxDetailModal({
   balanceHidden: boolean;
   wallet: WalletClient;
   chatInfo?: ChatPaymentInfo;
+  history?: readonly Movement[];
   onClose: () => void;
 }) {
   const t = useT();
   const lang = useLang();
   const isBeta = useDesignVersion() === "v2";
   const positive = m.effectiveBalanceSats >= 0;
-  // A message the payer attached to a Lightning-address payment: asked once per
-  // payment, only for an incoming one (beta).
-  const lnComment = useLnComment(wallet, isBeta && positive && m.effectiveBalanceSats > 0 ? m.paymentHash : undefined);
+  // A message the payer attached to a Lightning-address payment (beta). That
+  // payment arrives as a plain Ark receive, so it is found by amount and time
+  // among the incoming ones, and asked once per movement.
+  const lnCandidates = useMemo(() => (history ?? []).filter(isLnAddressCandidate).map(lnMovementOf), [history]);
+  const lnComment = useLnComment(wallet, isBeta && isLnAddressCandidate(m) ? lnMovementOf(m) : undefined, lnCandidates);
   const noAddresses = LIGHTNING_KINDS.has(movementKind(m)) || !!m.lightningInvoice;
   const sentTo = noAddresses ? [] : m.sentToAddresses;
   // This wallet's own address, not the sender's.

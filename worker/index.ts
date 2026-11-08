@@ -452,9 +452,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (request.method === "POST" && url.pathname === "/api/lnaddr/receipts") {
     return handleLnAddrReceipts(request, env);
   }
-  if (request.method === "POST" && url.pathname === "/api/lnaddr/comment") {
-    return handleLnAddrComment(request, env);
-  }
   if (request.method === "GET" && url.pathname === "/api/lnaddr/health") {
     return lnAddrHealthResponse(caches.default, env.PUSH_SUBSCRIPTIONS, !!env.BARKD_URL);
   }
@@ -3147,29 +3144,6 @@ async function handleLnAddrReceipts(request: Request, env: Env): Promise<Respons
   const receipts = await callLnLedger<ReceiveRecord[]>(env, "/receipts", { mailboxId });
   if (!receipts) return jsonError(502, "Ledger unavailable.");
   return new Response(JSON.stringify(receipts), {
-    status: 200,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
-  });
-}
-
-// POST /api/lnaddr/comment: the comment a payer attached (LUD-12) to one of the
-// owner's invoices, asked for by payment hash when the app opens that payment.
-// Proven like /receipts, but answers for a single hash instead of the whole
-// list. The comment is fixed when the invoice is issued, so the app asks once
-// per payment and remembers the answer.
-async function handleLnAddrComment(request: Request, env: Env): Promise<Response> {
-  const parsed = await readAuthorizedNameWrite(request, env);
-  if (parsed instanceof Response) return parsed;
-  const { mailboxId, mailboxAuthorization } = parsed;
-  const { hash } = parsed;
-  if (typeof hash !== "string" || !isPlausiblePaymentHash(hash)) return jsonError(400, "Invalid hash.");
-  // A read, like `mine`: it must not spend the KV-backed daily name-write cap.
-  const proofError = await proveNameMailbox(env, mailboxId, mailboxAuthorization, { countsAsWrite: false });
-  if (proofError) return proofError;
-
-  const result = await callLnLedger<{ found: boolean; comment: string | null }>(env, "/comment", { mailboxId, hash });
-  if (!result) return jsonError(502, "Ledger unavailable.");
-  return new Response(JSON.stringify(result), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });

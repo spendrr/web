@@ -690,21 +690,3 @@ describe("LnLedgerCore.claimVerifyCheck", () => {
     expect(JSON.stringify(record)).not.toContain("203.0.113.7");
   });
 });
-
-describe("LnLedgerCore.commentForHash", () => {
-  it("returns the comment to the owner and nothing to anyone else", async () => {
-    const { core } = setup();
-    const hash = hashOf(7);
-    await core.reserve({ ...invoice(hash, "pavel", "1.1.1.1", "mb-pavel"), comment: "díky za oběd" });
-    expect(await core.commentForHash("mb-pavel", hash)).toEqual({ found: true, comment: "díky za oběd" });
-    expect(await core.commentForHash("mb-other", hash)).toEqual({ found: false, comment: null });
-    expect(await core.commentForHash("mb-pavel", hashOf(8))).toEqual({ found: false, comment: null });
-  });
-
-  it("finds an invoice without a comment as found, with no text", async () => {
-    const { core } = setup();
-    const hash = hashOf(9);
-    await core.reserve({ ...invoice(hash, "pavel", "1.1.1.1", "mb-pavel"), comment: null });
-    expect(await core.commentForHash("mb-pavel", hash)).toEqual({ found: true, comment: null });
-  });
-});
