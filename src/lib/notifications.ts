@@ -215,17 +215,20 @@ async function postSubscription(
 // and a check against the Ark server, and it used to go out on every unlock
 // and every balance change with the same content. The server needs it again
 // only when something it holds would change (mailbox, endpoint, watched
-// height, the height token), when the price it compares against for the
-// "bitcoin moved" nudge has drifted, or before the authorization it holds
-// runs out (24 h after signing; resent from 2 h on, at the next unlock or
-// balance change, as before). The authorization's 24 h run from the last
-// subscribe sent, not the last unlock, so this is also how much earlier
-// than before payment pushes can stop for someone who left the app closed.
-// The drift is what the nudge's "since your last look" percentage can be
-// off by.
+// height, the height token), when it holds no price to compare against yet, or
+// before the authorization it holds runs out. That authorization is signed for
+// PUSH_AUTH_LIFETIME_S (30 days) and is resent from SUBSCRIBE_RESEND_AFTER_MS
+// on, at the next unlock or balance change, so a signature always has at least
+// three weeks left. The authorization's run is counted from the last subscribe
+// sent, not the last unlock, so payment pushes can stop that much earlier than
+// the 30 days for someone who left the app closed after an unlock.
+//
+// The price the server compares against for the "bitcoin moved" nudge is the one
+// sent with the last subscribe, so that percentage can be as old as this interval.
+// A price drift no longer forces a subscribe: it moved several times a day and was
+// the most frequent reason to send.
 const SENT_KEY = "btc-wallet-push-sent";
-export const SUBSCRIBE_RESEND_AFTER_MS = 2 * 60 * 60 * 1000;
-export const SUBSCRIBE_PRICE_DRIFT = 0.01;
+export const SUBSCRIBE_RESEND_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface SentSubscribe {
   key: string;
@@ -248,9 +251,8 @@ export function subscribeKey(parts: {
 export function isSubscribeDue(sent: SentSubscribe | null, key: string, priceUsd: number | undefined, now: number): boolean {
   if (!sent || sent.key !== key) return true;
   if (!(now - sent.at >= 0) || now - sent.at >= SUBSCRIBE_RESEND_AFTER_MS) return true;
-  if (priceUsd === undefined) return false;
-  if (sent.priceUsd === undefined || !(sent.priceUsd > 0)) return true;
-  return Math.abs(priceUsd - sent.priceUsd) / sent.priceUsd > SUBSCRIBE_PRICE_DRIFT;
+  // The server holds no usable price yet and now there is one (turning push on sends none).
+  return priceUsd !== undefined && !(sent.priceUsd !== undefined && sent.priceUsd > 0);
 }
 
 function readSentSubscribe(): SentSubscribe | null {

@@ -2,6 +2,7 @@
 // server, or when the authorization it holds is getting old.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  PUSH_AUTH_LIFETIME_S,
   disableNotifications,
   enableNotifications,
   isSubscribeDue,
@@ -28,16 +29,18 @@ describe("isSubscribeDue", () => {
     expect(isSubscribeDue(sent, key, 100_000, 1000)).toBe(false);
     expect(isSubscribeDue(sent, key, 100_000, SUBSCRIBE_RESEND_AFTER_MS - 1)).toBe(false);
     expect(isSubscribeDue(sent, key, 100_000, SUBSCRIBE_RESEND_AFTER_MS)).toBe(true);
-    expect(SUBSCRIBE_RESEND_AFTER_MS).toBeLessThanOrEqual((24 * H) / 2);
+    // The signature must still have weeks left when it is resent.
+    expect(SUBSCRIBE_RESEND_AFTER_MS).toBeLessThanOrEqual((PUSH_AUTH_LIFETIME_S * 1000) / 3);
     // A clock that went backwards is not trusted.
     expect(isSubscribeDue({ ...sent, at: 10 * H }, key, 100_000, 0)).toBe(true);
   });
 
-  it("the price only when it drifted more than 1 %, and an unknown price never forces one", () => {
+  it("a price move alone does not send again; a missing baseline price does, once", () => {
     expect(isSubscribeDue(sent, key, 100_900, 1000)).toBe(false);
-    expect(isSubscribeDue(sent, key, 98_900, 1000)).toBe(true);
+    expect(isSubscribeDue(sent, key, 50_000, 1000)).toBe(false);
     expect(isSubscribeDue(sent, key, undefined, 1000)).toBe(false);
     expect(isSubscribeDue({ key, at: 0 }, key, 100_000, 1000)).toBe(true);
+    expect(isSubscribeDue({ key, at: 0 }, key, undefined, 1000)).toBe(false);
   });
 });
 
