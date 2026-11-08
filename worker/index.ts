@@ -1807,13 +1807,11 @@ const MAX_BACKUP_BODY_BYTES = 20 * 1024 * 1024;
 
 // Global daily cap on brand-new lookupKeys handleBackupUploadTmp accepts —
 // see the isKnownLookupKey check there for what this protects against and
-// why the per-IP/per-lookupKey limiters alone don't cover it. Sized against
-// the worst case, not the typical one: every one of the 200 slots maxed out
-// at MAX_BACKUP_BODY_BYTES is 4GB, comfortably under the bucket's
-// storage ceiling with room for real backups alongside it, while staying far
-// above this app's actual pace of new wallets (41 backups total as of
-// 2026-09-14).
-const DAILY_NEW_BACKUP_CAP = 200;
+// why the per-IP/per-lookupKey limiters alone don't cover it. A real backup is
+// 0.16 to 1.4 MB, so the typical day is a small fraction of the worst case
+// (every slot at MAX_BACKUP_BODY_BYTES, 10GB). A wallet turned away here has no
+// backup until the next UTC day, which is the cost of setting this too low.
+const DAILY_NEW_BACKUP_CAP = 500;
 const DAILY_NEW_BACKUP_CAP_PER_SOURCE = 30;
 
 // A `.tmp`-suffixed key (`${lookupKey}.tmp`) used to be indistinguishable
