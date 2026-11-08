@@ -40,6 +40,14 @@
   overflow: hidden;
 }
 
+/* A banner inside a card is a tinted band of it, not a second boxed card
+   with its own outline and shadow fighting the card's edge. */
+.settings-group > .banner {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .settings-group > .settings-label {
   padding: 14px 16px 8px;
 }
