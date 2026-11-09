@@ -9,6 +9,7 @@ import {
   type WalletClient,
 } from "../lib/wallet/bark";
 import { BooleanSwitch } from "./BooleanSwitch";
+import { SpendLimitsSettings } from "./SpendLimitsSettings";
 import { CopyRow } from "./Dashboard";
 import {
   decryptMnemonic,
@@ -122,7 +123,8 @@ type Section =
   | "password"
   | "biometric"
   | "gifts"
-  | "chat-settings";
+  | "chat-settings"
+  | "limits";
 
 // Where the back button goes, so a leaf returns to the section that listed it
 // rather than jumping the user all the way to the root.
@@ -134,6 +136,7 @@ const PARENT: Record<Exclude<Section, "menu">, SectionPage> = {
   password: "security",
   biometric: "security",
   seed: "security",
+  limits: "security",
   vtxos: "wallet",
   "onchain-txs": "wallet",
   "call-log": "wallet",
@@ -252,6 +255,7 @@ export default function Settings({
       {section === "password" && <ChangePassword onDone={() => setSection(parentOf("password"))} />}
       {section === "biometric" && <BiometricUnlock />}
       {section === "chat-settings" && <ChatSettingsPage />}
+      {section === "limits" && <SpendLimitsSettings />}
     </div>
   );
 }
@@ -771,6 +775,7 @@ function NavRow({
 
 function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const t = useT();
+  const isBeta = useDesignVersion() === "v2";
   // A wallet without a password has nothing to change: the row sets one instead (the same sheet as everywhere else).
   const [passwordless, setPasswordless] = useState(() => loadVault() === null && hasDeviceVault());
   useEffect(() => {
@@ -810,6 +815,15 @@ function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
         )}
         <AutoLockSetting />
         {isShakeSupported() && <ShakeSetting />}
+        {isBeta && (
+          <button className="settings-item settings-item--stacked" onClick={() => onNavigate("limits")}>
+            <span className="settings-item-text">
+              <span>{t("Limity výdajů (beta)")}</span>
+              <span className="settings-item-sub">{t("Heslo, denní limit, rychlá platba")}</span>
+            </span>
+            <span className="chevron">›</span>
+          </button>
+        )}
       </div>
 
       {/* Its own card, below everything else: the rest of this page locks

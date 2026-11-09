@@ -103,7 +103,6 @@ import { localeFor, tf, useLang, useT, type Lang } from "../lib/i18n";
 import { loadVault } from "../lib/vault/crypto";
 import { loadVaultOrPrompt, missingVaultText, requestPasswordSetup } from "../lib/vault/vaultAccess";
 import {
-  PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
   SPEND_AUTH_REQUIRED,
   SPEND_LIMIT_EXCEEDED,
@@ -125,6 +124,8 @@ import {
   TIMEOUT_MESSAGE,
 } from "../lib/wallet/walletCall";
 import { useDesignVersion } from "../lib/ui/designVersion";
+import { chargeQuick, loadQuickState, quickDecision, scanAutoQuick, type QuickReason } from "../lib/send/quickPay";
+import { clearSpendLimitsStatus, getNoPasswordSats, getSpendLimitsStatus, refreshSpendLimits, useSpendLimitsStatus } from "../lib/wallet/spendLimitsClient";
 import { describeError, onErrorToast, rawErrorMessage, surfaceError } from "../lib/appErrors";
 import { isOffline, netState, reportNetworkTrouble, useNetState } from "../lib/connectivity/connectivity";
 import GiftComposeModal from "./GiftComposeModal";
@@ -412,6 +413,11 @@ export default function Dashboard({
   const lang = useLang();
   // The v2 toggle, for the features still in beta below.
   const designVersion = useDesignVersion();
+  // The wallet worker's spend limits, for the password threshold every send surface asks about.
+  useEffect(() => {
+    void refreshSpendLimits();
+    return clearSpendLimitsStatus;
+  }, [wallet]);
   // Money chat (beta): its own opt-in on top of V2, off by default.
   const chatEnabled = useChatEnabled();
   const chatOn = designVersion === "v2" && chatEnabled;
@@ -4040,7 +4046,23 @@ type NameResolution = {
 // through. In practice this is only reachable for an amountless BOLT11
 // invoice with no amount typed, which has nothing to send anyway.
 function planNeedsPassword(plan: SendPlan): boolean {
-  return plan.effectiveAmountSats === undefined || plan.effectiveAmountSats >= PASSWORD_REQUIRED_THRESHOLD_SATS;
+  return plan.effectiveAmountSats === undefined || plan.effectiveAmountSats >= getNoPasswordSats();
+}
+
+// Why a scan that tried to pay by itself opened the confirm screen instead.
+function quickNoteText(reason: QuickReason, t: (cs: string) => string): string | null {
+  switch (reason) {
+    case "over-threshold":
+      return t("Nad prahem rychlé platby.");
+    case "budget":
+      return t("Denní budget rychlé platby je vyčerpaný.");
+    case "over-hard":
+      return t("Nevejde se do denního limitu.");
+    case "no-price":
+      return t("Bez kurzu se potvrzuje.");
+    default:
+      return null;
+  }
 }
 
 const CURRENCY_SYMBOLS: Record<FiatCurrency, string> = { czk: "Kč", eur: "EUR", usd: "USD" };
@@ -4993,6 +5015,7 @@ function SendPanel({
       setBusy(false);
       onCriticalOpChange?.(false);
       popWatchdog();
+      void refreshSpendLimits();
     }
     // spendable / feeEstimate?.feeSats / onSentBump feed the optimistic
     // balance bump above and belong here: without them the bump ran against
@@ -5087,6 +5110,23 @@ function SendPanel({
   // unseen (the kind badge shows what landed). If the browser refuses to read
   // it, the field is focused so a long-press paste is one tap away.
   const pasteBeta = useDesignVersion() === "v2";
+  const quickBeta = pasteBeta;
+  const scannedDestRef = useRef<string | null>(null);
+  // Set by a scan that should pay on its own (quick pay on, the QR carries the amount); the deadline keeps a
+  // stale flag from firing on a later, unrelated edit.
+  const autoQuickUntilRef = useRef(0);
+  // From a scan that pays by itself until the sheet has taken over the screen, the form stays out of sight: it
+  // would otherwise flash the raw invoice string between the camera closing and the sheet rising.
+  const [quickHold, setQuickHold] = useState(false);
+  const holdSawPlanRef = useRef(false);
+  const holdTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(holdTimerRef.current), []);
+  // The scan-triggered attempt in progress, so the confirm sheet can say why quick pay did not take it.
+  const autoQuickFiredRef = useRef(false);
+  const [quickNote, setQuickNote] = useState<QuickReason | null>(null);
+  const [quickSheet, setQuickSheet] = useState(false);
+  // Re-renders the panel when the worker reports new limits, so the password field follows the user's amount.
+  useSpendLimitsStatus();
   const destinationRef = useRef<HTMLInputElement>(null);
   const pasteMode = pasteBeta && !destination.trim() && typeof navigator.clipboard?.readText === "function";
   const pastedAtRef = useRef(0);
@@ -5148,21 +5188,58 @@ function SendPanel({
     // The fast path is also off once the worker's no-password budget is
     // spent (spendLimitReached): such a send now needs a password, and the
     // fast path has no screen on which to ask for one.
-    if (
+    const fromAutoScan = autoQuickFiredRef.current;
+    autoQuickFiredRef.current = false;
+    // The amount of an invoice is in the invoice: amountSats is undefined for it, effectiveAmountSats is not.
+    const effective = built.effectiveAmountSats;
+    const reviewable =
       !spendLimitReached &&
       built.kind !== "onchain" &&
-      // Paying a name always gets the review step: it is the one place a
-      // look-alike or a changed address can be caught before the money moves.
+      // Paying a name always gets the review step: it is the one place a look-alike or a changed address can be
+      // caught before the money moves.
       built.recipient === undefined &&
       built.bip353 === undefined &&
-      built.amountSats !== undefined &&
-      built.amountSats <= CONFIRM_THRESHOLD_SATS
-    ) {
+      effective !== undefined;
+    let fast = false;
+    let quickPaid = false;
+    let denied: QuickReason | null = null;
+    if (reviewable) {
+      if (!quickBeta) {
+        // V1: payments up to 1000 sats typed in, as ever (never above what the worker lets through without a password).
+        fast = built.amountSats !== undefined && built.amountSats <= Math.min(CONFIRM_THRESHOLD_SATS, getNoPasswordSats() - 1);
+      } else {
+        // V2 beta: quick pay is opt-in, only for what the camera just scanned, inside the user's own limits.
+        const scanned = scannedDestRef.current;
+        if (scanned !== null && normalizeDestination(built.destination) === scanned) {
+          const d = quickDecision({
+            state: loadQuickState(),
+            currency,
+            btcRate: rates?.[currency] ?? null,
+            noPasswordSats: getNoPasswordSats(),
+            hardRemainingSats: getSpendLimitsStatus()?.hardRemainingSats ?? null,
+            amountSats: effective,
+            now: Date.now(),
+          });
+          fast = d.ok;
+          quickPaid = d.ok;
+          if (!d.ok) denied = d.reason;
+        }
+      }
+    }
+    setQuickNote(fromAutoScan && denied !== null ? denied : null);
+    if (fast) {
+      if (quickPaid && effective !== undefined) {
+        chargeQuick(effective, Date.now());
+        // The sheet opens already sending: nothing to tap. It closes itself when the payment is through.
+        setQuickSheet(true);
+        setPlan(built);
+      }
       send(built);
     } else {
+      setQuickSheet(false);
       setPlan(built);
     }
-  }, [buildPlan, send, spendLimitReached, motionOn]);
+  }, [buildPlan, send, spendLimitReached, motionOn, quickBeta, currency, rates]);
 
   const handleScanResult = useCallback((raw: string) => {
     // A QR of this app's own gift/payment-request link (the composer's own
@@ -5194,12 +5271,64 @@ function SendPanel({
       return;
     }
     const { destination: dest, amountSats } = parseScannedPayload(raw);
+    // Quick pay (beta) only applies to what the camera read, and only while the field still holds exactly that.
+    scannedDestRef.current = normalizeDestination(dest);
+    const auto = quickBeta && scanAutoQuick(loadQuickState(), amountSats, decodeBolt11Amount(normalizeDestination(dest)));
+    if (auto) {
+      autoQuickUntilRef.current = Date.now() + 4000;
+      holdSawPlanRef.current = false;
+      setQuickHold(true);
+      window.clearTimeout(holdTimerRef.current);
+      // Never hide the form for good: if no sheet comes, it is back after a moment.
+      holdTimerRef.current = window.setTimeout(() => {
+        if (!holdSawPlanRef.current) setQuickHold(false);
+      }, 4500);
+    }
     setDestination(dest);
     setResolvedKind(null);
-    setJustScanned(true);
+    // The scan-lock landing animation is for a field the person is about to read; a quick payment skips the field.
+    if (!auto) setJustScanned(true);
     if (amountSats !== undefined) setAmount(String(amountSats));
     setScanning(false);
-  }, []);
+  }, [quickBeta]);
+
+  // Quick pay: a scan that carries its amount goes on by itself once the form can be built, which is a send
+  // when it fits the user's limits and the confirm screen when it does not. On-chain is always reviewed, so
+  // there the scan only fills the form.
+  useEffect(() => {
+    if (autoQuickUntilRef.current === 0) return;
+    if (Date.now() > autoQuickUntilRef.current) {
+      autoQuickUntilRef.current = 0;
+      return;
+    }
+    if (validationError()) return; // still resolving, or not buildable: look again on the next change
+    autoQuickUntilRef.current = 0;
+    if (kind === "onchain") {
+      setQuickHold(false);
+      return;
+    }
+    autoQuickFiredRef.current = true;
+    requestSend();
+    // requestSend either opened a sheet or refused (an error on the form): in the second case the form comes back.
+    window.setTimeout(() => {
+      if (planRef.current === null) setQuickHold(false);
+    }, 700);
+  }, [kind, destination, amount, validationError, requestSend]);
+
+  // The hold ends once the sheet it was waiting for has come and gone.
+  const planRef = useRef<SendPlan | null>(null);
+  useEffect(() => {
+    planRef.current = plan;
+    if (!quickHold) return;
+    if (plan !== null) {
+      holdSawPlanRef.current = true;
+      return;
+    }
+    if (holdSawPlanRef.current) {
+      holdSawPlanRef.current = false;
+      setQuickHold(false);
+    }
+  }, [plan, quickHold]);
 
   // Only meaningful for single-destination kinds with a queryable network
   // fee (Ark/on-chain) — Lightning routing fees are per-hop and uncertain
@@ -5352,12 +5481,14 @@ function SendPanel({
             setPlan(null);
             setConfirmPassword("");
           }}
+          quick={quickSheet}
+          extraNote={quickNote === null ? null : quickNoteText(quickNote, t)}
         />
     ) : null;
 
   return (
     <>
-    <div className="panel">
+    <div className={`panel${quickHold ? " is-quick-hold" : ""}`}>
       <div className="field">
         <label className="field-label">{t("Komu platíš?")}</label>
         <div className="destination-row">

@@ -32,6 +32,12 @@ const btcToSats = (btc: string) => Math.round(Number(btc) * 1e8);
 // Order matters: the first match wins, so narrower patterns come first.
 const KNOWN: KnownError[] = [
   {
+    // The wallet worker's daily spend limit (spendLimits.ts): "HARD_LIMIT_EXCEEDED:<sats left>".
+    test: /^HARD_LIMIT_EXCEEDED:(\d+)$/,
+    text: (m, t, lang) =>
+      tf(t("Denní limit je vyčerpaný. Zbývá {sats} sats."), { sats: Number(m[1]).toLocaleString(localeFor(lang)) }),
+  },
+  {
     test: /exceeds limit of ([\d.]+)\s*BTC/i,
     text: (m, t, lang) =>
       tf(t("Nad limitem pro Lightning (max {limitSats} sats)."), {
