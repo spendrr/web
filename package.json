@@ -38,9 +38,9 @@
     "oxlint": "1.80.0",
     "playwright": "1.62.1",
     "typescript": "6.0.3",
-    "vite": "8.2.2",
+    "vite": "8.3.7",
     "vite-plugin-mkcert": "2.1.0",
-    "vitest": "4.1.11",
-    "wrangler": "4.137.0"
+    "vitest": "4.1.12",
+    "wrangler": "4.159.0"
   }
 }
