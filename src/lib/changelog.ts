@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "9. 11. 2026",
+    title: "Limity výdajů",
+    items: [
+      { text: "Nastav si denní limit plateb a částku, od které se chce heslo.", beta: true },
+      { text: "Malé faktury po naskenování zaplatíš rovnou, bez potvrzení.", beta: true },
+    ],
+  },
+  {
     date: "8. 11. 2026",
     title: "Detail platby",
     items: [

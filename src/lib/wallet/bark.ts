@@ -42,6 +42,7 @@ import type {
 } from "@secondts/bark";
 import type { PrepareResult, PrepareSource, RefreshAndLockResult, SpendAuth } from "./walletSession";
 import { WALLET_LOCKED_MESSAGE } from "./walletSession";
+import type { LimitChange, LimitChangeOutcome, SpendLimitsStatus } from "./spendLimits";
 import type { ExitLockSync, ExitStartResult } from "../exit/exitLocks";
 import { createDelegatedMaintenanceScheduler, createSettleMaintenance } from "../maintenance/delegatedMaintenance";
 import { watchdogDelayFor } from "./workerWatchdog";
@@ -1088,6 +1089,17 @@ let sessionEpoch = 0;
 // code from passing its own (see sessionChatKey in walletWorkerImpl.ts).
 export async function deliverChatKey(port: MessagePort): Promise<void> {
   await request({ type: "chatKey", port }, undefined, [port]);
+}
+
+// The user-set spend limits (beta). Both are answered by the worker; the main thread only displays and asks.
+// A change that loosens a limit needs the password (SpendAuth), checked in the worker.
+export async function getSpendLimits(): Promise<SpendLimitsStatus> {
+  return (await request({ type: "limits", op: { kind: "get" } })) as SpendLimitsStatus;
+}
+
+export async function changeSpendLimits(change: LimitChange, auth?: SpendAuth): Promise<LimitChangeOutcome> {
+  const op = auth ? { kind: "change", change, auth } : { kind: "change", change };
+  return (await request({ type: "limits", op })) as LimitChangeOutcome;
 }
 
 export async function prepareSession(source: PrepareSource): Promise<PrepareResult> {

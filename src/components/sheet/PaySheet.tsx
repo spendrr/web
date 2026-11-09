@@ -88,11 +88,14 @@ export function Sheet({
   closing,
   onBackdrop,
   screenKey,
+  className,
   children,
 }: {
   closing?: boolean;
   onBackdrop?: () => void;
   screenKey: string;
+  // Extra class on the sheet itself, for a sheet that restyles the frame.
+  className?: string;
   children: ReactNode;
 }) {
   const keyboardInset = useKeyboardInset();
@@ -110,7 +113,7 @@ export function Sheet({
         if (e.target === e.currentTarget) onBackdrop?.();
       }}
     >
-      <div className={`sht-sheet${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
+      <div className={`sht-sheet${closing ? " is-closing" : ""}${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true">
         <AutoHeight>
           <div className="sht-screen" key={screenKey}>
             {children}

@@ -5,11 +5,12 @@ import { buildGiftUrl, generateGiftId, type GiftLinkParams } from "../lib/gift/g
 import { deleteGift, encryptGiftMnemonic, putGift, type OutgoingGift } from "../lib/gift/giftStore";
 import { reclaimGift } from "../lib/gift/giftReclaim";
 import {
-  PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
   SPEND_AUTH_REQUIRED,
   SPEND_LIMIT_EXCEEDED,
+  hardLimitRemaining,
 } from "../lib/wallet/walletSession";
+import { getNoPasswordSats } from "../lib/wallet/spendLimitsClient";
 import { withTimeout, isWalletCallTimeout, SEND_WATCHDOG_MS, TIMEOUT_MESSAGE } from "../lib/wallet/walletCall";
 import { getFiatCurrency, type FiatCurrency } from "../lib/currency";
 import { localeFor, tf, useLang, useT } from "../lib/i18n";
@@ -82,7 +83,7 @@ export default function GiftComposeModal({
   const overCap = amountSats > GIFT_MAX_SATS;
   const overBalance = spendable !== undefined && amountSats > spendable;
   const validAmount = amountSats > 0 && !overCap && !overBalance;
-  const needsPassword = amountSats >= PASSWORD_REQUIRED_THRESHOLD_SATS || forcePassword;
+  const needsPassword = amountSats >= getNoPasswordSats() || forcePassword;
 
   const close = () => closeThen(onClose);
   // Beta: the result as a card with gallery and print export.
@@ -198,9 +199,17 @@ export default function GiftComposeModal({
       // left the wallet, so the "creating" record describes a gift that will
       // never exist. Left in place it read "nedokončeno" for a week, and the
       // auto-return sweep opened its empty gift wallet on every app start.
-      // Only these three: any other error may come from inside the SDK, where
-      // a failed send is not proof that nothing moved.
+      // Only these refusals, and the daily limit (HARD_LIMIT_EXCEEDED, the same
+      // gate): any other error may come from inside the SDK, where a failed send
+      // is not proof that nothing moved.
       const message = e instanceof Error ? e.message : "";
+      if (hardLimitRemaining(message) !== null) {
+        // The daily limit has no password to type to get past it: say how much is left and end the attempt.
+        if (recordWritten) await deleteGift(id).catch(() => {});
+        surfaceError(e, setErrorMsg);
+        setPhase("error");
+        return;
+      }
       if (message === SPEND_AUTH_FAILED || message === SPEND_AUTH_REQUIRED || message === SPEND_LIMIT_EXCEEDED) {
         if (recordWritten) await deleteGift(id).catch(() => {});
         if (message === SPEND_AUTH_FAILED) {

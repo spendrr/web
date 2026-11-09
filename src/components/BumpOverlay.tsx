@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BUMP_EMOJI, BumpSession, findBumpArrival, maxMovementId, type BumpOutcome, type FlowView } from "../lib/bump/bump";
 import {
-  PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
   SPEND_AUTH_REQUIRED,
   SPEND_LIMIT_EXCEEDED,
 } from "../lib/wallet/walletSession";
+import { getNoPasswordSats } from "../lib/wallet/spendLimitsClient";
 import { withTimeout, isWalletCallTimeout, SEND_WATCHDOG_MS, TIMEOUT_MESSAGE } from "../lib/wallet/walletCall";
 import { loadVaultOrPrompt, missingVaultText } from "../lib/vault/vaultAccess";
 import { hapticNotify, hapticSuccess, hapticTap } from "../lib/ui/haptics";
@@ -419,7 +419,7 @@ export default function BumpOverlay({
   // --- Sender: amount ------------------------------------------------------
   const amountSats = amount.sats;
   const overBalance = spendable !== undefined && amountSats > spendable;
-  const needsPassword = amountSats >= PASSWORD_REQUIRED_THRESHOLD_SATS || forcePassword;
+  const needsPassword = amountSats >= getNoPasswordSats() || forcePassword;
   const canPay = amountSats > 0 && !overBalance && (!needsPassword || password.length > 0) && !sendBusy;
 
   // A refused amount shakes side to side, like a wrong passcode on iOS.

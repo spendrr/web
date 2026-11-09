@@ -279,11 +279,16 @@ export function sanitizeWalletCallArgs(method: string, args: unknown[]): unknown
   return args;
 }
 
-export function classifyWalletCall(method: string, args: unknown[]): CallVerdict {
+// `thresholdSats` is the no-password amount in force (the user's setting while the beta limits are on).
+export function classifyWalletCall(
+  method: string,
+  args: unknown[],
+  thresholdSats: number = PASSWORD_REQUIRED_THRESHOLD_SATS,
+): CallVerdict {
   if (WALLET_ALWAYS_AUTH_METHODS.has(method)) return { kind: "needs-auth" };
   if (WALLET_SEND_METHODS.has(method)) {
     const amount = sendAmountSats(method, args);
-    if (amount === null || amount >= PASSWORD_REQUIRED_THRESHOLD_SATS) return { kind: "needs-auth" };
+    if (amount === null || amount >= thresholdSats) return { kind: "needs-auth" };
     return { kind: "capped", amountSats: amount };
   }
   if (WALLET_OWN_FUNDS_METHODS.has(method)) return { kind: "allow" };
@@ -360,10 +365,16 @@ export function createRefreshSubmitBudget(max: number, windowMs: number): Refres
 // worker has nowhere to keep it that the main thread could not rewrite.
 export interface UnauthorizedSpendBudget {
   bindToSeed(seedKey: string): void;
+  // Changes the cap in place; what is already spent in the window stays.
+  setCap(capSats: number): void;
+  // Same test as tryReserve without charging, so a send that two budgets must both allow cannot burn one of
+  // them when the other refuses.
+  canReserve(amountSats: number, now: number): boolean;
   tryReserve(amountSats: number, now: number): boolean;
 }
 
-export function createUnauthorizedSpendBudget(capSats: number, windowMs: number): UnauthorizedSpendBudget {
+export function createUnauthorizedSpendBudget(initialCapSats: number, windowMs: number): UnauthorizedSpendBudget {
+  let capSats = initialCapSats;
   let seed: string | null = null;
   let spent = 0;
   let windowStartedAt = 0;
@@ -373,6 +384,13 @@ export function createUnauthorizedSpendBudget(capSats: number, windowMs: number)
       seed = seedKey;
       spent = 0;
       windowStartedAt = 0;
+    },
+    setCap(next) {
+      capSats = next;
+    },
+    canReserve(amountSats, now) {
+      const spentNow = now - windowStartedAt > windowMs ? 0 : spent;
+      return spentNow + amountSats <= capSats;
     },
     tryReserve(amountSats, now) {
       if (now - windowStartedAt > windowMs) {

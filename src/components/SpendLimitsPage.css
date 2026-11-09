@@ -1,0 +1,501 @@
+/* Limity: a calm, data-first page. Flat cards with a hairline edge, tabular figures, one scale instead of
+   decoration. Ink for data, the accent only where it carries meaning. */
+.limits-page {
+  /* Card edges: between the hairline and the full ink outline. */
+  --limits-edge: color-mix(in srgb, var(--border) 66%, var(--surface));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 24px;
+}
+.limits-card {
+  background: var(--surface);
+  border: 1px solid var(--limits-edge);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+}
+.limits-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* Summary: a card, the figure in ink. */
+.limits-summary {
+  background: var(--surface);
+  border: 1px solid var(--limits-edge);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+}
+.limits-summary-label {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.limits-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.limits-summary-main {
+  min-width: 0;
+}
+/* The drawing sits in the corner of the first card, a little larger than its row so it reads as an emblem. */
+.limits-vault {
+  flex: none;
+  width: clamp(84px, 32%, 112px);
+  height: auto;
+  margin: -6px -4px -8px 0;
+}
+.limits-vault.is-off {
+  opacity: 0.5;
+}
+.limits-summary-amount {
+  margin-top: 2px;
+  font-size: clamp(34px, 12vw, 44px);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+.limits-summary-amount--off {
+  font-size: 30px;
+  color: var(--text-dim);
+}
+.limits-unit {
+  margin-left: 0.15em;
+}
+.limits-meter {
+  height: 6px;
+  margin-top: 16px;
+  border-radius: 3px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.limits-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.5s var(--ease-out);
+}
+.limits-meter.is-high .limits-meter-fill {
+  background: var(--danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .limits-meter-fill {
+    transition: none;
+  }
+}
+.limits-summary-line {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.limits-summary-dim {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.limits-summary-btn {
+  margin-top: 14px;
+}
+
+/* What a payment of a given size gets. Friction rises left to right in one ink ramp; every step carries its own
+   amount, so nothing hangs under a boundary to be guessed at. */
+.limits-scale-bar {
+  display: flex;
+  margin-top: 14px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.limits-zone {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px 11px;
+  overflow: hidden;
+  text-align: center;
+  color: var(--text-h);
+  background: color-mix(in srgb, var(--text-h) 7%, var(--surface));
+  transition: flex-grow 0.38s var(--ease-morph), padding 0.38s var(--ease-morph), opacity 0.25s ease;
+}
+.limits-zone.is-gone {
+  flex-grow: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+}
+.limits-zone--confirm {
+  background: color-mix(in srgb, var(--text-h) 15%, var(--surface));
+}
+.limits-zone--password {
+  background: color-mix(in srgb, var(--text-h) 32%, var(--surface));
+}
+.limits-zone--stop {
+  background: var(--text-h);
+  color: var(--surface);
+}
+.limits-zone-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.limits-zone-amount {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.75;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section heads with a value */
+.limits-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.limits-head--sub {
+  margin-top: 20px;
+}
+.limits-head-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+.limits-sub {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* Step slider: hairline track, accent fill, an accent dot with a ring. Fill and dot glide between steps. */
+.limits-slider {
+  --thumb: 28px;
+  --glide: 0.28s var(--ease-morph);
+  position: relative;
+}
+.limits-slider-rail {
+  position: relative;
+  height: var(--thumb);
+}
+.limits-slider-track,
+.limits-slider-fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+}
+.limits-slider-track {
+  left: 0;
+  right: 0;
+  background: var(--border-soft);
+}
+.limits-slider-fill {
+  left: 0;
+  width: calc((100% - var(--thumb)) * var(--v) / var(--n) + var(--thumb) / 2);
+  background: var(--accent);
+  transition: width var(--glide);
+}
+.limits-slider-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.limits-slider-marks i {
+  position: absolute;
+  top: 50%;
+  left: calc((100% - var(--thumb)) * var(--i) / var(--n) + var(--thumb) / 2);
+  width: 2px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--border-soft);
+}
+.limits-slider-thumb {
+  position: absolute;
+  top: 0;
+  left: calc((100% - var(--thumb)) * var(--v) / var(--n));
+  width: var(--thumb);
+  height: var(--thumb);
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 4px solid var(--surface);
+  background: var(--accent);
+  box-shadow: 0 0 0 var(--border-w) var(--border);
+  pointer-events: none;
+  transition: left var(--glide), transform 0.18s var(--ease-spring);
+}
+.limits-slider:has(.limits-slider-input:active) .limits-slider-thumb {
+  transform: scale(1.14);
+}
+.limits-slider:has(.limits-slider-input:focus-visible) .limits-slider-thumb {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.limits-slider-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.limits-slider-ticks {
+  position: relative;
+  height: 20px;
+  margin-top: 6px;
+}
+.limits-slider-ticks span {
+  position: absolute;
+  top: 0;
+  left: calc((100% - var(--thumb)) * var(--i) / var(--n) + var(--thumb) / 2);
+  transform: translateX(-50%);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+.limits-slider-ticks span.is-on {
+  color: var(--text-h);
+  font-weight: 600;
+}
+.limits-slider.is-disabled {
+  opacity: 0.45;
+}
+.limits-slider.is-disabled .limits-slider-input {
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .limits-slider-fill,
+  .limits-slider-thumb,
+  .limits-slider-ticks span {
+    transition: none;
+  }
+}
+
+.limits-note {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+
+/* Rows */
+.limits-card--rows {
+  padding: 2px 18px;
+}
+.limits-row {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.limits-row + .limits-row {
+  border-top: 1px solid var(--border-soft);
+}
+.limits-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.limits-row-label {
+  font-size: 16px;
+  color: var(--text-h);
+}
+.limits-row-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.limits-row-value {
+  flex: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+.limits-row-value::after {
+  content: "›";
+  margin-left: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+.limits-row-value.is-off {
+  font-weight: 400;
+  color: var(--text-dim);
+}
+.limits-row--pending {
+  cursor: default;
+}
+.limits-foot {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* The global button hover/active adds a hard offset shadow and a shift; on this page buttons stay flat. The
+   selectors outweigh `button:hover`, which `all: unset` alone does not. */
+:root .limits-page .limits-row:hover,
+:root .limits-page .limits-row:active,
+:root .limits-page .limits-row:focus-visible {
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+:root .limits-page .limits-row:active {
+  opacity: 0.6;
+}
+:root .limits-page .limits-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Buttons on the page keep the ink outline and lose the offset shadow, like the sheet's actions. */
+/* The global `button.small:not(.icon-btn):hover:not(:disabled)` is (0,5,1); matching its shape puts these above it. */
+:root .limits-page button.secondary,
+:root .limits-page button.secondary:not(.icon-btn):hover:not(:disabled),
+:root .limits-page button.secondary:not(.icon-btn):active:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+:root .limits-page button.secondary:not(.icon-btn):active:not(:disabled) {
+  opacity: 0.75;
+}
+
+.limits-vault {
+  color: var(--text-h);
+}
+.limits-vault .vd-fill {
+  fill: var(--surface);
+}
+.limits-vault .vd-accent {
+  fill: var(--accent);
+}
+.limits-vault .vd-stroke-fill {
+  stroke: var(--surface);
+}
+
+.limits-summary--ghost {
+  position: relative;
+  overflow: hidden;
+}
+/* The drawing is an engraving seen through the card: cropped by its top and right edges, pale, and dissolving
+   downwards so it is gone before the meter. Text sits above it. */
+.limits-summary--ghost .limits-vault {
+  position: absolute;
+  top: 3px;
+  right: 8px;
+  width: clamp(130px, 52%, 184px);
+  margin: 0;
+  opacity: var(--ghost-op);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 34%, transparent 80%);
+  mask-image: linear-gradient(to bottom, #000 34%, transparent 80%);
+}
+.limits-summary--ghost .limits-vault.is-off {
+  opacity: calc(var(--ghost-op) * 0.55);
+}
+.limits-summary--ghost .limits-summary-main,
+.limits-summary--ghost .limits-meter,
+.limits-summary--ghost .limits-summary-line,
+.limits-summary--ghost .limits-summary-dim,
+.limits-summary--ghost .limits-summary-btn {
+  position: relative;
+}
+.limits-page {
+  --ghost-op: 0.22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .limits-page {
+    --ghost-op: 0.3;
+  }
+}
+:root[data-theme="dark"] .limits-page {
+  --ghost-op: 0.3;
+}
+
+/* Quick pay's budget row folds in and out; a swapped label or note rises in. */
+.limits-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.38s var(--ease-morph), opacity 0.28s ease;
+}
+.limits-collapse.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.limits-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+  /* The clip must not touch a slider thumb at either end (its ring, the press scale and the focus outline reach
+     past the track): widen the clip box and give the content the same room back. */
+  margin: 0 -10px;
+  padding: 0 10px;
+}
+@keyframes limits-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.limits-swap {
+  animation: limits-swap-in 0.3s var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .limits-collapse,
+  .limits-zone {
+    transition: none;
+  }
+  .limits-swap {
+    animation: none;
+  }
+}
+
+/* With no daily limit the card is short and the drawing spans all of it: the sentence wraps before the drawing
+   starts instead of running under it. */
+.limits-summary--ghost.is-off .limits-summary-dim {
+  max-width: 46%;
+}
+
+/* No daily limit: the vault is the card's emblem. Centred on the card, stronger, and not faded, since nothing
+   sits under it. */
+.limits-summary--ghost.is-off .limits-vault.is-off {
+  top: 50%;
+  right: 14px;
+  width: clamp(112px, 40%, 152px);
+  transform: translateY(-50%);
+  opacity: calc(var(--ghost-op) * 2);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
