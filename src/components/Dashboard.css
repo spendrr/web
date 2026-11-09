@@ -855,6 +855,12 @@
   gap: 14px;
 }
 
+/* Quick pay: the form is out of sight between a scan and the sheet that takes over. */
+.panel.is-quick-hold {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .receive-panel {
   align-items: center;
   text-align: center;

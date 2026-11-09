@@ -1,0 +1,274 @@
+/* Edit sheet for one limit. Same flat language as the Limity page: hairline edges, left-aligned, ink for the
+   one action. The frame is restyled through the sheet's own class; other sheets keep theirs. */
+/* The frame is lighter than the other sheets' full ink outline: this page is calm, and the heavy edge
+   dwarfed the content. Same colour as the cards on the page. */
+.sht-sheet.limit-sheet {
+  --limit-edge: color-mix(in srgb, var(--border) 38%, var(--surface));
+  border: 1px solid var(--limit-edge);
+  border-radius: 24px;
+}
+.limit-stack {
+  align-items: stretch;
+  gap: 14px;
+  text-align: left;
+}
+.limit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.limit-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-h);
+}
+.limit-sub {
+  margin: -8px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+.limit-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--limit-edge);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: text;
+  transition: border-color 0.15s ease, background-color 0.2s ease;
+}
+.limit-field:focus-within {
+  border-color: var(--accent);
+}
+.limit-field.is-off {
+  background: var(--surface-2);
+  cursor: default;
+}
+.limit-field-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* The input is as wide as what is typed: a ghost with the same text sets the width, the input fills it. */
+.limit-size {
+  display: inline-grid;
+  min-width: 1ch;
+  max-width: 100%;
+}
+.limit-size-ghost,
+.limit-field-input {
+  grid-area: 1 / 1;
+  font-family: var(--sans);
+  font-size: var(--amount-size, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+.limit-size-ghost {
+  visibility: hidden;
+  padding: 0 0.08em;
+}
+.limit-field-input {
+  width: 0;
+  min-width: 100%;
+  padding: 0 0.08em;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-h);
+}
+.sht-sheet .limit-field-input,
+.sht-sheet .limit-field-input:focus {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  outline: none;
+}
+.limit-field-input::placeholder {
+  color: var(--text-dim);
+}
+.limit-field-unit {
+  font-size: calc(var(--amount-size, 40px) * 0.6);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.limit-field-sats {
+  flex: none;
+  margin-left: auto;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.limit-chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+:root .limit-sheet button.limit-chip,
+:root .limit-sheet button.limit-chip:hover,
+:root .limit-sheet button.limit-chip:active {
+  height: 40px;
+  padding: 0 4px;
+  border: 1px solid var(--limit-edge);
+  border-radius: 18px;
+  box-shadow: none;
+  transform: none;
+  background: var(--surface);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+:root .limit-sheet button.limit-chip.is-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+:root .limit-sheet button.limit-chip:active {
+  opacity: 0.7;
+}
+
+.limit-note {
+  margin: 0 2px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.limit-note.is-danger {
+  color: var(--danger);
+}
+.limit-pw {
+  display: block;
+}
+.limit-pw-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--limit-edge);
+  border-radius: 14px;
+  box-shadow: none;
+  outline: none;
+  background: var(--surface);
+  font-family: var(--sans);
+  font-size: 17px;
+  color: var(--text-h);
+}
+.limit-pw-input:focus {
+  border-color: var(--accent);
+}
+.limit-actions {
+  margin-top: 6px;
+}
+/* A small text action next to the field it belongs to. */
+:root .limit-sheet button.limit-inline,
+:root .limit-sheet button.limit-inline:hover,
+:root .limit-sheet button.limit-inline:active {
+  flex: none;
+  white-space: nowrap;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  background: none;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-h);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+:root .limit-sheet button.limit-inline:disabled {
+  opacity: 0.4;
+}
+
+/* Content rises into place one after the other, like the other sheets. */
+.limit-stack > :not(.sht-collapse) {
+  animation: sht-rise 0.4s var(--sht-ease) both;
+}
+.limit-stack > :nth-child(1) { animation-delay: 0.04s; }
+.limit-stack > :nth-child(2) { animation-delay: 0.08s; }
+.limit-stack > :nth-child(3) { animation-delay: 0.12s; }
+.limit-stack > :nth-child(4) { animation-delay: 0.16s; }
+.limit-stack > :nth-child(5) { animation-delay: 0.2s; }
+.limit-stack > :nth-child(6) { animation-delay: 0.24s; }
+.limit-stack > :nth-child(7) { animation-delay: 0.28s; }
+
+/* Chips and buttons answer a tap. */
+:root .limit-sheet button.limit-chip {
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.16s var(--sht-ease);
+}
+:root .limit-sheet button.limit-chip:active:not(:disabled) {
+  transform: scale(0.95);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .limit-stack > :not(.sht-collapse) {
+    animation: none;
+  }
+  :root .limit-sheet button.limit-chip {
+    transition: none;
+  }
+}
+
+/* The sheet's two actions keep the ink outline but lose the offset shadow. The selectors outweigh the
+   global button rules (including :hover and :active, which add the shadow and a shift). */
+:root .limit-sheet .limit-actions button.secondary,
+:root .limit-sheet .limit-actions button.secondary:hover,
+:root .limit-sheet .limit-actions button.secondary:active,
+:root .limit-sheet .limit-actions button.primary,
+:root .limit-sheet .limit-actions button.primary:hover,
+:root .limit-sheet .limit-actions button.primary:active {
+  box-shadow: none;
+  transform: none;
+  border-radius: 14px;
+  transition: opacity 0.18s ease, background-color 0.18s ease;
+}
+:root .limit-sheet .limit-actions button.secondary,
+:root .limit-sheet .limit-actions button.secondary:hover,
+:root .limit-sheet .limit-actions button.secondary:active {
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+}
+:root .limit-sheet .limit-actions button.primary,
+:root .limit-sheet .limit-actions button.primary:hover,
+:root .limit-sheet .limit-actions button.primary:active {
+  border: var(--border-w) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+:root .limit-sheet .limit-actions button.primary:disabled {
+  opacity: 0.35;
+}
+:root .limit-sheet .limit-actions button:active:not(:disabled) {
+  opacity: 0.75;
+}
+
+/* A closed password row is zero high but the stack's gap would still be added: take it back, ease it in. */
+.limit-stack > .sht-collapse {
+  transition: grid-template-rows 0.36s var(--sht-ease), opacity 0.24s ease, margin-top 0.36s var(--sht-ease);
+}
+.limit-stack > .sht-collapse:not(.is-open) {
+  margin-top: -14px;
+}
+
+/* Five picks do not fit a narrow sheet once the numbers have thousands ("25 000"): three and two instead. */
+@media (max-width: 340px) {
+  .limit-chips {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

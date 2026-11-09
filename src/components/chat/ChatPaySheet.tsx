@@ -16,11 +16,11 @@ import { localeFor, tf, useLang, useT } from "../../lib/i18n";
 import { checkNamePin, logNamedPayment, pinName } from "../../lib/names/namePins";
 import { isWalletCallTimeout, SEND_WATCHDOG_MS, TIMEOUT_MESSAGE, withTimeout } from "../../lib/wallet/walletCall";
 import {
-  PASSWORD_REQUIRED_THRESHOLD_SATS,
   SPEND_AUTH_FAILED,
   SPEND_AUTH_REQUIRED,
   SPEND_LIMIT_EXCEEDED,
 } from "../../lib/wallet/walletSession";
+import { getNoPasswordSats } from "../../lib/wallet/spendLimitsClient";
 import { displayName } from "../../lib/chat/contactName";
 import { ContactAvatar } from "./ContactSheet";
 import { BooleanSwitch } from "../BooleanSwitch";
@@ -99,7 +99,7 @@ export default function ChatPaySheet({
   const canSwitchMode = fixedSats === undefined;
   const sats = fixedSats ?? amount.sats;
   const isSend = mode === "send";
-  const needsPassword = isSend && (sats >= PASSWORD_REQUIRED_THRESHOLD_SATS || forcePassword);
+  const needsPassword = isSend && (sats >= getNoPasswordSats() || forcePassword);
   const overBalance = isSend && spendable !== undefined && sats > spendable;
   const who = displayName(contact, contact.pubkey);
   const close = () => closeThen(onClose);

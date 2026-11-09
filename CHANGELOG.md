@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-09: Spending limits
+
+- Set a daily payment limit and the amount from which a password is asked. (beta)
+- Small invoices are paid right after scanning, without a confirmation. (beta)
+
 ## 2026-11-08: Payment details
 
 - Large amounts in the payment details shrink to fit on one line.

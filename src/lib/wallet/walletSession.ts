@@ -169,3 +169,12 @@ export const METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
 // doing it would be trying to re-point the seed-hash binding that spend
 // authorization is checked against, while leaving the victim's wallet open.
 export const WALLET_ALREADY_OPEN = "WALLET_ALREADY_OPEN";
+
+// The hard (daily) spend limit would be exceeded. The message carries what is left in the window:
+// `HARD_LIMIT_EXCEEDED:<sats>`; hardLimitRemaining() reads it back.
+export const HARD_LIMIT_EXCEEDED = "HARD_LIMIT_EXCEEDED";
+export function hardLimitRemaining(message: string): number | null {
+  if (!message.startsWith(`${HARD_LIMIT_EXCEEDED}:`)) return null;
+  const n = Number(message.slice(HARD_LIMIT_EXCEEDED.length + 1));
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}

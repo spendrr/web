@@ -195,6 +195,11 @@ export interface Env {
   // pingHealthcheck below) — a healthchecks.io (or compatible) ping URL.
   // Optional: unset just means no external alert exists yet, not an error.
   HEALTHCHECK_PING_URL?: string;
+  // Fine-grained GitHub token with Actions: write on spendrr/web only
+  // (npx wrangler secret put GITHUB_DISPATCH_TOKEN). Starts the deploy-watch
+  // workflow every DEPLOY_WATCH_EVERY_MIN minutes, since GitHub's own schedule
+  // runs it irregularly. Unset: nothing is dispatched.
+  GITHUB_DISPATCH_TOKEN?: string;
   // Payment push relay (pushRelay.ts, docs/payment-push-relay.md): its tunnel
   // URL (behind the same Access service token as BARKD_URL), the bearer it
   // expects, and the secret its pokes are signed with. Any missing: no relay,
@@ -590,11 +595,49 @@ export default {
       sweepLnLedger(env, reportDue).then((ledger) =>
         reportDue ? reportStatus(env, ledger).then(() => pingRelayHealthcheck(env)) : undefined,
       ),
+      deployWatchDue(event.scheduledTime) ? dispatchDeployWatch(env) : undefined,
     ]);
   },
 };
 
 const STATUS_REPORT_EVERY_MIN = 5;
+
+const DEPLOY_WATCH_EVERY_MIN = 15;
+
+// Pure, so the schedule is testable: true on the minutes the deploy watch is due.
+export function deployWatchDue(scheduledTime: number): boolean {
+  return new Date(scheduledTime).getUTCMinutes() % DEPLOY_WATCH_EVERY_MIN === 0;
+}
+
+// spendrr/web runs the deploy watch against the published release. One request
+// on every due minute; the cron itself runs every minute for other work.
+// Never throws: a failed dispatch is retried at the next due minute, and the
+// token is never logged.
+const DEPLOY_WATCH_REPOS = ["spendrr/web"];
+
+async function dispatchDeployWatch(env: Env): Promise<void> {
+  if (!env.GITHUB_DISPATCH_TOKEN) return;
+  await Promise.all(
+    DEPLOY_WATCH_REPOS.map(async (repo) => {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/deploy-watch.yml/dispatches`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+            "User-Agent": "spendrr-worker",
+          },
+          body: JSON.stringify({ ref: "main" }),
+        });
+        if (res.status !== 204) console.error(`dispatchDeployWatch ${repo}: GitHub answered ${res.status}`);
+      } catch {
+        console.error(`dispatchDeployWatch ${repo}: request failed`);
+      }
+    }),
+  );
+}
 
 // What only this Worker can see, for spendrr.app/status (statusReport.ts).
 // Each part reads, never writes: the ledger's summary (from the sweep's tick,

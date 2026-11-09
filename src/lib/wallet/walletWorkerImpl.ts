@@ -47,6 +47,7 @@ import { bip39Seed, deriveBackupKeysFromSeed, type BackupKeys } from "../backup/
 import { deriveChatKeyFromSeed } from "../chat/chatKey";
 import {
   BIO_DECRYPT_FAILED,
+  HARD_LIMIT_EXCEEDED,
   METHOD_NOT_ALLOWED,
   NO_HELD_MNEMONIC,
   SPEND_AUTH_FAILED,
@@ -65,6 +66,7 @@ import {
   WALLET_NOT_OPEN,
 } from "./walletSession";
 import {
+  WALLET_SEND_METHODS,
   classifyOnchainCall,
   classifyWalletCall,
   createRefreshSubmitBudget,
@@ -72,7 +74,11 @@ import {
   isCallTarget,
   isGiftMethodAllowed,
   sanitizeWalletCallArgs,
+  sendAmountSats,
 } from "./walletSpendPolicy";
+import { SpendLimitsKeeper } from "./limitsKeeper";
+import { createIdbLimitsStore, deriveLimitsKey } from "./limitsStorage";
+import type { LimitChange, LimitChangeOutcome } from "./spendLimits";
 import { refreshAndRelease } from "./refreshSubmit";
 import { pendingRoundInputIds } from "./roundInputs";
 
@@ -159,6 +165,9 @@ export type Request =
   // Money chat (beta): posts the session's chat key into `port`. See
   // sessionChatKey below for what that does and does not protect.
   | { id: number; type: "chatKey"; port: MessagePort }
+  // The user-set spend limits (beta). Answered outside the queue like chatKey: it touches no WASM. A change that
+  // loosens a limit carries a SpendAuth, checked here exactly as for a send.
+  | { id: number; type: "limits"; op: { kind: "get" } | { kind: "change"; change: LimitChange; auth?: SpendAuth } }
   // --- Gift-link ephemeral wallet ------------------------------------------
   // A throwaway wallet opened from the one-time mnemonic carried in a gift
   // link, used only to pull the gift VTXO out of its mailbox and forward it
@@ -280,6 +289,14 @@ function dropChatKeys(): void {
 const unauthorizedBudget = createUnauthorizedSpendBudget(UNAUTHORIZED_SPEND_CAP_SATS, UNAUTHORIZED_SPEND_WINDOW_MS);
 const refreshSubmitBudget = createRefreshSubmitBudget(REFRESH_SUBMIT_MAX, REFRESH_SUBMIT_WINDOW_MS);
 
+// The user's spend limits (spendLimits.ts). Same trust level as the budget above: its storage is encrypted
+// under a seed-derived key, which the main thread cannot forge but which it can delete (limitsStorage.ts), so
+// these limits are a brake, not a boundary. With nothing stored the defaults apply, which are the old fixed
+// rules (100 000 sats, no hard limit), so a wallet that never touches the feature behaves as before.
+const limitsKeeper = new SpendLimitsKeeper();
+// Derived in prepareSession (the seed is only there), promoted by a successful open like the chat key.
+let pendingLimitsKey: CryptoKey | null = null;
+
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
 }
@@ -367,12 +384,58 @@ async function syncExitLocks(w: Wallet): Promise<ExitLockSync> {
 
 const FINISHED_EXIT_STATES: ReadonlySet<string> = new Set(["claimed", "vtxo-already-spent", "canceled"]);
 
+// A send, under the user's limits. Everything runs under the limits lock, so a check and its charge cannot
+// interleave with another send or a limits change.
+//
+// Order: the password (when one is needed) first, then both budgets are only CHECKED, then both are charged,
+// so a send that one budget refuses does not burn the other. Charged before the SDK call and never refunded,
+// for the reason given at createUnauthorizedSpendBudget. An unreadable amount is refused while a hard limit is
+// on, exactly as it already needs the password. If the limits cannot be saved the send does not go out.
+function enforceSend(msg: Extract<Request, { type: "call" }>): Promise<void> {
+  return limitsKeeper.exclusive(async () => {
+    const now = Date.now();
+    if (!limitsKeeper.isOpen) throw new Error(WALLET_NOT_OPEN);
+    const noPasswordSats = limitsKeeper.limits(now).noPasswordSats;
+    unauthorizedBudget.setCap(noPasswordSats);
+    const verdict = classifyWalletCall(msg.method, msg.args, noPasswordSats);
+    if (verdict.kind === "denied") throw new Error(METHOD_NOT_ALLOWED);
+    const amount = sendAmountSats(msg.method, msg.args);
+    const unauthorized = verdict.kind === "capped" && !msg.auth;
+    if (!unauthorized) await requireSpendAuth(msg.auth);
+    if (unauthorized && verdict.kind === "capped" && !unauthorizedBudget.canReserve(verdict.amountSats, now)) {
+      throw new Error(SPEND_LIMIT_EXCEEDED);
+    }
+    const hard = limitsKeeper.checkHard(amount === null ? null : Math.ceil(amount), now);
+    if (!hard.ok) throw new Error(`${HARD_LIMIT_EXCEEDED}:${hard.remainingSats}`);
+    await limitsKeeper.charge(hard.charge, now);
+    if (unauthorized && verdict.kind === "capped") unauthorizedBudget.tryReserve(verdict.amountSats, now);
+  });
+}
+
+// get / change on the limits (the "limits" request).
+async function runLimitsOp(op: Extract<Request, { type: "limits" }>["op"]): Promise<unknown> {
+  if (currentWallet === null) throw new Error(WALLET_NOT_OPEN);
+  return limitsKeeper.exclusive(async () => {
+    const now = Date.now();
+    if (op.kind === "get") return limitsKeeper.status(now);
+    const preview = limitsKeeper.preview(op.change, now);
+    if (!preview.ok) return { ok: false, reason: preview.reason } satisfies LimitChangeOutcome;
+    if (preview.needsAuth) await requireSpendAuth(op.auth);
+    await limitsKeeper.commitLimits(preview.limits, now);
+    // A tightened no-password amount shrinks the budget at once; the next send sets it again anyway.
+    unauthorizedBudget.setCap(limitsKeeper.limits(now).noPasswordSats);
+    return { ok: true, status: limitsKeeper.status(now) } satisfies LimitChangeOutcome;
+  });
+}
+
 // The gate itself, applied to every `call` before the method name is even
 // used to index the live WASM object. classifyWalletCall / classifyOnchainCall
 // are the allowlist: a method they don't recognise is refused outright, so
 // the SDK's whole ~120-method surface (offboardAll, OnchainWallet.send,
 // free, …) is unreachable from a crafted message. See walletSpendPolicy.ts.
 async function enforceSpendPolicy(msg: Extract<Request, { type: "call" }>): Promise<void> {
+  // Only a send looks at the limits: a read or a sync must not depend on their storage being readable.
+  if (msg.target === "wallet" && WALLET_SEND_METHODS.has(msg.method)) return enforceSend(msg);
   const verdict =
     msg.target === "onchain" ? classifyOnchainCall(msg.method) : classifyWalletCall(msg.method, msg.args);
   switch (verdict.kind) {
@@ -388,21 +451,10 @@ async function enforceSpendPolicy(msg: Extract<Request, { type: "call" }>): Prom
     case "needs-auth":
       await requireSpendAuth(msg.auth);
       return;
-    case "capped": {
-      if (msg.auth) {
-        // Under the threshold but a password was supplied anyway — still
-        // verify it (a wrong one must fail), but don't consume the
-        // unauthorized budget, since this spend is actually authorized.
-        await requireSpendAuth(msg.auth);
-        return;
-      }
-      // Charged now, not after the call succeeds: see
-      // createUnauthorizedSpendBudget for why a failure is not refunded.
-      if (!unauthorizedBudget.tryReserve(verdict.amountSats, Date.now())) {
-        throw new Error(SPEND_LIMIT_EXCEEDED);
-      }
-      return;
-    }
+    case "capped":
+      // Sends are handled by enforceSend above and nothing else is classified "capped": refuse rather than
+      // let a future method skip the limits.
+      throw new Error(METHOD_NOT_ALLOWED);
     default:
       // Unreachable today (the union above is closed) — a fail-closed guard
       // so that widening CallVerdict without a matching case here refuses the
@@ -534,6 +586,14 @@ async function runRequest(msg: Request): Promise<unknown> {
         console.error("[wallet.worker] chat key derivation failed", e);
       }
 
+      try {
+        pendingLimitsKey = seed ? await deriveLimitsKey(seed) : null;
+      } catch (e) {
+        // No key = no readable store = the strict fallback (password for every send), never "no limits".
+        pendingLimitsKey = null;
+        console.error("[wallet.worker] limits key derivation failed", e);
+      }
+
       let backupKeys: BackupKeys | null = null;
       try {
         if (!seed) throw new Error("no seed");
@@ -650,7 +710,10 @@ async function runRequest(msg: Request): Promise<unknown> {
       if (sessionSeedHash) {
         unauthorizedBudget.bindToSeed(toHex(sessionSeedHash));
         refreshSubmitBudget.bindToSeed(toHex(sessionSeedHash));
+        const limitsId = toHex(await sha256(new TextEncoder().encode(`spendrr-limits-id-v1:${toHex(sessionSeedHash)}`))).slice(0, 32);
+        await limitsKeeper.open(pendingLimitsKey ? createIdbLimitsStore(limitsId, pendingLimitsKey) : null);
       }
+      pendingLimitsKey = null;
       // The receive address, read here while nothing else is queued yet. As a separate call from
       // Dashboard it waited behind the post-unlock sync/maintenance work, so
       // the profile sheet and Přijmout said "no address yet" for a while
@@ -835,6 +898,8 @@ async function runRequest(msg: Request): Promise<unknown> {
       // leave a binding behind that a later call could authorize against.
       sessionSeedHash = null;
       pendingSeedHash = null;
+      pendingLimitsKey = null;
+      await limitsKeeper.close();
       dropChatKeys();
       // Same order as above: release the borrower before the lender.
       if (currentWallet) {
@@ -877,6 +942,14 @@ export function handleMessage(msg: Request) {
     } catch (err) {
       self.postMessage({ id: msg.id, ok: false, error: err instanceof Error ? err.message : String(err) } satisfies Response);
     }
+    return;
+  }
+  if (msg.type === "limits") {
+    self.postMessage({ id: msg.id, started: true } satisfies StartedNotice);
+    runLimitsOp(msg.op).then(
+      (result) => self.postMessage({ id: msg.id, ok: true, result } satisfies Response),
+      (err) => self.postMessage({ id: msg.id, ok: false, error: err instanceof Error ? err.message : String(err) } satisfies Response),
+    );
     return;
   }
   queue = queue.then(async () => {

@@ -75,6 +75,8 @@ export function SendConfirmSheet({
   errorRef,
   onConfirm,
   onBack,
+  quick,
+  extraNote,
 }: {
   plan: SendConfirmPlan;
   feeSats: number | null;
@@ -96,9 +98,14 @@ export function SendConfirmSheet({
   errorRef?: RefObject<HTMLDivElement | null>;
   onConfirm: () => void;
   onBack: () => void;
+  // Quick pay (beta): the sheet opens already sending, so it says "Rychlá platba", not "Zkontroluj platbu".
+  quick?: boolean;
+  // Why a scan that tried to pay by itself landed here instead (over the quick limit, budget used up, ...).
+  extraNote?: string | null;
 }) {
   const t = useT();
   const lang = useLang();
+  const checkTitle = quick ? t("Rychlá platba") : t("Zkontroluj platbu");
   const { closing, closeThen } = useSheetClose();
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const copied = copyState === "copied";
@@ -118,7 +125,7 @@ export function SendConfirmSheet({
           <SendGlyph flying={busy} />
           {recipient ? (
             <TitleSwap
-              a={t("Zkontroluj platbu")}
+              a={checkTitle}
               b={
                 <>
                   {t("Platíš")} <span className="sht-send-title-name">@{recipient.name}</span>
@@ -126,11 +133,11 @@ export function SendConfirmSheet({
               }
             />
           ) : bip353 && fitsTitle(bip353.name) ? (
-            <TitleSwap a={t("Zkontroluj platbu")} b={<LightningTitle label={t("Platíš")} value={`\u20bf${bip353.name}`} />} />
+            <TitleSwap a={checkTitle} b={<LightningTitle label={t("Platíš")} value={`\u20bf${bip353.name}`} />} />
           ) : plan.lightningAddress && fitsTitle(plan.destination) ? (
-            <TitleSwap a={t("Zkontroluj platbu")} b={<LightningTitle label={t("Platíš")} value={plan.destination} />} />
+            <TitleSwap a={checkTitle} b={<LightningTitle label={t("Platíš")} value={plan.destination} />} />
           ) : (
-            <h2 className="sht-send-title">{t("Zkontroluj platbu")}</h2>
+            <h2 className="sht-send-title">{checkTitle}</h2>
           )}
         </header>
         {plan.amountSats !== undefined && (
@@ -215,6 +222,12 @@ export function SendConfirmSheet({
             <span>
               {t("Adresa u tohoto jména je jiná než při tvé poslední platbě. Než pošleš, ověř s příjemcem, že si ji opravdu změnil/a.")}
             </span>
+          </p>
+        )}
+        {extraNote && (
+          <p className="sht-send-note">
+            <InfoGlyph />
+            <span>{extraNote}</span>
           </p>
         )}
         <p className="sht-send-note">
