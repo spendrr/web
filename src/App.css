@@ -932,3 +932,22 @@ textarea:focus {
   display: inline-block;
   animation: mnemonic-reveal 300ms var(--ease-out) both;
 }
+
+/* Light/dark switch from Settings: colours glide instead of snapping. Set by
+   fadeThemeChange() in lib/ui/theme.ts for ~450 ms only. Colours only, never
+   transform, so nothing that moves is touched. */
+:root.theme-fading,
+:root.theme-fading *,
+:root.theme-fading *::before,
+:root.theme-fading *::after {
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    fill 0.4s ease,
+    stroke 0.4s ease,
+    box-shadow 0.4s ease,
+    outline-color 0.4s ease,
+    --glow-1 0.4s ease,
+    --glow-2 0.4s ease !important;
+}

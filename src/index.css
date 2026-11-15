@@ -1,3 +1,17 @@
+/* Registered so the strength of the page glow (a gradient, which cannot fade by
+   itself) can transition when the theme switches; see .theme-fading in App.css. */
+@property --glow-1 {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+@property --glow-2 {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
 :root {
   --bg: #f2ede4;
   --surface: #ffffff;
@@ -257,7 +271,7 @@
 }
 
 :root[data-color-theme="teal"] {
-  --accent: #4f8f8a;
+  --accent: #2d7f78;
   --accent-ink: #ffffff;
   --accent-bg: #dfeceb;
 }
