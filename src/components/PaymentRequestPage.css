@@ -56,10 +56,20 @@
   gap: 10px;
   width: 100%;
   margin-top: 6px;
-  padding: 16px 14px 14px;
-  border-radius: 20px;
-  border: var(--border-w) solid var(--border);
-  background: var(--surface-2);
+}
+
+.prq-wide {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The QR is for paying from another device. On a phone or tablet the payer
+   is already holding the only screen, so it would be a code to scan from
+   itself. */
+@media (hover: none), (pointer: coarse) {
+  .prq-ln-qr {
+    display: none;
+  }
 }
 
 .prq-ln-head {
