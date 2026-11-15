@@ -762,6 +762,12 @@
   background: var(--danger-bg);
 }
 
+/* Failed/canceled: what was attempted, struck out, in the muted ink. */
+.history-list .history-item .amount.amount-failed {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .history-list .history-amount-col {
   display: flex;
   flex-direction: column;

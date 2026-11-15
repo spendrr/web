@@ -5825,6 +5825,14 @@ function movementStatusLabel(status: string, t: (cs: string) => string): string 
   if (status === "canceled") return t("Zrušeno");
   return status;
 }
+// The tone a history row shows. A failed or canceled movement of ANY kind is
+// "failed": its effective balance change is 0, so without this a failed send
+// reads as a green "+0 sats" receive. Pending/confirmed only exist for the
+// on-chain kinds (ONCHAIN_STATUS_KINDS).
+function movementRowTone(m: { subsystemName: string; subsystemKind: string; status: string }): OnchainStatusTone | null {
+  if (m.status === "failed" || m.status === "canceled") return "failed";
+  return ONCHAIN_STATUS_KINDS.has(movementKind(m)) ? onchainStatusTone(m.status) : null;
+}
 function onchainStatusLabel(tone: OnchainStatusTone, t: (cs: string) => string): string {
   if (tone === "pending") return t("Čeká na potvrzení");
   if (tone === "failed") return t("Selhalo");
@@ -5913,8 +5921,7 @@ const HistoryPanel = memo(function HistoryPanel({
   const toneSettledRef = useRef(false);
 
   useEffect(() => {
-    const toneFor = (m: Movement): OnchainStatusTone | null =>
-      ONCHAIN_STATUS_KINDS.has(movementKind(m)) ? onchainStatusTone(m.status) : null;
+    const toneFor = (m: Movement): OnchainStatusTone | null => movementRowTone(m);
 
     if (!toneSettledRef.current) {
       prevToneRef.current = new Map(history.map((m) => [m.id, toneFor(m)]));
@@ -5997,12 +6004,27 @@ const HistoryPanel = memo(function HistoryPanel({
     // something (see ONCHAIN_STATUS_KINDS) — showing it on Ark/Lightning
     // rows would just be noise since those settle off-chain with nothing
     // resembling a confirmation wait.
-    const statusTone = ONCHAIN_STATUS_KINDS.has(movementKind(m)) ? onchainStatusTone(m.status) : null;
+    const statusTone = movementRowTone(m);
+    const failed = statusTone === "failed";
+    const canceled = m.status === "canceled";
+    // The whole-row tint is for on-chain movements; a failed Ark/Lightning payment
+    // is already marked by its cross, struck amount and tag.
+    const tinted = statusTone && statusTone !== "confirmed" && ONCHAIN_STATUS_KINDS.has(movementKind(m));
     // A paid refresh still waiting for its round gets a "Probíhá" tag.
     const refreshPending = isRefreshMovement(m) && m.status === "pending";
     const justConfirmed = justConfirmedIds.has(m.id);
+    // A failed movement moved nothing: show what was attempted, struck out, or
+    // nothing when that is unknown.
+    const attemptedSats = failed ? m.intendedBalanceSats : 0;
     const amountEl = balanceHidden ? (
       <div className="amount amount-dots">• • • •</div>
+    ) : failed ? (
+      attemptedSats !== 0 ? (
+        <div className="amount amount-failed">
+          {attemptedSats > 0 ? "+" : ""}
+          {attemptedSats.toLocaleString(localeFor(lang))} sats
+        </div>
+      ) : null
     ) : (
       <div className={positive ? "amount positive" : "amount negative"}>
         {positive ? "+" : ""}
@@ -6023,12 +6045,12 @@ const HistoryPanel = memo(function HistoryPanel({
       <button
         key={m.id}
         type="button"
-        className={`history-item${statusTone && statusTone !== "confirmed" ? ` history-item--${statusTone}` : ""}`}
+        className={`history-item${tinted ? ` history-item--${statusTone}` : ""}`}
         style={staggering ? ({ "--i": staggerIndex } as CSSProperties) : undefined}
         onClick={() => setSelected(m)}
       >
         <div
-          className={`history-icon ${positive ? "in" : "out"}${flying ? " fly-in" : ""}${justConfirmed ? " just-confirmed" : ""}`}
+          className={`history-icon ${positive && !failed ? "in" : "out"}${flying ? " fly-in" : ""}${justConfirmed ? " just-confirmed" : ""}`}
           onAnimationEnd={() =>
             setFlyingIds((prev) => {
               if (!prev.has(m.id)) return prev;
@@ -6039,7 +6061,7 @@ const HistoryPanel = memo(function HistoryPanel({
           }
         >
           <span className="history-icon-arrow-layer">
-            {positive ? <HistoryReceiveIcon /> : <HistorySendIcon />}
+            {failed ? <CloseIcon /> : positive ? <HistoryReceiveIcon /> : <HistorySendIcon />}
           </span>
           {statusTone && (
             <span className="history-icon-check-layer">
@@ -6055,11 +6077,17 @@ const HistoryPanel = memo(function HistoryPanel({
               />
             </span>
           )}
-          {statusTone && <HistoryIconRing tone={statusTone} />}
+          {statusTone && !failed && <HistoryIconRing tone={statusTone} />}
         </div>
         <div className="history-info">
           <div className="history-kind">
-            {isRefreshMovement(m) ? t("Obnova mincí") : historyKindName(movementKind(m), t)}
+            {isRefreshMovement(m)
+              ? t("Obnova mincí")
+              : failed && PAYMENT_KINDS.has(movementKind(m))
+                ? canceled
+                  ? t("Platba zrušena")
+                  : t("Platba selhala")
+                : historyKindName(movementKind(m), t)}
             {!isRefreshMovement(m) && !LIGHTNING_KINDS.has(movementKind(m)) && !m.lightningInvoice && (() => {
               const n = (positive ? null : nameForPayment(m)) ?? (isBeta ? chatPayments.get(m.id)?.name : null) ?? null;
               // A long name would crowd the amount out of the row; the detail still shows it.
@@ -6083,7 +6111,7 @@ const HistoryPanel = memo(function HistoryPanel({
               {statusTone === "confirmed" && <StatusCheckIcon />}
               {statusTone === "pending" && <ClockIcon />}
               {statusTone === "failed" && <CloseIcon />}
-              {onchainStatusLabel(statusTone, t)}
+              {canceled ? t("Zrušeno") : onchainStatusLabel(statusTone, t)}
             </span>
           </div>
         ) : refreshPending ? (
