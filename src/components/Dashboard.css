@@ -499,7 +499,7 @@
   justify-content: center;
   gap: 7px;
   border: 2.5px solid var(--border);
-  box-shadow: 3.4px 3.4px 0 var(--border);
+  box-shadow: 2px 2px 0 var(--border);
   background: var(--surface);
   color: var(--text-h);
   transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.14s ease;
@@ -542,7 +542,7 @@
    pointers, since a touch :hover stays matched after the tap. */
 .big-actions .big-action-btn:hover:not(:disabled) {
   transform: none;
-  box-shadow: 3.4px 3.4px 0 var(--border);
+  box-shadow: 2px 2px 0 var(--border);
 }
 
 @media (hover: hover) {
@@ -557,7 +557,7 @@
 .big-actions .big-action-btn:active:not(:disabled),
 .big-actions .big-action-btn.is-holding,
 .big-actions .big-action-btn.is-menu-open {
-  transform: translate(3.4px, 3.4px);
+  transform: translate(2px, 2px);
   box-shadow: 0 0 0 var(--border);
 }
 
@@ -574,7 +574,7 @@
   border: 2.5px solid var(--border);
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 3px 3px 0 var(--border);
+  box-shadow: 2px 2px 0 var(--border);
   transition:
     transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.14s ease;
@@ -592,18 +592,18 @@
 
 .big-actions .big-action-scan:hover:not(:disabled) {
   transform: none;
-  box-shadow: 3px 3px 0 var(--border);
+  box-shadow: 2px 2px 0 var(--border);
 }
 
 @media (hover: hover) {
   .big-actions .big-action-scan:hover:not(:disabled) {
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--border);
+    box-shadow: 3px 3px 0 var(--border);
   }
 }
 
 .big-actions .big-action-scan:active:not(:disabled) {
-  transform: translate(3px, 3px);
+  transform: translate(2px, 2px);
   box-shadow: 0 0 0 var(--border);
 }
 

@@ -66,11 +66,9 @@
 }
 
 .settings-label {
-  font-size: 11.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
 }
 
 .info-row {
@@ -267,6 +265,11 @@
   color: var(--text);
 }
 
+/* The icon carries the colour with the title. */
+.settings-item--danger .settings-icon {
+  color: var(--danger);
+}
+
 /* The signpost row is the exception: it is a warning about where the row
    leads rather than a description of an action, so the whole row is red. */
 .settings-item--danger-all .settings-item-sub {
@@ -284,46 +287,76 @@
   padding: 14px 16px 16px;
 }
 
+/* Colour dots: a ring slides to the chosen one (same motion as the toggles). */
 .color-theme-toggle {
+  --dot: 28px;
+  --dot-gap: 12px;
+  position: relative;
   display: flex;
-  gap: 10px;
-  padding: 4px 2px;
+  gap: var(--dot-gap);
+  padding: 6px;
+  /* the ring's 6px of air hangs outside the row, so the last dot lines up with the switches */
+  margin: -6px -6px -6px 0;
 }
 
 .color-swatch-btn {
-  width: 26px;
-  height: 26px;
+  position: relative;
+  width: var(--dot);
+  height: var(--dot);
   border-radius: 50%;
   border: var(--border-w) solid var(--border);
-  box-shadow: var(--pop-sm);
+  box-shadow: none;
   padding: 0;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.color-swatch-btn:hover {
-  transform: none;
+.color-swatch-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: none;
+}
+
+.color-swatch-btn:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .color-swatch-btn.active {
-  outline: 2px solid var(--text-h);
-  outline-offset: 2px;
-  animation: swatch-bounce 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+  outline: none;
+  animation: none;
 }
 
-@keyframes swatch-bounce {
-  0% {
-    transform: translateY(0);
+@supports selector(:has(a)) {
+  .color-theme-toggle::before {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+    /* container padding 6px, ring 5px outside the dot: starts 1px from the edge */
+    top: 1px;
+    left: 1px;
+    width: calc(var(--dot) + 10px);
+    height: calc(var(--dot) + 10px);
+    border-radius: 50%;
+    border: 2px solid var(--text-h);
+    pointer-events: none;
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  50% {
-    transform: translateY(-4px);
+  .color-theme-toggle:has(.color-swatch-btn:nth-child(2).active)::before {
+    transform: translateX(calc(var(--dot) + var(--dot-gap)));
   }
-  100% {
-    transform: translateY(0);
+  .color-theme-toggle:has(.color-swatch-btn:nth-child(3).active)::before {
+    transform: translateX(calc((var(--dot) + var(--dot-gap)) * 2));
+  }
+  .color-theme-toggle:has(.color-swatch-btn:nth-child(4).active)::before {
+    transform: translateX(calc((var(--dot) + var(--dot-gap)) * 3));
+  }
+  .color-theme-toggle:has(.color-swatch-btn:nth-child(5).active)::before {
+    transform: translateX(calc((var(--dot) + var(--dot-gap)) * 4));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .color-swatch-btn.active {
-    animation: none;
+  .color-theme-toggle::before,
+  .color-swatch-btn {
+    transition: none;
   }
 }
 
@@ -344,7 +377,7 @@
 }
 
 .color-swatch--teal {
-  background: #4f8f8a;
+  background: #2d7f78;
 }
 
 /* ---- "Poplatky v síti" widget (NetworkFeesWidget, Settings.tsx) ---- */
@@ -1045,4 +1078,295 @@
   width: 15px;
   height: 15px;
   fill: var(--accent);
+}
+
+/* ---- Vzhled a chování ---- */
+
+/* Theme choice as three little screens: the tile draws what it switches to. */
+.theme-tiles {
+  display: flex;
+  gap: 10px;
+  /* 16px, same as the rows' own top padding, so the gap under a card title is the same everywhere */
+  padding: 16px 16px 16px;
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.theme-tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.theme-tile:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.theme-tile-screen {
+  --tt-bg: #f2ede4;
+  --tt-ink: #16130d;
+  display: flex;
+  height: 64px;
+  border-radius: 12px;
+  border: var(--border-w) solid var(--border-soft);
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-tile-half {
+  flex: 1;
+  position: relative;
+  background: var(--tt-bg);
+  color: var(--tt-ink);
+}
+
+/* A balance line and the accent button, in each half's own colours. */
+.theme-tile-half::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 11px;
+  width: 52%;
+  height: 7px;
+  border-radius: 4px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.theme-tile-half::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  bottom: 10px;
+  width: 26px;
+  height: 13px;
+  border-radius: 5px;
+  background: var(--accent);
+}
+
+.theme-tile-half--dark {
+  --tt-bg: #100e0a;
+  --tt-ink: #f2ede4;
+}
+
+/* Own background, so no hairline of the card shows between border and halves. */
+.theme-tile-screen--system {
+  background: linear-gradient(90deg, #f2ede4 50%, #100e0a 50%);
+}
+
+.theme-tile-screen--light {
+  background: #f2ede4;
+}
+
+.theme-tile-screen--dark {
+  background: #100e0a;
+}
+
+.theme-tile-screen--light .theme-tile-half--dark,
+.theme-tile-screen--dark .theme-tile-half--light {
+  display: none;
+}
+
+.theme-tile.active {
+  color: var(--text-h);
+}
+
+.theme-tile.active .theme-tile-screen {
+  border-color: var(--text-h);
+  box-shadow: 0 0 0 1.5px var(--text-h);
+}
+
+.theme-tile-label {
+  text-align: center;
+}
+
+/* Small side-by-side choice (Jazyk, Měna): fits next to its label. Equal-width
+   slots so one pill can slide under the active button, like .mode-toggle.
+   Fixed width, so the Jazyk and Měna pills line up on both edges. */
+.pill-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  width: 176px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+/* `:root` + class matches the specificity of the global sizing rule for
+   class-less buttons (design-v2.css: 15px, 48px tall, 14px radius), which
+   would otherwise grow every inactive pill button. */
+:root .pill-toggle button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.28s ease;
+}
+
+:root .pill-toggle button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+:root .pill-toggle button.active {
+  background: transparent;
+  color: var(--accent-ink);
+}
+
+@supports selector(:has(a)) {
+  .pill-toggle::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc((100% - 6px - 2px) / 2);
+    border-radius: 999px;
+    background: var(--accent);
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pill-toggle:has(button:nth-child(3))::before {
+    width: calc((100% - 6px - 4px) / 3);
+  }
+  .pill-toggle:has(button:nth-child(2).active)::before {
+    transform: translateX(calc(100% + 2px));
+  }
+  .pill-toggle:has(button:nth-child(3).active)::before {
+    transform: translateX(calc(200% + 4px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-toggle::before,
+  .theme-tile-screen {
+    transition: none;
+  }
+}
+
+/* Title of a card whose rows carry their own 14px / 700 / full-ink labels:
+   the original small caps, so card title and row label read as two levels. */
+.settings-group > .settings-label--section {
+  padding: 16px 16px 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+/* Icon in front of a Settings row: line glyph in the row's ink, the label stays
+   the only thing that names the row. */
+.settings-lead {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.settings-icon {
+  flex: none;
+  display: block;
+  width: 22px;
+  height: 22px;
+  color: var(--text-h);
+}
+
+.settings-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Current state of a row that opens a page ("Zapnuto"), before the chevron. */
+.settings-item-end {
+  display: flex;
+  /* baseline, not center: the chevron glyph sits low in its line box, so centred
+     boxes left it below the value text */
+  align-items: baseline;
+}
+
+.settings-item-value {
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Value rows (.info-row, 10px padding) under a card title: same 16px gap as
+   the other rows get from their own padding. */
+.settings-label--section + .info-row {
+  padding-top: 16px;
+}
+
+/* Warning above the Nebezpečná zóna rows: tinted, red outline, normal ink for the
+   text, so only the icon and the outline carry the alarm. */
+.settings-warn {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: var(--border-w) solid var(--danger);
+  border-radius: 16px;
+  background: var(--danger-bg);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.settings-warn .settings-icon {
+  color: var(--danger);
+  margin-top: 1px;
+}
+
+.settings-warn p {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+:root[data-theme="dark"] .settings-warn {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .settings-warn {
+    background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  }
+}
+
+/* A row with an icon: the icon + text block takes the remaining width and wraps,
+   and the chevron / state keep 10px of air, instead of the text running up to it. */
+.settings-item > .settings-lead {
+  flex: 1 1 auto;
+}
+
+.settings-item > .chevron,
+.settings-item > .settings-item-end {
+  flex: none;
+  margin-left: 10px;
 }

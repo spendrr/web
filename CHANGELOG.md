@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-16: Settings: new look
+
+- Settings has clearer sections, icons and a new appearance switch.
+- The Android back button now goes back one Settings page.
+
 ## 2026-11-09: Spending limits
 
 - Set a daily payment limit and the amount from which a password is asked. (beta)

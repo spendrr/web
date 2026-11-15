@@ -41,12 +41,28 @@ export function applyTheme(pref: ThemePreference): void {
   syncThemeColorMeta(pref);
 }
 
+// Only a user's own switch in Settings fades; the first paint and an OS flip
+// stay instant. The class lives just long enough for the colours to settle, so
+// it never slows hover or press transitions the rest of the time (see
+// .theme-fading in App.css).
+const FADE_MS = 450;
+let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+
+function fadeThemeChange(): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const root = document.documentElement;
+  root.classList.add("theme-fading");
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => root.classList.remove("theme-fading"), FADE_MS);
+}
+
 export function setThemePreference(pref: ThemePreference): void {
   if (pref === "system") {
     localStorage.removeItem(STORAGE_KEY);
   } else {
     localStorage.setItem(STORAGE_KEY, pref);
   }
+  fadeThemeChange();
   applyTheme(pref);
 }
 

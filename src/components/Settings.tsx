@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { FeeEstimate, RoundFlowKind, RoundState, Vtxo, VtxoState, WalletTransaction } from "@secondts/bark";
 import {
   clearCallLog,
@@ -106,6 +106,20 @@ import RefreshEnginePanel from "./RefreshEnginePanel";
 import { approxTime } from "./RefreshEngineOverview";
 import { effectiveEngineMode } from "../lib/refreshEngine/mode";
 import { dropVtxoSnapshot } from "../lib/wallet/vtxoSnapshot";
+import {
+  CoinsIcon,
+  ExitIcon,
+  FingerprintIcon,
+  GiftIcon,
+  LockIcon,
+  LogIcon,
+  SeedEyeIcon,
+  ShakeIcon,
+  ShieldIcon,
+  TimerIcon,
+  BlockIcon,
+  TrashIcon,
+} from "./SettingsIcons";
 import { computeOverview, engineSnapshot, subscribeEngine, type EngineOverview } from "../lib/refreshEngine/runner";
 
 // Two levels now. The root ("menu") is a signpost: fee widget, four section
@@ -217,8 +231,14 @@ export default function Settings({
     void probePlatformAuthenticator();
   }, []);
   const parentOf = (s: Exclude<Section, "menu">): SectionPage => PARENT[s];
-  // Back inside Settings goes where the header's back button goes.
-  useBackLayer(section !== "menu", () => {
+  // Back inside Settings goes where the header's back button goes. One back
+  // layer per level of depth (section, then leaf under it): a single layer for
+  // "anywhere but the menu" was used up by the first back from a leaf and never
+  // pushed again, so the second back closed Settings and dropped the user on
+  // the dashboard instead of the menu.
+  const depth = section === "menu" ? 0 : PARENT[section] === "menu" ? 1 : 2;
+  useBackLayer(depth >= 1, () => setSection("menu"));
+  useBackLayer(depth >= 2, () => {
     if (section !== "menu") setSection(parentOf(section));
   });
 
@@ -557,6 +577,7 @@ function StorageProtectionCard({ onShowSeed }: { onShowSeed: () => void }) {
 
   return (
     <div className="settings-group">
+      <div className="settings-label settings-label--section">{t("Záloha")}</div>
       <div className="info-row">
         <span>{t("Trvalé úložiště")}</span>
         <code>{value}</code>
@@ -719,19 +740,17 @@ function SettingsMenu({ onNavigate }: { onNavigate: (s: Section) => void }) {
           <span>{t("Zobrazit changelog")}</span>
           <span className="chevron">›</span>
         </button>
-        <div className="settings-row settings-row--inline">
-          <div className="settings-row-label">{t("Vyzkoušet beta verzi")}</div>
-          <DesignVersionToggle />
-        </div>
+        {/* About the whole app, not the beta switch below it, so it sits above it and
+            says nothing about "beta". Always shown. */}
         <div className="about-warning">
           <div className="banner banner-warning">
             <WarningIcon />
-            <span>
-              {t(
-                "Tohle je beta verze bez nezávislého auditu. Používej ji na vlastní riziko a nedrž v ní větší prostředky, než jsi ochotný ztratit.",
-              )}
-            </span>
+            <span>{t("Zatím bez nezávislého auditu. Začni menší částkou.")}</span>
           </div>
+        </div>
+        <div className="settings-row settings-row--inline">
+          <div className="settings-row-label">{t("Vyzkoušet beta verzi")}</div>
+          <DesignVersionToggle />
         </div>
       </div>
       {showChangelog && <ChangelogSheet onClose={() => setShowChangelog(false)} />}
@@ -746,10 +765,12 @@ function NavRow({
   label,
   sub,
   danger,
+  icon,
   onClick,
 }: {
   label: string;
   sub: string;
+  icon?: ReactNode;
   // "all" paints the subtitle red too — used on the signpost row, where the
   // whole row is a warning about where it leads. "title" is for rows already
   // inside Nebezpečná zóna, where every subtitle turning red made the page
@@ -764,9 +785,12 @@ function NavRow({
       }`}
       onClick={onClick}
     >
-      <span className="settings-item-text">
-        <span>{label}</span>
-        <span className="settings-item-sub">{sub}</span>
+      <span className="settings-lead">
+        {icon}
+        <span className="settings-item-text">
+          <span>{label}</span>
+          <span className="settings-item-sub">{sub}</span>
+        </span>
       </span>
       <span className="chevron">›</span>
     </button>
@@ -798,43 +822,64 @@ function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
   return (
     <div className="settings-body">
       <div className="settings-group">
+        <div className="settings-label settings-label--section">{t("Přihlášení")}</div>
         <button
           className="settings-item"
           onClick={() => (passwordless ? requestPasswordSetup("settings") : onNavigate("password"))}
         >
-          <span>{passwordless ? t("Nastavit heslo") : t("Změnit heslo")}</span>
+          <span className="settings-lead">
+            <LockIcon />
+            <span>{passwordless ? t("Nastavit heslo") : t("Změnit heslo")}</span>
+          </span>
           <span className="chevron">›</span>
         </button>
         {bioAvailable && (
           <button className="settings-item" onClick={() => onNavigate("biometric")}>
-            <span>
-              {t("Odemykání otiskem")} {hasBiometricUnlock() ? `(${t("zapnuto")})` : ""}
+            <span className="settings-lead">
+              <FingerprintIcon />
+              <span>{t("Odemykání otiskem")}</span>
             </span>
-            <span className="chevron">›</span>
-          </button>
-        )}
-        <AutoLockSetting />
-        {isShakeSupported() && <ShakeSetting />}
-        {isBeta && (
-          <button className="settings-item settings-item--stacked" onClick={() => onNavigate("limits")}>
-            <span className="settings-item-text">
-              <span>{t("Limity výdajů (beta)")}</span>
-              <span className="settings-item-sub">{t("Heslo, denní limit, rychlá platba")}</span>
+            <span className="settings-item-end">
+              <span className="settings-item-value">{hasBiometricUnlock() ? t("Zapnuto") : t("Vypnuto")}</span>
+              <span className="chevron">›</span>
             </span>
-            <span className="chevron">›</span>
           </button>
         )}
       </div>
 
-      {/* Its own card, below everything else: the rest of this page locks
-          things down, this one puts the seed phrase on screen. It used to sit
-          third in an unlabelled list between "Onchain transakce" and
-          "Změnit heslo". */}
       <div className="settings-group">
+        <div className="settings-label settings-label--section">{t("Uzamčení")}</div>
+        <AutoLockSetting icon={<TimerIcon />} />
+        {isShakeSupported() && <ShakeSetting icon={<ShakeIcon />} />}
+      </div>
+
+      {isBeta && (
+        <div className="settings-group">
+          <div className="settings-label settings-label--section">{t("Platby")}</div>
+          <button className="settings-item settings-item--stacked" onClick={() => onNavigate("limits")}>
+            <span className="settings-lead">
+              <ShieldIcon />
+              <span className="settings-item-text">
+                <span>{t("Limity výdajů (beta)")}</span>
+                <span className="settings-item-sub">{t("Heslo, denní limit, rychlá platba")}</span>
+              </span>
+            </span>
+            <span className="chevron">›</span>
+          </button>
+        </div>
+      )}
+
+      {/* Its own card, below everything else: the rest of this page locks
+          things down, this one puts the seed phrase on screen. */}
+      <div className="settings-group">
+        <div className="settings-label settings-label--section">Seed phrase</div>
         <button className="settings-item settings-item--stacked" onClick={() => onNavigate("seed")}>
-          <span className="settings-item-text">
-            <span>{t("Zobrazit seed phrase")}</span>
-            <span className="settings-item-sub">{t("Odhalí slova na obrazovce")}</span>
+          <span className="settings-lead">
+            <SeedEyeIcon />
+            <span className="settings-item-text">
+              <span>{t("Zobrazit seed phrase")}</span>
+              <span className="settings-item-sub">{t("Odhalí slova na obrazovce")}</span>
+            </span>
           </span>
           <span className="chevron">›</span>
         </button>
@@ -848,9 +893,10 @@ function WalletSection({ wallet, onNavigate }: { wallet: WalletClient; onNavigat
   return (
     <div className="settings-body">
       <div className="settings-group">
-        {/* Which server and which wallet this is — the context for everything
-            below it, so it reads before the storage and coin rows rather than
-            sitting in "O peněžence" next to the build number. */}
+        {/* Which server and which wallet this is: the context for everything
+            below it, so it reads first rather than sitting in "O peněžence"
+            next to the build number. */}
+        <div className="settings-label settings-label--section">{t("Peněženka")}</div>
         <div className="info-row">
           <span>Ark server</span>
           <code>ark.second.tech</code>
@@ -867,25 +913,54 @@ function WalletSection({ wallet, onNavigate }: { wallet: WalletClient; onNavigat
 
       <StorageProtectionCard onShowSeed={() => onNavigate("seed")} />
 
-      {/* Own card: everything above is a read-only fact about this wallet,
-          these two lead somewhere. */}
+      {/* Rows that lead somewhere; each says in a few words what it holds, since
+          "VTXO mince" alone means nothing to most people. */}
       <div className="settings-group">
-        <button className="settings-item" onClick={() => onNavigate("vtxos")}>
-          <span>{t("VTXO mince")}</span>
+        <div className="settings-label settings-label--section">{t("Prostředky")}</div>
+        <button className="settings-item settings-item--stacked" onClick={() => onNavigate("vtxos")}>
+          <span className="settings-lead">
+            <CoinsIcon />
+            <span className="settings-item-text">
+              <span>{t("VTXO mince")}</span>
+              <span className="settings-item-sub">{t("Mince, ze kterých je zůstatek")}</span>
+            </span>
+          </span>
           <span className="chevron">›</span>
         </button>
-        <button className="settings-item" onClick={() => onNavigate("onchain-txs")}>
-          <span>{t("Onchain transakce")}</span>
+        <button className="settings-item settings-item--stacked" onClick={() => onNavigate("onchain-txs")}>
+          <span className="settings-lead">
+            <BlockIcon />
+            <span className="settings-item-text">
+              <span>{t("Onchain transakce")}</span>
+              <span className="settings-item-sub">{t("Vklady a výběry na blockchainu")}</span>
+            </span>
+          </span>
           <span className="chevron">›</span>
         </button>
-        <button className="settings-item" onClick={() => onNavigate("gifts")}>
-          <span>{t("Odeslané dárky")}</span>
+        <button className="settings-item settings-item--stacked" onClick={() => onNavigate("gifts")}>
+          <span className="settings-lead">
+            <GiftIcon />
+            <span className="settings-item-text">
+              <span>{t("Odeslané dárky")}</span>
+              <span className="settings-item-sub">{t("Odkazy, které jsi poslal")}</span>
+            </span>
+          </span>
           <span className="chevron">›</span>
         </button>
-        {/* For everyone, not just the beta: it's what lets someone report a
-            stuck payment or a hung call with actual detail from their phone. */}
-        <button className="settings-item" onClick={() => onNavigate("call-log")}>
-          <span>{t("Log peněženky")}</span>
+      </div>
+
+      {/* For everyone, not just the beta: it's what lets someone report a
+          stuck payment or a hung call with actual detail from their phone. */}
+      <div className="settings-group">
+        <div className="settings-label settings-label--section">{t("Diagnostika")}</div>
+        <button className="settings-item settings-item--stacked" onClick={() => onNavigate("call-log")}>
+          <span className="settings-lead">
+            <LogIcon />
+            <span className="settings-item-text">
+              <span>{t("Log peněženky")}</span>
+              <span className="settings-item-sub">{t("Pro podporu")}</span>
+            </span>
+          </span>
           <span className="chevron">›</span>
         </button>
       </div>
@@ -900,26 +975,38 @@ function AppearanceSection({ wallet, onNavigate }: { wallet: WalletClient; onNav
   return (
     <div className="settings-body">
       <div className="settings-group">
-        <div className="settings-row">
-          <div className="settings-row-label">{t("Vzhled")}</div>
-          <ThemeToggle />
-        </div>
-        <div className="settings-row">
-          <div className="settings-row-label">{t("Barevné téma")}</div>
+        <div className="settings-label settings-label--section">{t("Vzhled")}</div>
+        <ThemeToggle />
+        <div className="settings-row settings-row--inline">
+          <div className="settings-row-label">{t("Barva")}</div>
           <ColorThemeToggle />
         </div>
-        <div className="settings-row">
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-label settings-label--section">{t("Jazyk a měna")}</div>
+        <div className="settings-row settings-row--inline">
           <div className="settings-row-label">{t("Jazyk")}</div>
           <LanguageToggle />
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-row--inline">
           <div className="settings-row-label">{t("Měna")}</div>
           <CurrencyToggle />
         </div>
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-label settings-label--section">{t("Chování")}</div>
         {isHapticsSupported() && (
           <div className="settings-row settings-row--inline">
             <div className="settings-row-label">{t("Haptická odezva")}</div>
             <HapticsToggle />
+          </div>
+        )}
+        {isNotificationSupported() && (
+          <div className="settings-row settings-row--inline">
+            <div className="settings-row-label">{t("Oznámení o platbách")}</div>
+            <NotificationsToggle wallet={wallet} />
           </div>
         )}
         {isBeta && !isBumpPayKillSwitchActive() && isBumpPaySupported() && (
@@ -940,12 +1027,6 @@ function AppearanceSection({ wallet, onNavigate }: { wallet: WalletClient; onNav
             <span className="chevron">›</span>
           </button>
         )}
-        {isNotificationSupported() && (
-          <div className="settings-row settings-row--inline">
-            <div className="settings-row-label">{t("Oznámení o platbách")}</div>
-            <NotificationsToggle wallet={wallet} />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -960,20 +1041,27 @@ function DangerSection({ onOpenExit, onReset }: { onOpenExit: () => void; onRese
   const t = useT();
   return (
     <div className="settings-body">
-      <p className="settings-intro">
-        {t(
-          "Obě akce níž mají vážné a těžko vratné důsledky. Než se cokoli stane, ukáže se ještě obrazovka s vysvětlením a potvrzením.",
-        )}
-      </p>
+      <div className="settings-warn">
+        <span className="settings-icon">
+          <WarningIcon />
+        </span>
+        <p>
+          {t(
+            "Obě akce níž mají vážné a těžko vratné důsledky. Než se cokoli stane, ukáže se ještě obrazovka s vysvětlením a potvrzením.",
+          )}
+        </p>
+      </div>
       <div className="settings-group">
         <NavRow
           danger="title"
+          icon={<ExitIcon />}
           label={t("Nouzový exit z Ark")}
           sub={t("Převede prostředky on-chain bez součinnosti Ark serveru")}
           onClick={onOpenExit}
         />
         <NavRow
           danger="title"
+          icon={<TrashIcon />}
           label={t("Smazat peněženku z prohlížeče")}
           sub={t("Odstraní zašifrovanou peněženku z tohoto zařízení")}
           onClick={onReset}
@@ -998,15 +1086,23 @@ function ThemeToggle() {
     setTheme(value);
   }, []);
 
+  // Each tile draws the screen it switches to, so the choice is seen, not read.
   return (
-    <div className="mode-toggle">
+    <div className="theme-tiles" role="radiogroup" aria-label={t("Vzhled")}>
       {THEME_OPTIONS.map((opt) => (
         <button
           key={opt.value}
-          className={theme === opt.value ? "active" : ""}
+          type="button"
+          role="radio"
+          aria-checked={theme === opt.value}
+          className={`theme-tile${theme === opt.value ? " active" : ""}`}
           onClick={() => choose(opt.value)}
         >
-          {t(opt.label)}
+          <span className={`theme-tile-screen theme-tile-screen--${opt.value}`} aria-hidden="true">
+            <span className="theme-tile-half theme-tile-half--light" />
+            <span className="theme-tile-half theme-tile-half--dark" />
+          </span>
+          <span className="theme-tile-label">{t(opt.label)}</span>
         </button>
       ))}
     </div>
@@ -1050,7 +1146,7 @@ function LanguageToggle() {
   }, []);
 
   return (
-    <div className="mode-toggle">
+    <div className="pill-toggle">
       {LANGUAGE_OPTIONS.map((opt) => (
         <button key={opt.value} className={lang === opt.value ? "active" : ""} onClick={() => choose(opt.value)}>
           {opt.label}
@@ -1280,7 +1376,7 @@ function ChatToggle() {
 // autoLock.ts's file comment for why this exists on top of the app's
 // existing per-operation deferrals (in-flight send/exit, a focused input
 // field).
-function AutoLockSetting({ variant = "row" }: { variant?: "row" | "card" }) {
+function AutoLockSetting({ variant = "row", icon }: { variant?: "row" | "card"; icon?: ReactNode }) {
   const t = useT();
   const [enabled, setEnabled] = useState(isAutoLockEnabled());
 
@@ -1306,16 +1402,19 @@ function AutoLockSetting({ variant = "row" }: { variant?: "row" | "card" }) {
 
   return (
     <div className="settings-row settings-row--inline">
-      <div className="settings-row-label">{t("Automatické uzamčení")}</div>
+      <div className="settings-lead">
+        {icon}
+        <div className="settings-row-label">{t("Automatické uzamčení")}</div>
+      </div>
       {control}
     </div>
   );
 }
 
 const CURRENCY_OPTIONS: { value: FiatCurrency; label: string }[] = [
-  { value: "czk", label: "Kč" },
-  { value: "eur", label: "EUR" },
   { value: "usd", label: "USD" },
+  { value: "eur", label: "EUR" },
+  { value: "czk", label: "CZK" },
 ];
 
 function CurrencyToggle() {
@@ -1327,7 +1426,7 @@ function CurrencyToggle() {
   }, []);
 
   return (
-    <div className="mode-toggle">
+    <div className="pill-toggle">
       {CURRENCY_OPTIONS.map((opt) => (
         <button
           key={opt.value}
@@ -2534,7 +2633,7 @@ function BiometricUnlock() {
 // Inline switch like AutoLockSetting (it was a page of its own with one
 // switch on it). Turning it on may ask for motion-sensor permission (iOS);
 // a refusal shows under the row.
-function ShakeSetting() {
+function ShakeSetting({ icon }: { icon?: ReactNode }) {
   const t = useT();
   const [enabled, setEnabled] = useState(isShakeEnabled());
   const [denied, setDenied] = useState(false);
@@ -2557,7 +2656,10 @@ function ShakeSetting() {
   return (
     <>
       <div className="settings-row settings-row--inline">
-        <div className="settings-row-label">{t("Zatřesením skrýt zůstatek")}</div>
+        <div className="settings-lead">
+          {icon}
+          <div className="settings-row-label">{t("Zatřesením skrýt zůstatek")}</div>
+        </div>
         <BooleanSwitch checked={enabled} disabled={busy} onChange={(v) => void choose(v)} label={t("Zatřesením skrýt zůstatek")} />
       </div>
       {denied && (

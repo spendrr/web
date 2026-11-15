@@ -47,6 +47,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "16. 11. 2026",
+    title: "Nastavení: nový vzhled",
+    items: [
+      "Nastavení má jasnější sekce, ikony a nový přepínač vzhledu.",
+      "Tlačítko zpět na Androidu se vrací o jednu stránku nastavení.",
+    ],
+  },
+  {
     date: "9. 11. 2026",
     title: "Limity výdajů",
     items: [
