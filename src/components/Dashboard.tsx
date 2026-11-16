@@ -4104,11 +4104,10 @@ function planNeedsPassword(plan: SendPlan): boolean {
   return plan.effectiveAmountSats === undefined || plan.effectiveAmountSats >= getNoPasswordSats();
 }
 
-// Why a scan that tried to pay by itself opened the confirm screen instead.
+// Why a scan that tried to pay by itself opened the confirm screen instead. Above the
+// threshold is the ordinary case and says nothing.
 function quickNoteText(reason: QuickReason, t: (cs: string) => string): string | null {
   switch (reason) {
-    case "over-threshold":
-      return t("Nad prahem rychlé platby.");
     case "budget":
       return t("Denní budget rychlé platby je vyčerpaný.");
     case "over-hard":
@@ -6411,7 +6410,10 @@ function TxDetailModal({
   const t = useT();
   const lang = useLang();
   const isBeta = useDesignVersion() === "v2";
-  const positive = m.effectiveBalanceSats >= 0;
+  // A failed or canceled movement moved nothing (effective change 0), so its
+  // direction is the attempted one, as in the history row.
+  const failed = m.status === "failed" || m.status === "canceled";
+  const positive = (failed ? m.intendedBalanceSats : m.effectiveBalanceSats) >= 0;
   // A message the payer attached to a Lightning-address payment (beta). That
   // payment arrives as a plain Ark receive, so it is found by amount and time
   // among the incoming ones, and asked once per movement.
@@ -6433,9 +6435,13 @@ function TxDetailModal({
     isRefreshMovement(m)
       ? t("Obnova mincí")
       : isPayment
-        ? m.effectiveBalanceSats >= 0
-          ? t("Příchozí platba")
-          : t("Odchozí platba")
+        ? failed
+          ? m.status === "canceled"
+            ? t("Platba zrušena")
+            : t("Platba selhala")
+          : positive
+            ? t("Příchozí platba")
+            : t("Odchozí platba")
         : historyKindName(movementKind(m), t);
   // What the status row may honestly claim about an on-chain movement. The
   // SDK calling it "successful" doesn't say whether the transaction is in a
@@ -6498,7 +6504,7 @@ function TxDetailModal({
           <strong>{new Date(m.completedAt).toLocaleString(localeFor(lang))}</strong>
         </div>
       )}
-      {!balanceHidden && btcChangePct !== null && (
+      {!balanceHidden && !failed && btcChangePct !== null && (
         <div className="info-row">
           <span>{t("Cena BTC od té doby")}</span>
           {btcChangePct === undefined ? (
@@ -6613,13 +6619,15 @@ function TxDetailSheet({
       cancelled = true;
     };
   }, [currency]);
-  const sats = m.effectiveBalanceSats;
+  const failed = m.status === "failed" || m.status === "canceled";
+  // A failed movement moved nothing: the headline is what was attempted, struck out.
+  const sats = failed ? m.intendedBalanceSats : m.effectiveBalanceSats;
   const sign = sats > 0 ? "+" : sats < 0 ? "\u2212" : "";
   // Worth at the time of the payment when the price history has it, else
   // today's value, and the line says which: under a historical amount a bare
   // "≈ 224 Kč" reads as what it was worth then.
   const fiat =
-    sats === 0 || sincePayment === undefined
+    sats === 0 || failed || sincePayment === undefined
       ? null
       : sincePayment !== null
         ? { text: formatFiat(satsToFiat(Math.abs(sats), sincePayment.then), currency), note: t("v době platby") }
@@ -6634,14 +6642,14 @@ function TxDetailSheet({
           <div className="balance-value balance-dots txd-dots">• • • • • •</div>
         ) : (
           <div className="txd-hero">
-            <div className={`txd-amount ${sats >= 0 ? "txd-amount--in" : "txd-amount--out"}${amountScaleClass(sats)}`}>
+            <div className={`txd-amount ${failed ? "txd-amount--failed" : sats >= 0 ? "txd-amount--in" : "txd-amount--out"}${amountScaleClass(sats)}`}>
               <span className="txd-amount-num">
                 {sign}
                 {Math.abs(sats).toLocaleString(localeFor(lang))}
               </span>
               <span className="txd-amount-unit">sats</span>
             </div>
-            {sats !== 0 && (
+            {sats !== 0 && !failed && (
               <div className="balance-fiat txd-fiat">
                 {fiat !== null && (
                   <span className="txd-value-in">

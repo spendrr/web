@@ -3028,6 +3028,10 @@ button.qr-torch-a11y {
   color: var(--danger);
 }
 
+.txd-amount--failed .txd-amount-num {
+  color: var(--muted);
+}
+
 .txd-dots {
   margin: 6px 0 4px;
 }
