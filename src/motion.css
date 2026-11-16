@@ -88,6 +88,20 @@
   animation: 180ms ease 290ms both motion-fade-in;
 }
 
+/* Firefox takes a morph target's end geometry from the first frame of the new
+   state, not from the live element. The 6 px slide-ins of the screen wrapper
+   (.panel-transition) and of Receive's body (.rcv-body) are still at their
+   start then, so the QR / destination
+   field lands 6 px low and jumps up when the snapshot is swapped for the
+   live element. No entrance during the transition there; the page slide
+   above already moves it. Duration, not "none": removing a "none" later
+   would start the entrance fresh, a finished 0 s one does not replay. */
+@supports (-moz-appearance: none) {
+  :root:is([data-nav-dir], [data-scan-lock]) :is(.panel-transition, .rcv-body) {
+    animation-duration: 0s;
+  }
+}
+
 /* Receive has no balance card: it collapses out and comes back. */
 :root[data-nav-dir]::view-transition-old(dash-balance):only-child {
   animation: 220ms var(--ease-in) both motion-balance-out;
