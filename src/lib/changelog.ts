@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "16. 11. 2026",
+    title: "Selhané platby v historii",
+    items: [
+      "Neúspěšné a zrušené platby mají v historii vlastní řádek.",
+      { text: "Připomínka pravidelné platby ti přijde jako oznámení i při zavřené appce.", beta: true },
+    ],
+  },
+  {
+    date: "16. 11. 2026",
     title: "Nastavení: nový vzhled",
     items: [
       "Nastavení má jasnější sekce, ikony a nový přepínač vzhledu.",

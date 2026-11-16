@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-16: Failed payments in history
+
+- Failed and canceled payments get their own row in history.
+- A reminder for a recurring payment arrives as a notification even when the app is closed. (beta)
+
 ## 2026-11-16: Settings: new look
 
 - Settings has clearer sections, icons and a new appearance switch.
