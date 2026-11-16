@@ -43,8 +43,8 @@ export default function PaymentRequestPage({
   hasWallet: boolean;
   /** A wallet session is open right now, so paying is one tap away. */
   walletReady: boolean;
-  /** Hands the request to the send flow, prefilled. */
-  onPay: () => void;
+  /** Hands the request to the send flow, prefilled: the Ark address, or the invoice. */
+  onPay: (via: "ark" | "ln") => void;
   onDismiss: () => void;
 }) {
   const t = useT();
@@ -91,12 +91,17 @@ export default function PaymentRequestPage({
 
   const payable = !!request.address;
   const hasInvoice = !!request.invoice;
+  // Ark first: Spendrr on this device pays the Ark address (instant, no
+  // fee), and that one button replaces the whole Lightning block. Only a
+  // request with no Ark address is paid with the invoice, still in Spendrr.
+  const arkInSpendrr = hasWallet && payable;
+  const lnInSpendrr = hasWallet && !payable && invoiceUsable;
 
   return (
     <Sheet closing={closing} onBackdrop={() => closeThen(onDismiss)} screenKey="request">
       <Screen>
         <StatusMark state="incoming" />
-        <h2 className="sht-title">{t("Žádost o platbu")}</h2>
+        <h2 className="sht-title">{t("Požadavek k platbě")}</h2>
         <BigAmount sats={request.amountSats} rate={rate} currency={cur} fmt={fmt} />
         {request.address && (
           <div className="prq-recipient">
@@ -111,72 +116,67 @@ export default function PaymentRequestPage({
         )}
         {request.note && (
           <div className="prq-note-block">
-            <span className="prq-note-label">{t("Zpráva od žadatele, Spendrr ji neověřuje")}</span>
+            <span className="prq-note-label">{t("Od žadatele")}</span>
             <p className="prq-note">“{request.note}”</p>
           </div>
         )}
 
-        {hasWallet && payable ? (
+        {lnInSpendrr || arkInSpendrr ? (
           <>
-            <button type="button" className="primary sht-wide" onClick={() => closeThen(onPay)}>
-              {walletReady ? t("Zaplatit") : t("Odemknout a zaplatit")}
+            <button
+              type="button"
+              className="primary sht-wide"
+              onClick={() => closeThen(() => onPay(lnInSpendrr ? "ln" : "ark"))}
+            >
+              {!walletReady ? t("Odemknout a zaplatit") : lnInSpendrr ? t("Zaplatit Lightningem") : t("Zaplatit")}
             </button>
             {!walletReady && (
               <p className="sht-sub">{t("Nejdřív odemkni peněženku, pak se platba předvyplní sama.")}</p>
             )}
           </>
-        ) : (
-          <p className="sht-sub">
-            {payable && hasInvoice
-              ? t("Tenhle odkaz umí Spendrr zaplatit na jedno ťuknutí. Nemáš ho? Zaplať Lightningem níž.")
-              : payable
-                ? t("Tenhle odkaz jde zaplatit jen ve Spendrru.")
-                : t("Tenhle požadavek jde zaplatit jen Lightningem.")}
-          </p>
+        ) : payable && hasInvoice ? null : (
+          <p className="sht-sub">{payable ? t("Jen ve Spendrru") : t("Jen Lightningem")}</p>
         )}
 
-        {request.invoice && (
+        {request.invoice && !lnInSpendrr && !arkInSpendrr && (
           <div className="prq-ln">
-            <div className="prq-ln-head">
-              <span className="prq-ln-label">{t("Zaplatit Lightningem")}</span>
-              {!invoiceUsable && <span className="prq-ln-expired">{t("faktura vypršela")}</span>}
-            </div>
             {invoiceUsable ? (
               <>
-                {/* Deliberately the bare invoice, not a "lightning:" URI:
-                    every Lightning wallet's scanner reads a bare BOLT11,
-                    while some still choke on the scheme prefix. The prefix
-                    is only used for the tap-to-open link below, where it is
-                    what makes the hand-off work. */}
-                <a
-                  className="prq-ln-qr"
-                  href={`lightning:${request.invoice}`}
-                  aria-label={t("Otevřít v Lightning peněžence")}
-                >
+                {/* Bare invoice, not a "lightning:" URI: every wallet's
+                    scanner reads BOLT11, some choke on the scheme. Only
+                    shown where a second device can scan it (see CSS). */}
+                <a className="prq-ln-qr" href={`lightning:${request.invoice}`} aria-label={t("Otevřít v Lightning peněžence")}>
                   <QRCodeSVG value={request.invoice.toUpperCase()} size={172} />
                 </a>
-                <div className="prq-ln-actions">
-                  <button type="button" className="secondary" onClick={copy}>
-                    {copied ? t("Zkopírováno") : t("Kopírovat")}
-                  </button>
-                  <a className="prq-ln-open" href={`lightning:${request.invoice}`}>
-                    {t("Otevřít")}
-                  </a>
-                </div>
+                {/* A real <a>: the tap has to be a navigation for the OS to
+                    hand the invoice to a Lightning wallet. */}
+                <a className="prq-ln-open prq-wide" href={`lightning:${request.invoice}`}>
+                  {t("Zaplatit Lightningem")}
+                </a>
               </>
             ) : (
-              <p className="sht-sub">
-                {payable
-                  ? t("Požádej o nový odkaz, nebo zaplať ve Spendrru. Adresa nad ní platí dál.")
-                  : t("Požádej o nový odkaz.")}
-              </p>
+              <>
+                <span className="prq-ln-expired">{t("faktura vypršela")}</span>
+                <p className="sht-sub">
+                  {payable
+                    ? t("Požádej o nový odkaz, nebo zaplať ve Spendrru. Adresa nad ní platí dál.")
+                    : t("Požádej o nový odkaz.")}
+                </p>
+              </>
             )}
           </div>
         )}
 
-        <button type="button" className="sht-link" onClick={() => closeThen(onDismiss)}>
-          {hasWallet ? t("Teď ne") : t("Zavřít")}
-        </button>
+        <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
+          {invoiceUsable && (
+            <button type="button" className="sht-link" onClick={copy}>
+              {copied ? t("Zkopírováno") : t("Kopírovat fakturu")}
+            </button>
+          )}
+          <button type="button" className="sht-link" onClick={() => closeThen(onDismiss)}>
+            {t("Zavřít")}
+          </button>
+        </div>
       </Screen>
     </Sheet>
   );

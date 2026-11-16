@@ -256,6 +256,19 @@ function App() {
     screenRef.current = screen;
     payRequestLinkRef.current = payRequestLink;
   }, [screen, payRequestLink]);
+  // "Odemknout a zaplatit" was tapped while locked: once the wallet opens the
+  // send form is prefilled straight away, rather than showing the request
+  // sheet a second time. Which route was asked for rides along.
+  const payAfterUnlockRef = useRef<"ark" | "ln" | null>(null);
+  // The invoice carries its own amount, so only the Ark address is given one.
+  const handOffPayRequest = (via: "ark" | "ln"): boolean => {
+    const link = payRequestLinkRef.current;
+    const destination = via === "ln" ? link?.invoice : link?.address;
+    if (screenRef.current.kind !== "ready" || !destination) return false;
+    setPayRequestHandoff({ destination, amountSats: via === "ln" ? undefined : link?.amountSats });
+    setPayRequestLink(null);
+    return true;
+  };
 
   useEffect(() => {
     // Which screen to show next only depends on a synchronous localStorage
@@ -327,7 +340,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (screen.kind === "ready" && payRequestHidden) setPayRequestHidden(false);
+    if (screen.kind !== "ready" || !payRequestHidden) return;
+    const via = payAfterUnlockRef.current;
+    payAfterUnlockRef.current = null;
+    // screenRef is updated by an effect declared earlier, so it already
+    // reads "ready" here.
+    if (via && handOffPayRequest(via)) return;
+    setPayRequestHidden(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen.kind, payRequestHidden]);
 
   // Ask the browser to keep this origin's storage (the vault's only copy) out
@@ -1169,16 +1189,11 @@ function App() {
         request={payRequestLink}
         hasWallet={hasWallet}
         walletReady={screen.kind === "ready"}
-        onPay={() => {
-          const currentScreen = screenRef.current;
-          const currentLink = payRequestLinkRef.current;
-          if (currentScreen.kind === "ready" && currentLink?.address) {
-            setPayRequestHandoff({ destination: currentLink.address, amountSats: currentLink.amountSats });
-            setPayRequestLink(null);
-            return;
-          }
+        onPay={(via) => {
+          if (handOffPayRequest(via)) return;
           // No session yet: get out of the way so the unlock screen can be
-          // used. The request itself is kept and re-shown once it opens.
+          // used, and pay straight after it opens.
+          payAfterUnlockRef.current = via;
           setPayRequestHidden(true);
         }}
         onDismiss={() => setPayRequestLink(null)}

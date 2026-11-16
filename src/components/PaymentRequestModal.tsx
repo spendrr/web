@@ -14,7 +14,7 @@ import {
   useAmountEntry,
   useSheetClose,
 } from "./sheet/PaySheet";
-import { ShareLinkResult } from "./sheet/ShareLink";
+import { ShareLinkResult, useCopyLink } from "./sheet/ShareLink";
 
 // "Požadavek k platbě" — the exact opposite of the gift link. A gift link
 // carries money to whoever opens it; this carries an ask from whoever opens
@@ -69,6 +69,7 @@ export default function PaymentRequestModal({
   // any wallet can pay it.
   const [hasInvoice, setHasInvoice] = useState(false);
 
+  const { copied, copy } = useCopyLink(link);
   const amount = useAmountEntry(rate, cur, fmt, () => setErrorMsg(null));
   const amountSats = amount.sats;
 
@@ -163,6 +164,8 @@ export default function PaymentRequestModal({
       </Screen>
     );
   } else if (phase === "result" && link) {
+    // One primary action. The QR is already a copy button, so Kopírovat and
+    // Hotovo drop to quiet text links and the raw link is not shown at all.
     body = (
       <Screen>
         <StatusMark state="incoming" />
@@ -170,17 +173,21 @@ export default function PaymentRequestModal({
         <ShareLinkResult
           link={link}
           shareText={note.trim() ? `${note.trim()}: ${t("pošli mi prosím bitcoin")}` : t("Pošli mi prosím bitcoin")}
+          compact
+          hideLink
+          qrSize={232}
         >
           <BigAmount sats={amountSats} rate={rate} currency={cur} fmt={fmt} />
-          <p className="sht-sub">
-            {hasInvoice
-              ? t("Komu odkaz pošleš, tomu se všechno předvyplní. Bez Spendrru zaplatí Lightning fakturou.")
-              : t("Komu odkaz pošleš, tomu se všechno předvyplní. Lightning fakturu se teď nepodařilo vytvořit, takže odkaz zaplatí jen Spendrr.")}
-          </p>
+          {!hasInvoice && <p className="sht-sub">{t("Jen ve Spendrru")}</p>}
         </ShareLinkResult>
-        <button type="button" className="secondary sht-wide" onClick={close}>
-          {t("Hotovo")}
-        </button>
+        <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
+          <button type="button" className="sht-link" onClick={copy}>
+            {copied ? t("Zkopírováno") : t("Kopírovat odkaz")}
+          </button>
+          <button type="button" className="sht-link" onClick={close}>
+            {t("Hotovo")}
+          </button>
+        </div>
       </Screen>
     );
   } else {

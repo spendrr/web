@@ -494,7 +494,7 @@ const DICT: Record<string, string> = {
   "Dokončeno": "Completed",
   "Adresa": "Address",
   "Příjemce": "Recipient",
-  "Zpráva od žadatele, Spendrr ji neověřuje": "A message from the requester, not checked by Spendrr",
+  "Od žadatele": "From the requester",
   "Faktura": "Invoice",
   "Zůstatek se změnil, zkus to znovu.": "Balance changed, try again.",
   "Zůstatek nepokryje ani poplatek za odeslání.": "The balance doesn't even cover the sending fee.",
@@ -1170,10 +1170,7 @@ const DICT: Record<string, string> = {
   "Odkaz se nepodařilo vytvořit": "The link couldn't be created",
   "Pošli mi prosím bitcoin": "Please send me some bitcoin",
   "pošli mi prosím bitcoin": "please send me some bitcoin",
-  "Komu odkaz pošleš, tomu se všechno předvyplní. Bez Spendrru zaplatí Lightning fakturou.":
-    "Whoever you send the link to gets everything filled in. Without Spendrr they can pay the Lightning invoice.",
-  "Komu odkaz pošleš, tomu se všechno předvyplní. Lightning fakturu se teď nepodařilo vytvořit, takže odkaz zaplatí jen Spendrr.":
-    "Whoever you send the link to gets everything filled in. The Lightning invoice couldn't be created just now, so only Spendrr can pay this link.",
+  "Jen ve Spendrru": "Spendrr only",
   "Vytvoření Lightning faktury trvalo příliš dlouho.": "Creating the Lightning invoice took too long.",
   "Zatím nemáme tvoji adresu ani Lightning fakturu. Zkus to za chvíli znovu.":
     "We have neither your address nor a Lightning invoice yet. Try again in a moment.",
@@ -1187,6 +1184,7 @@ const DICT: Record<string, string> = {
     "Spendrr pays this link in one tap. Don't have it? Pay with Lightning below.",
   "Tenhle požadavek jde zaplatit jen Lightningem.": "This request can only be paid with Lightning.",
   "Zaplatit Lightningem": "Pay with Lightning",
+  "Jen Lightningem": "Lightning only",
   "faktura vypršela": "invoice expired",
   "Otevřít v Lightning peněžence": "Open in a Lightning wallet",
   "Otevřít": "Open",
