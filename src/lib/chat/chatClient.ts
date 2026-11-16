@@ -132,6 +132,12 @@ function setState(patch: Partial<ChatState>): void {
   for (const l of listeners) l();
 }
 
+// For code outside React that follows the chat state (reminderSync.ts).
+export function subscribeChat(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 export function useChat(): ChatState {
   return useSyncExternalStore(
     (cb) => {

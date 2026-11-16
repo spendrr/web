@@ -34,10 +34,12 @@ import {
   isKnownPushEndpoint,
   MAX_BACKLOG_PAGES_PER_TICK,
   MAX_PLAUSIBLE_BLOCKHEIGHT,
+  sendReminderPush,
   verifyMailboxAuthorization,
 } from "./mailboxShared";
 import type { Env, PushSubscriptionRecord, RecordStore } from "./index";
 import { applyHeightUpdate } from "./pushHeight";
+import { applyReminder, dueReminders, isRemindAt, isStaleReminder, REMINDER_BLOB_RE, REMINDER_RETRY_SECONDS, REMINDERS_PER_ALARM } from "./reminder";
 import { relayConfigured, relayRegister, relayUnregister, SWEEP_INTERVAL_MS } from "./pushRelay";
 
 interface DurableObjectStorage {
@@ -105,6 +107,10 @@ const POKE_OVERFLOW_DELAY_MS = 1_000;
 const IDS_KEY = "ids";
 // This shard's own name (index.ts sends it with every subscribe), for the push relay.
 const SHARD_KEY = "shard";
+// Mailbox id -> when its payment reminder is due (seconds). One read per alarm
+// finds what is due without opening every record, and it does not depend on
+// the sweep's rotating slice of mailbox reads.
+const REMINDERS_KEY = "reminders";
 function recordKey(mailboxId: string): string {
   return `record:${mailboxId}`;
 }
@@ -170,7 +176,21 @@ export class MailboxWatcher {
     });
   }
 
+  private async readReminders(): Promise<Record<string, number>> {
+    return (await this.state.storage.get<Record<string, number>>(REMINDERS_KEY)) ?? {};
+  }
+
+  private async setReminderIndex(mailboxId: string, at: number | null): Promise<void> {
+    const index = await this.readReminders();
+    if (at === null ? !(mailboxId in index) : index[mailboxId] === at) return;
+    if (at === null) delete index[mailboxId];
+    else index[mailboxId] = at;
+    if (Object.keys(index).length === 0) await this.state.storage.delete(REMINDERS_KEY);
+    else await this.state.storage.put(REMINDERS_KEY, index);
+  }
+
   private async removeId(mailboxId: string): Promise<void> {
+    await this.setReminderIndex(mailboxId, null);
     const ids = await this.readIds();
     const idx = ids.indexOf(mailboxId);
     if (idx !== -1) {
@@ -215,6 +235,9 @@ export class MailboxWatcher {
     }
     if (request.method === "POST" && url.pathname === "/height") {
       return this.handleHeight(request);
+    }
+    if (request.method === "POST" && url.pathname === "/remind") {
+      return this.handleRemind(request);
     }
     if (request.method === "POST" && url.pathname === "/poke") {
       return this.handlePoke(request);
@@ -288,47 +311,56 @@ export class MailboxWatcher {
       return new Response(JSON.stringify({ error: "Invalid mailbox authorization." }), { status: 403 });
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    // The record is read again here, inside the mailbox's queue: the Ark round trip
+    // above lets a check or a /remind finish meanwhile, and a record built from the
+    // earlier read would write their checkpoint or reminder back as it was.
+    const record = await this.serialize(mailboxId, async () => {
+      const existing = await store.get();
+      const now = Math.floor(Date.now() / 1000);
 
-    const hasHeightField = Object.prototype.hasOwnProperty.call(body, "firstExpiringVtxoBlockheight");
-    const rawHeight = body.firstExpiringVtxoBlockheight;
-    const validHeight: number | null | undefined = !hasHeightField
-      ? undefined
-      : rawHeight === null
-        ? null
-        : typeof rawHeight === "number" &&
-            Number.isInteger(rawHeight) &&
-            rawHeight > 0 &&
-            rawHeight <= MAX_PLAUSIBLE_BLOCKHEIGHT
-          ? rawHeight
+      const hasHeightField = Object.prototype.hasOwnProperty.call(body, "firstExpiringVtxoBlockheight");
+      const rawHeight = body.firstExpiringVtxoBlockheight;
+      const validHeight: number | null | undefined = !hasHeightField
+        ? undefined
+        : rawHeight === null
+          ? null
+          : typeof rawHeight === "number" &&
+              Number.isInteger(rawHeight) &&
+              rawHeight > 0 &&
+              rawHeight <= MAX_PLAUSIBLE_BLOCKHEIGHT
+            ? rawHeight
+            : undefined;
+      const validPriceUsd =
+        typeof body.priceUsd === "number" && Number.isFinite(body.priceUsd) && body.priceUsd > 0
+          ? body.priceUsd
           : undefined;
-    const validPriceUsd =
-      typeof body.priceUsd === "number" && Number.isFinite(body.priceUsd) && body.priceUsd > 0
-        ? body.priceUsd
-        : undefined;
 
-    const record: PushSubscriptionRecord = {
-      mailboxAuthorization: body.mailboxAuthorization,
-      authExpiresAt,
-      subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
-      checkpoint: existing?.checkpoint ?? "0",
-      // A renewal in the middle of a spread-out first read must not forget it
-      // is one (see PushSubscriptionRecord.backfilling).
-      ...(existing?.backfilling ? { backfilling: true } : {}),
-      lastSeenAt: now,
-      lastKnownPriceUsd: validPriceUsd ?? existing?.lastKnownPriceUsd,
-      // Only set here, after verifyMailboxAuthorization passed: the one
-      // proof /height accepts later without the Ark server (pushHeight.ts).
-      heightTokenHash: body.heightTokenHash ?? existing?.heightTokenHash,
-    };
-    const effectiveHeight = validHeight === null ? undefined : (validHeight ?? existing?.firstExpiringVtxoBlockheight);
-    record.firstExpiringVtxoBlockheight = effectiveHeight;
-    if (existing?.firstExpiringVtxoBlockheight === effectiveHeight) {
-      record.expiryNotifiedForHeight = existing?.expiryNotifiedForHeight;
-      record.expiryReminderNotifiedForHeight = existing?.expiryReminderNotifiedForHeight;
-      record.expiryUrgentNotifiedForHeight = existing?.expiryUrgentNotifiedForHeight;
-    }
-    await store.put(record);
+      const record: PushSubscriptionRecord = {
+        mailboxAuthorization: body.mailboxAuthorization,
+        authExpiresAt,
+        subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
+        checkpoint: existing?.checkpoint ?? "0",
+        // A renewal in the middle of a spread-out first read must not forget it
+        // is one (see PushSubscriptionRecord.backfilling).
+        ...(existing?.backfilling ? { backfilling: true } : {}),
+        lastSeenAt: now,
+        lastKnownPriceUsd: validPriceUsd ?? existing?.lastKnownPriceUsd,
+        // Only set here, after verifyMailboxAuthorization passed: the one
+        // proof /height accepts later without the Ark server (pushHeight.ts).
+        heightTokenHash: body.heightTokenHash ?? existing?.heightTokenHash,
+        // A renewing subscribe (daily, on unlock) must not drop a pending reminder.
+        ...(existing?.remindAt !== undefined && existing.remindBlob ? { remindAt: existing.remindAt, remindBlob: existing.remindBlob } : {}),
+      };
+      const effectiveHeight = validHeight === null ? undefined : (validHeight ?? existing?.firstExpiringVtxoBlockheight);
+      record.firstExpiringVtxoBlockheight = effectiveHeight;
+      if (existing?.firstExpiringVtxoBlockheight === effectiveHeight) {
+        record.expiryNotifiedForHeight = existing?.expiryNotifiedForHeight;
+        record.expiryReminderNotifiedForHeight = existing?.expiryReminderNotifiedForHeight;
+        record.expiryUrgentNotifiedForHeight = existing?.expiryUrgentNotifiedForHeight;
+      }
+      await store.put(record);
+      return record;
+    });
 
     // Only a genuinely new mailboxId needs adding to this shard's list — a
     // re-subscribe (the daily refresh, or the same device re-enabling) is
@@ -452,6 +484,104 @@ export class MailboxWatcher {
     return new Response(null, { status: 204 });
   }
 
+  // Sets or clears this mailbox's payment reminder (reminder.ts). Inside the
+  // mailbox's queue: the record also holds the payment checkpoint, and a
+  // read-modify-write racing a check would write back an old one.
+  private async handleRemind(request: Request): Promise<Response> {
+    const { mailboxId, heightTokenHash, remindAt, blob } = (await request.json()) as {
+      mailboxId?: unknown;
+      heightTokenHash?: unknown;
+      remindAt?: unknown;
+      blob?: unknown;
+    };
+    if (typeof mailboxId !== "string" || typeof heightTokenHash !== "string") return new Response(null, { status: 400 });
+    const clear = remindAt === null && blob === null;
+    const now = Math.floor(Date.now() / 1000);
+    if (!clear && (!isRemindAt(remindAt, now) || typeof blob !== "string" || !REMINDER_BLOB_RE.test(blob))) {
+      return new Response(null, { status: 400 });
+    }
+    const status = await this.serialize(mailboxId, async () => {
+      const store = this.recordStoreFor(mailboxId);
+      const existing = await store.get();
+      if (!existing) return 404;
+      if (clear ? existing.remindAt === undefined && !existing.remindBlob : existing.remindAt === remindAt && existing.remindBlob === blob) {
+        // Same as stored: no write, but the token is still checked.
+        return existing.heightTokenHash && existing.heightTokenHash === heightTokenHash ? 204 : 403;
+      }
+      const next = applyReminder(existing, heightTokenHash, clear ? null : (remindAt as number), clear ? null : (blob as string));
+      if (!next) return 403;
+      await store.put(next);
+      await this.setReminderIndex(mailboxId, clear ? null : (remindAt as number));
+      return 204;
+    });
+    // An alarm must be pending to ever send it (a shard whose alarm lapsed).
+    if (status === 204 && !clear && (await this.state.storage.getAlarm()) === null) {
+      await this.state.storage.setAlarm(Date.now() + FIRST_ALARM_DELAY_MS);
+    }
+    return new Response(null, { status });
+  }
+
+  // Sends the reminders that are due, at most REMINDERS_PER_ALARM. Returns how
+  // many pushes went out, which the sweep takes off its own read budget.
+  private async sendDueReminders(now: number): Promise<number> {
+    const index = await this.readReminders();
+    const due = dueReminders(index, now, REMINDERS_PER_ALARM);
+    let sent = 0;
+    for (const mailboxId of due) {
+      try {
+        // The record and the index entry change together inside the mailbox's
+        // queue: a /remind landing between the two would lose its entry.
+        const outcome = await this.serialize(mailboxId, async () => {
+          const store = this.recordStoreFor(mailboxId);
+          const record = await store.get();
+          if (!record || record.remindAt === undefined || !record.remindBlob) {
+            await this.setReminderIndex(mailboxId, null);
+            return "dropped" as const;
+          }
+          if (isStaleReminder(record.remindAt, now)) {
+            const next = applyReminder(record, record.heightTokenHash ?? "", null, null);
+            if (next) await store.put(next);
+            await this.setReminderIndex(mailboxId, null);
+            return "dropped" as const;
+          }
+          if (record.remindAt > now) {
+            // Moved to a later time while this one waited its turn: not due.
+            await this.setReminderIndex(mailboxId, record.remindAt);
+            return "later" as const;
+          }
+          const result = await sendReminderPush(this.env, record.subscription, record.remindBlob);
+          if (result.shouldDeleteSubscription) {
+            await store.delete();
+            return "gone" as const;
+          }
+          // The app may have set another reminder while the push was in flight.
+          const fresh = await store.get();
+          if (!result.ok) {
+            console.error("push send (reminder) failed", mailboxId, result.status);
+            // Kept until it goes stale, but out of the due set for a while so
+            // reminders that would go out are not starved by ones that keep failing.
+            if (fresh && fresh.remindAt === record.remindAt) await this.setReminderIndex(mailboxId, now + REMINDER_RETRY_SECONDS);
+            return "retry" as const;
+          }
+          if (fresh && fresh.remindAt === record.remindAt) {
+            const next = applyReminder(fresh, fresh.heightTokenHash ?? "", null, null);
+            if (next) await store.put(next);
+            await this.setReminderIndex(mailboxId, null);
+          }
+          return "sent" as const;
+        });
+        if (outcome === "sent" || outcome === "gone" || outcome === "retry") sent += 1;
+        if (outcome === "gone") {
+          await this.removeId(mailboxId);
+          await relayUnregister(this.env, mailboxId, await this.shardName());
+        }
+      } catch (e) {
+        console.error("reminder failed", mailboxId, e instanceof Error ? e.message : e);
+      }
+    }
+    return sent;
+  }
+
   private async handleUnsubscribe(request: Request): Promise<Response> {
     const { mailboxId, endpoint } = (await request.json()) as { mailboxId?: unknown; endpoint?: unknown };
     if (typeof mailboxId !== "string") return new Response(null, { status: 204 });
@@ -513,7 +643,13 @@ export class MailboxWatcher {
     const queue = (await this.state.storage.get<string[]>(POKE_QUEUE_KEY)) ?? [];
     const now = Math.floor(Date.now() / 1000);
 
+    // Reminders first, each push one subrequest the mailbox reads give up.
     let budget = CHECKS_PER_INVOCATION;
+    try {
+      budget -= await this.sendDueReminders(now);
+    } catch (e) {
+      console.error("reminders failed", e instanceof Error ? e.message : e);
+    }
     if (queue.length > 0) {
       const known = new Set(ids);
       const waiting = queue.filter((id) => known.has(id));

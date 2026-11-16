@@ -145,7 +145,8 @@ import ReceiveScreen, { type ReceiveFormat } from "./ReceiveScreen";
 import ChatPanel, { ChatButton } from "./chat/ChatPanel";
 import { startChat, stopChat } from "../lib/chat/chatClient";
 import { installChatPush, whenSlotPeer } from "../lib/chat/chatPush";
-import { takePendingOpen } from "../lib/chat/pushSlots";
+import { takePendingOpen, takePendingSchedule } from "../lib/chat/pushSlots";
+import { startReminderSync } from "../lib/chat/reminderSync";
 import { chatUsed, markChatUsed } from "../lib/chat/chatRead";
 import { useChatEnabled } from "../lib/chat/chatEnabled";
 import { useChatPayments, type ChatPaymentInfo } from "../lib/chat/chatHistory";
@@ -855,6 +856,14 @@ export default function Dashboard({
   const [chatOpen, setChatOpen] = useState(false);
   // The conversation a tapped chat notification asked for.
   const [chatPeer, setChatPeer] = useState<string | null>(null);
+  // The due payment a tapped reminder notification asked for: Zprávy opens
+  // with its pay sheet already up.
+  const [chatScheduleId, setChatScheduleId] = useState<string | null>(null);
+  // Payment reminders by push (beta, V2): registers the soonest due one.
+  useEffect(() => {
+    if (!chatOn) return;
+    return startReminderSync(wallet);
+  }, [wallet, chatOn]);
   useEffect(() => {
     if (!chatOn) return;
     let live = true;
@@ -867,11 +876,28 @@ export default function Dashboard({
         setChatOpen(true);
       });
     };
+    const openSchedule = (id: string) => {
+      markChatUsed();
+      void startChat(wallet);
+      // Settings and the Utility hub replace or cover the chat; the tap is already consumed.
+      setShowSettings(false);
+      setShowUtility(false);
+      setChatScheduleId(id);
+      setChatOpen(true);
+    };
     void takePendingOpen().then((slot) => {
       if (slot) open(slot);
     });
+    void takePendingSchedule().then((id) => {
+      if (id && live) openSchedule(id);
+    });
     const onMessage = (e: MessageEvent) => {
-      const d = e.data as { type?: unknown; slot?: unknown } | null;
+      const d = e.data as { type?: unknown; slot?: unknown; id?: unknown } | null;
+      if (d?.type === "spendrr-open-schedule" && typeof d.id === "string") {
+        void takePendingSchedule();
+        openSchedule(d.id);
+        return;
+      }
       if (d?.type !== "spendrr-open-chat" || typeof d.slot !== "string") return;
       void takePendingOpen();
       open(d.slot);
@@ -3450,6 +3476,7 @@ export default function Dashboard({
         <ChatPanel
           wallet={wallet}
           initialPeer={chatPeer}
+          initialScheduleId={chatScheduleId}
           history={history}
           spendable={spendable}
           rates={rates}
@@ -3457,6 +3484,7 @@ export default function Dashboard({
           onClose={() => {
             setChatOpen(false);
             setChatPeer(null);
+            setChatScheduleId(null);
           }}
           onOpenProfile={() => {
             setChatOpen(false);

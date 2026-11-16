@@ -562,3 +562,14 @@ export function expiryStage(remaining: number): "first" | "reminder" | "urgent" 
   if (remaining <= EXPIRY_REMINDER_THRESHOLD_BLOCKS) return "reminder";
   return "first";
 }
+
+// One payment reminder (reminder.ts). The blob is forwarded as it came, the
+// text around it is generic: an app or a push transport that cannot open the
+// blob (Android FCM, which Google can read) still says that a payment is due.
+export function sendReminderPush(
+  env: Env,
+  subscription: PushSubscriptionRecord["subscription"],
+  blob: string,
+): Promise<{ ok: boolean; status: number; shouldDeleteSubscription: boolean }> {
+  return sendPush(env, subscription, { title: "Spendrr", body: "Platba je splatná", type: "reminder", data: { b: blob } });
+}

@@ -6,6 +6,7 @@
 // last counter shown and the unread count. Nothing else.
 import type { PreviewLevel } from "./pushFormat";
 import { importPreviewKey } from "./pushFormat";
+import { newReminderKey } from "./reminderBlob";
 
 const DB_NAME = "spendrr-push";
 
@@ -75,6 +76,47 @@ export async function takePendingOpen(): Promise<string | null> {
     await run("meta", "readwrite", (s) => s.delete("pendingOpen"));
     if (typeof v.slot !== "string" || typeof v.at !== "number" || Date.now() - v.at > PENDING_OPEN_MAX_MS) return null;
     return v.slot;
+  } catch {
+    return null;
+  }
+}
+
+// Creates a key once. `add` fails when another tab got there first, so every
+// caller ends up holding the key the store holds, never a second one.
+async function getOrCreateKey(name: string, make: () => Promise<CryptoKey>): Promise<CryptoKey> {
+  const existing = await run<CryptoKey | undefined>("meta", "readonly", (s) => s.get(name));
+  if (existing) return existing;
+  const key = await make();
+  try {
+    await run("meta", "readwrite", (s) => s.add(key, name));
+    return key;
+  } catch {
+    const stored = await run<CryptoKey | undefined>("meta", "readonly", (s) => s.get(name));
+    if (stored) return stored;
+    throw new Error("key store unavailable");
+  }
+}
+
+// The key a payment reminder is sealed with (reminderBlob.ts), made on first
+// use. The Service Worker reads it from the same store.
+export function getReminderKey(): Promise<CryptoKey> {
+  return getOrCreateKey("remindKey", newReminderKey);
+}
+
+// Keys the change marker of the last reminder sent (reminderSync.ts), so the
+// marker in localStorage is not the reminder's text and cannot be guessed back.
+export function getReminderSigKey(): Promise<CryptoKey> {
+  return getOrCreateKey("remindSigKey", () => crypto.subtle.generateKey({ name: "HMAC", hash: "SHA-256" }, false, ["sign"]));
+}
+
+// The schedule a tapped reminder asked for, once, if it is recent.
+export async function takePendingSchedule(): Promise<string | null> {
+  try {
+    const v = await run<{ id?: unknown; at?: unknown } | undefined>("meta", "readonly", (s) => s.get("pendingSchedule"));
+    if (!v) return null;
+    await run("meta", "readwrite", (s) => s.delete("pendingSchedule"));
+    if (typeof v.id !== "string" || typeof v.at !== "number" || Date.now() - v.at > PENDING_OPEN_MAX_MS) return null;
+    return v.id;
   } catch {
     return null;
   }

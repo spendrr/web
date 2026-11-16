@@ -260,6 +260,7 @@ function SendGlyph() {
 export default function ChatPanel({
   wallet,
   initialPeer,
+  initialScheduleId,
   history,
   spendable,
   rates,
@@ -275,6 +276,8 @@ export default function ChatPanel({
   wallet: WalletClient;
   // Opened from a chat notification: straight into that conversation.
   initialPeer?: string | null;
+  // Opened from a payment reminder notification: that due payment's pay sheet.
+  initialScheduleId?: string | null;
   history: readonly Movement[];
   spendable?: number;
   rates: Record<FiatCurrency, number> | null;
@@ -351,6 +354,18 @@ export default function ChatPanel({
   }, [peer]);
   const [showRequests, setShowRequests] = useState(false);
   const [sheet, setSheet] = useState<SheetState | null>(null);
+  // A tapped reminder: straight to the pay sheet of that schedule, once the chat
+  // has loaded it. Not when it is no longer due (paid on another device, or from
+  // the list in the meantime): the sheet would pay the next period early.
+  const openedSchedule = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialScheduleId || openedSchedule.current === initialScheduleId || chat.status !== "ready") return;
+    openedSchedule.current = initialScheduleId;
+    const s = chat.schedules.find((x) => x.id === initialScheduleId);
+    const contact = s && chat.contacts[s.peer];
+    if (!s || !contact || s.nextDue > Date.now() + 5 * 60_000) return;
+    setSheet({ contact, mode: "send", schedule: s, note: s.note });
+  }, [initialScheduleId, chat.status, chat.schedules, chat.contacts]);
 
   useEffect(() => {
     markChatRead();

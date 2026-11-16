@@ -28,7 +28,9 @@ self.addEventListener("push", (event) => {
       // agree on when the toast alone is enough.
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const appIsForeground = windows.some((c) => c.visibilityState === "visible" && c.focused);
-      if (appIsForeground) {
+      // A reminder is shown even then: its callout lives inside Zprávy, so nothing
+      // else would tell the user, and the server forgets it once accepted.
+      if (appIsForeground && data.type !== "reminder") {
         // No notification, but the push is the earliest sign of a payment:
         // wake the open app so it reads now instead of at its next poll.
         // Carries no data; the app only treats it as a reason to refresh.
@@ -55,6 +57,17 @@ self.addEventListener("push", (event) => {
         if ("setAppBadge" in self.navigator) {
           await self.navigator.setAppBadge(await self.spendrrChatPush.unreadTotal()).catch(() => {});
         }
+        return;
+      }
+      if (data.type === "reminder") {
+        const n = await self.spendrrChatPush.reminderNotification(data);
+        await self.registration.showNotification(n.title, {
+          body: n.body,
+          icon: "/icon-192.png",
+          badge: "/badge-96.png",
+          tag: n.tag,
+          data: n.data,
+        });
         return;
       }
       // The same payment told by a chat push a moment ago, with the name and
@@ -160,16 +173,19 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const slot = event.notification.data && event.notification.data.chatSlot;
+  const remind = event.notification.data && event.notification.data.remind;
   event.waitUntil(
     (async () => {
       // A chat notification opens its conversation: the slot goes to the app
       // by message, and through IndexedDB for an app that is not running yet
       // (nothing about the contact in the URL).
       if (typeof slot === "string") await self.spendrrChatPush.rememberOpen(slot);
+      if (typeof remind === "string") await self.spendrrChatPush.rememberSchedule(remind);
       const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clientsList) {
         if ("focus" in client) {
           if (typeof slot === "string") client.postMessage({ type: "spendrr-open-chat", slot });
+          if (typeof remind === "string") client.postMessage({ type: "spendrr-open-schedule", id: remind });
           return client.focus();
         }
       }
