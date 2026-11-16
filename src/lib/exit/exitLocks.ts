@@ -25,7 +25,7 @@ const PRE_EXITED_STATES: ReadonlySet<string> = new Set(["start", "processing"]);
 
 // States whose exit is over without the coin having left through it: the
 // user canceled it (the coin stays theirs in Ark) or it was spent elsewhere.
-const RELEASING_STATES: ReadonlySet<string> = new Set(["canceled", "vtxo-already-spent"]);
+const RELEASING_STATES: ReadonlySet<string> = new Set(["canceled", "vtxo-already-spent", "vtxo-swept"]);
 
 export interface ExitLockVtxo {
   id: string;

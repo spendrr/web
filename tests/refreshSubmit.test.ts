@@ -28,7 +28,8 @@ function fake(coins: Record<string, State>, submit: (ids: string[]) => Promise<{
     },
     async refreshVtxosDelegated(ids) {
       calls.push("submit");
-      for (const id of ids) expect(coins[id]).toEqual({ type: "locked", holder: { type: "action", id: "spendrr-refresh" } });
+      // bark 0.8 refuses a participation over a coin that is not Spendable.
+      for (const id of ids) expect(coins[id]).toEqual({ type: "spendable" });
       return submit(ids);
     },
   };
@@ -36,13 +37,12 @@ function fake(coins: Record<string, State>, submit: (ids: string[]) => Promise<{
 }
 
 describe("refreshAndRelease (the worker's refreshVtxosDelegatedAndLock)", () => {
-  it("locks, submits, and leaves the coins spendable", async () => {
+  it("probes with a lock, releases it, then submits", async () => {
     const f = fake({ a: { type: "spendable" }, b: { type: "spendable" } });
     const r = await refreshAndRelease(f.w, ["a", "b"], "spendrr-refresh", () => true);
     expect(r.round?.id).toBe(1);
     expect(f.coins).toEqual({ a: { type: "spendable" }, b: { type: "spendable" } });
-    expect(f.calls.indexOf("lock")).toBeLessThan(f.calls.indexOf("submit"));
-    expect(f.calls.at(-1)).toBe("unlock");
+    expect(f.calls).toEqual(["unlock", "unlock", "lock", "unlock", "submit"]);
   });
 
   it("a failed submit leaves the coins spendable too", async () => {
@@ -63,7 +63,7 @@ describe("refreshAndRelease (the worker's refreshVtxosDelegatedAndLock)", () => 
     expect(charged).toBe(false);
   });
 
-  it("over the daily cap: nothing submitted, the check lock released", async () => {
+  it("over the daily cap: nothing submitted, the probe lock released", async () => {
     const f = fake({ a: { type: "spendable" } });
     await expect(refreshAndRelease(f.w, ["a"], "spendrr-refresh", () => false)).rejects.toThrow(REFRESH_LIMIT_EXCEEDED);
     expect(f.calls).not.toContain("submit");
@@ -81,5 +81,23 @@ describe("refreshAndRelease (the worker's refreshVtxosDelegatedAndLock)", () => 
     const f = fake({ a: held });
     await expect(refreshAndRelease(f.w, ["a"], "spendrr-refresh", () => true)).rejects.toThrow(REFRESH_INPUTS_UNAVAILABLE);
     expect(f.coins.a).toEqual(held);
+  });
+
+  it("a probe lock that will not release stops the submit", async () => {
+    const f = fake({ a: { type: "spendable" } });
+    let locked = false;
+    const w = {
+      ...f.w,
+      async lockVtxos(a: Parameters<RefreshSubmitWallet["lockVtxos"]>[0]) {
+        await f.w.lockVtxos(a);
+        locked = true;
+      },
+      async unlockVtxos(a: Parameters<RefreshSubmitWallet["unlockVtxos"]>[0]) {
+        if (locked) throw new Error("unlock failed");
+        return f.w.unlockVtxos(a);
+      },
+    };
+    await expect(refreshAndRelease(w, ["a"], "spendrr-refresh", () => true)).rejects.toThrow("unlock failed");
+    expect(f.calls).not.toContain("submit");
   });
 });

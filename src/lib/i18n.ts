@@ -624,8 +624,7 @@ const DICT: Record<string, string> = {
   // Unconfirmed-broadcast recovery (Dashboard.tsx confirmExitDrain)
 
   // On-chain funds held back as exit fee budget (Dashboard.tsx board toast)
-  "+ {amount} sats v obnově VTXO": "+ {amount} sats refreshing VTXOs",
-  "+ {amount} sats v obnově mincí": "+ {amount} sats refreshing coins",
+  "z toho {amount} sats v obnově": "of which {amount} sats refreshing",
   "z toho {amount} sats je v obnově VTXO": "of which {amount} sats is refreshing VTXOs",
   "Nový nouzový exit": "New emergency exit",
   "Nouzový exit je teď jedno okno s průběhem, poplatky a vyzvednutím.": "The emergency exit is now one window with progress, fees and claiming.",
@@ -810,6 +809,11 @@ const DICT: Record<string, string> = {
   "Vyzvednuto v bloku {height}": "Claimed in block {height}",
   "Vyzvednuto": "Claimed",
   "Přerušeno: mince byla utracena jinak, než se exit dostal na blockchain": "Aborted: the coin was spent some other way before its exit reached the blockchain",
+  "+ {amount} sats čeká na obnovu": "+ {amount} sats waiting for a refresh",
+  "Zůstatek při obnově": "Balance during a refresh",
+  "Zůstatek už při obnově mincí neklesá a zase nevzroste.": "Your balance no longer dips while coins are being refreshed.",
+  "Mince, které čekají na obnovu, vidíš pod zůstatkem.": "Coins waiting for a refresh show up under your balance.",
+  "Selhalo: část exitu utratil na blockchainu někdo jiný": "Failed: someone else spent part of the exit on the blockchain",
   "Zrušeno, mince zůstala v Ark": "Canceled, the coin stayed in Ark",
   "Není nastavená cílová adresa. Nastav ji níž v „Cílová adresa“.": "No destination address set. Set it under “Change address”.",
   "Cílová adresa není potvrzená heslem, takže nejde ověřit, že ji nikdo nezměnil. Zadej ji prosím znovu.":

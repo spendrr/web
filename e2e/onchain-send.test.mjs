@@ -32,7 +32,7 @@ try {
   const dest = (await control("/get_new_address")).trim();
 
   await startSend(p, dest, 50_000);
-  assert.match(await balanceText(p), /Typ On-chain/, "must be classified as an on-chain send");
+  assert.match(await balanceText(p), /Doručení desítky minut/, "must be classified as an on-chain send");
   assert.doesNotMatch(await balanceText(p), /Potvrď heslo/, "50 000 sats is below the password threshold");
   await p.getByRole("button", { name: /Potvrdit a odeslat/ }).click();
   await untilOnChain(dest, 50_000);
@@ -43,7 +43,7 @@ try {
   step(`50 000 sats on chain without a password, sender left with ${afterFirst}`);
 
   await startSend(p, dest, 100_000);
-  assert.match(await balanceText(p), /Potvrď heslo pro odeslání velké částky/, "100 000 sats must ask for the password");
+  assert.match(await balanceText(p), /Heslo pro velkou částku/, "100 000 sats must ask for the password");
   const pay = p.getByRole("button", { name: /Potvrdit a odeslat/ });
   await p.locator("input[type=password]").first().fill("wrong-password-123");
   await pay.click();

@@ -2,6 +2,11 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-16: Balance during a refresh
+
+- Your balance no longer dips while coins are being refreshed.
+- Coins waiting for a refresh show up under your balance.
+
 ## 2026-11-16: Failed payments in history
 
 - Failed and canceled payments get their own row in history.

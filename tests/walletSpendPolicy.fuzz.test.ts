@@ -111,6 +111,10 @@ const FORBIDDEN_WALLET_METHODS = [
   "free",
   "boardPsbt",
   "boardFundingAddress",
+  // SDK 0.27 (bark 0.8): sendPayment pays any destination in one call;
+  // presignEmergencyExit returns fully signed CPFP children (sensitive).
+  "sendPayment",
+  "presignEmergencyExit",
   "constructor",
   "toString",
 ];

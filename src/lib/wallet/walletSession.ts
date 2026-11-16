@@ -135,9 +135,12 @@ export const SPEND_LIMIT_EXCEEDED = "SPEND_LIMIT_EXCEEDED";
 // REFRESH_SUBMIT_WINDOW_MS. Every submission burns a vtxo key index toward the
 // recovery scan's key gap limit (bark's default 250), so the worker caps it no matter what the main
 // thread (the refresh engine, or anything posting to the worker) asks for.
-// Same numbers as the engine's own breaker (refreshEngine/breaker.ts).
+// Only a seed-only restore scans (a cloud backup restores the key index), and
+// it tolerates 250 burned indices in a row, so this is a backstop well above
+// the engine's own breaker (refreshEngine/breaker.ts, 6): a refusal by the
+// server ("in flight") still burns an index and is not refunded.
 export const REFRESH_LIMIT_EXCEEDED = "REFRESH_LIMIT_EXCEEDED";
-export const REFRESH_SUBMIT_MAX = 6;
+export const REFRESH_SUBMIT_MAX = 24;
 
 // What refreshVtxosDelegatedAndLock() answers (see its comment in bark.ts).
 export interface RefreshAndLockResult {

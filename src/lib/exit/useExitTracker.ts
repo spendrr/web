@@ -37,6 +37,7 @@ import {
   type ProgressGuardState,
 } from "./exitProgressGuard";
 import { ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE, WALLET_CALL_TIMEOUT_MS, isWalletCallTimeout, withTimeout } from "../wallet/walletCall";
+import { exitFundable } from "./exitFunding";
 
 // progressExits(): exit progress is gated by block confirmations, so once a
 // minute is plenty.
@@ -47,7 +48,7 @@ const FIRST_PROGRESS_DELAY_MS = 5_000;
 // A cheap read (no progress) to notice an exit this app didn't start — bark's
 // sync() routes a VTXO someone force-exited on-chain into the exit flow.
 const IDLE_CHECK_INTERVAL_MS = 5 * 60_000;
-// estimateEmergencyExitFee() syncs the onchain wallet: not every minute.
+// The fee check syncs the onchain wallet before estimating: not every minute.
 const FEE_BUDGET_INTERVAL_MS = 10 * 60_000;
 // One progressExits() walks every exit's transactions over the network and
 // may build CPFPs; a large wallet can take well over the default 60 s worker
@@ -364,15 +365,17 @@ export function useExitTracker(wallet: WalletClient): ExitTracker {
     const check = async () => {
       const pop = pushWorkerWatchdogOverride(ONCHAIN_SYNC_TIMEOUT_MS);
       try {
+        // bark 0.8's estimate no longer syncs the onchain wallet.
+        await withTimeout(wallet.onchainWallet.sync(), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null);
         const e = await withTimeout(wallet.estimateEmergencyExitFee(ids, null, null), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE);
-        // Right after the estimate's own on-chain sync.
+        // Right after the on-chain sync above.
         const onchain = await withTimeout(wallet.onchainWallet.balance(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(
           () => null,
         );
         if (cancelled) return;
         setFeeBudget({
           neededSats: e.exitBroadcastFeeSats,
-          fundable: e.fundable,
+          fundable: exitFundable(e.exitBroadcastFeeSats, onchain ? onchain.confirmedSats : null, e.fundable),
           txsToBroadcast: e.txsToBroadcast,
           feeRateSatPerVb: e.feeRateSatPerVb,
           onchain: onchain ? { confirmedSats: onchain.confirmedSats, pendingSats: onchain.pendingSats } : null,

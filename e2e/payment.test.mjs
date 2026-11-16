@@ -37,7 +37,7 @@ try {
 
   // Large send: at or above 100 000 sats a password is required.
   await startSend(r.page, bAddr, 120_000);
-  assert.match(await balanceText(r.page), /Potvrď heslo pro odeslání velké částky/, "large send must ask for the password");
+  assert.match(await balanceText(r.page), /Heslo pro velkou částku/, "large send must ask for the password");
   const pay = r.page.getByRole("button", { name: /Potvrdit a odeslat/ });
   await r.page.locator("input[type=password]").first().fill("wrong-password-123");
   await pay.click();

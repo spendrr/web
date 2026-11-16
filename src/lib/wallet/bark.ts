@@ -26,6 +26,7 @@ import type {
   LightningInvoice,
   LightningSendStatus,
   Movement,
+  OffboardResult,
   OnchainBalance,
   OnchainUtxo,
   PayLightningAddressArgs,
@@ -134,8 +135,9 @@ export interface WalletClient {
   payLightningOffer(args: PayLightningOfferArgs): Promise<LightningSendStatus>;
   payLnurl(args: PayLnurlArgs): Promise<LightningSendStatus>;
   validateArkoorAddress(address: string): Promise<boolean>;
-  sendArkoorPayment(arkAddress: string, amountSats: number): Promise<void>;
-  sendOnchain(address: string, amountSats: number): Promise<string>;
+  // bark 0.8: the movement id; the app does not read either result.
+  sendArkoorPayment(arkAddress: string, amountSats: number): Promise<number>;
+  sendOnchain(address: string, amountSats: number): Promise<OffboardResult>;
   estimateArkoorPaymentFee(amountSats: number): Promise<FeeEstimate>;
   estimateSendOnchainFee(address: string, amountSats: number): Promise<FeeEstimate>;
   estimateLightningSendFee(amountSats: number): Promise<FeeEstimate>;
@@ -175,9 +177,10 @@ export interface WalletClient {
   // the worker only runs it with a SpendAuth. An empty vtxoIds means "every
   // claimable exit" in the wrapper; exitActions.ts never passes one.
   drainExits(args: DrainExitsArgs): Promise<ExitClaimTransaction>;
-  // Syncs the onchain wallet first, so it can take a while. An empty
-  // vtxoIds prices every Spendable VTXO (the whole wallet before an exit);
-  // fails as a whole on any non-standard one.
+  // bark 0.8 prices it by weight and no longer syncs the onchain wallet, so
+  // `fundable` is stale: compare exitBroadcastFeeSats with the onchain balance
+  // (exitFunding.ts). An empty vtxoIds prices every Spendable VTXO (the whole
+  // wallet before an exit); fails as a whole on any non-standard one.
   estimateEmergencyExitFee(
     vtxoIds: string[],
     feeRateSatPerVb?: number | null,

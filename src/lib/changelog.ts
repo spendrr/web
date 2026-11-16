@@ -48,6 +48,14 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "16. 11. 2026",
+    title: "Zůstatek při obnově",
+    items: [
+      "Zůstatek už při obnově mincí neklesá a zase nevzroste.",
+      "Mince, které čekají na obnovu, vidíš pod zůstatkem.",
+    ],
+  },
+  {
+    date: "16. 11. 2026",
     title: "Selhané platby v historii",
     items: [
       "Neúspěšné a zrušené platby mají v historii vlastní řádek.",

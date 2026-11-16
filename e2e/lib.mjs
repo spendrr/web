@@ -129,7 +129,8 @@ async function copyAddress(page, tab) {
 }
 
 export const onchainAddress = (page) => copyAddress(page, /^On-chain$/);
-export const arkAddress = (page) => copyAddress(page, /^Ark adresa$/);
+// Ark is the receive screen's default (the other methods are the chips below it).
+export const arkAddress = (page) => copyAddress(page, null);
 
 export async function balanceText(page) {
   return (await page.locator("body").innerText()).replace(/\s+/g, " ");
@@ -208,7 +209,7 @@ export async function debugDump(page, label = "page") {
 // Fill the send form for an Ark address and stop on the confirmation screen.
 export async function startSend(page, address, sats) {
   await page.getByRole("button", { name: /^Odeslat$/ }).click();
-  await page.getByPlaceholder(/ark1/).fill(address);
+  await page.getByPlaceholder(/^ark…/).fill(address);
   await page.locator("input[type=number]").fill(String(sats));
   await page.getByRole("button", { name: /^Odeslat$/ }).click();
   await page.getByRole("button", { name: /Potvrdit a odeslat|Odemknout a zaplatit/ }).first().waitFor({ timeout: 15_000 });
@@ -332,4 +333,22 @@ export async function killArkServer() {
     }).then(() => true, () => false);
     if (reachable) throw new Error("the Ark server still answers after it was stopped");
   }
+}
+
+// The gift result sheet's "Sdílet" copies the link when the browser has no
+// share sheet. Headless Chromium may expose navigator.share, so hide it first,
+// then read the clipboard.
+export async function copyGiftLink(page) {
+  const previous = await page.evaluate(() => navigator.clipboard.readText());
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+    Object.defineProperty(navigator, "canShare", { value: undefined, configurable: true });
+  });
+  await page.getByRole("button", { name: /^Sdílet$/ }).click();
+  await page.waitForFunction(
+    (prev) => navigator.clipboard.readText().then((t) => t !== prev && /\/g#/.test(t)),
+    previous,
+    { timeout: 10_000 },
+  );
+  return page.evaluate(() => navigator.clipboard.readText());
 }

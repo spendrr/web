@@ -1,7 +1,7 @@
 // Gift sender (V2 beta): "Zrušit dárek" right after creating one takes it back, and when the recipient already
 // claimed it the cancel says so (the recovery scan settles it, no mailbox pull).
 import assert from "node:assert/strict";
-import { launch, newWallet, fundAndBoard, waitForBalance, waitForText, balanceText, failOnPageProblems, debugDump, BASE } from "./lib.mjs";
+import { launch, newWallet, fundAndBoard, waitForBalance, waitForText, balanceText, failOnPageProblems, debugDump, copyGiftLink, BASE } from "./lib.mjs";
 
 const browser = await launch();
 let current;
@@ -40,9 +40,8 @@ try {
 
   // 2. Create, let B claim, then cancel.
   await createGift(a.page, 3_000);
-  await a.page.locator(".shl-qr").click();
-  const link = await a.page.evaluate(() => navigator.clipboard.readText());
-  assert.match(link, /\/g#v=1&g=/, "the QR copies the gift link");
+  const link = await copyGiftLink(a.page);
+  assert.match(link, /\/g#v=1&g=/, "Sdílet copies the gift link");
   step("gift 2 created, link copied");
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: "cs-CZ" });
   const bp = await ctx.newPage();

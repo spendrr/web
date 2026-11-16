@@ -28,6 +28,7 @@ import {
 } from "../lib/exit/exitActions";
 import { planExitStart, type ExitStartPlan } from "../lib/exit/exitLocks";
 import { estimateWithoutNonStandard } from "../lib/exit/exitFeeEstimate";
+import { exitFundable } from "../lib/exit/exitFunding";
 import { useNetState } from "../lib/connectivity/connectivity";
 import { EXIT_EXPIRY_WARN_BLOCKS, type ExitOverview } from "../lib/exit/exitModel";
 import { localeFor, tf, useLang, useT } from "../lib/i18n";
@@ -157,9 +158,9 @@ interface StartInfo {
   feeIds: string[];
 }
 
-// Loaded after StartInfo: estimateEmergencyExitFee syncs the onchain wallet
-// first, which can take a long while, and everything else on the screen can
-// show before it (the fee rows as skeletons meanwhile).
+// Loaded after StartInfo: the onchain wallet is synced first (bark 0.8's
+// estimate no longer does it), which can take a long while, and everything
+// else on the screen can show before it (the fee rows as skeletons meanwhile).
 interface StartFees {
   onchainConfirmedSats: number | null;
   broadcastFeeSats: number | null;
@@ -223,9 +224,11 @@ async function loadStartFees(wallet: WalletClient, ids: string[]): Promise<Start
     txsToBroadcast: null,
     feeRateSatPerVb: null,
   };
-  // Syncs the onchain wallet first, so this is also what makes the balance
-  // below current.
+  // bark 0.8's estimate no longer syncs the onchain wallet: sync it here, so the
+  // balance below is current. A failed sync only leaves the balance as it was.
   const pop = pushWorkerWatchdogOverride(ONCHAIN_SYNC_TIMEOUT_MS);
+  await withTimeout(wallet.onchainWallet.sync(), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null);
+  let sdkFundable = false;
   try {
     const { result: e, skipped } = await estimateWithoutNonStandard(
       (left) => withTimeout(wallet.estimateEmergencyExitFee(left, null, null), ONCHAIN_SYNC_TIMEOUT_MS, TIMEOUT_MESSAGE),
@@ -234,7 +237,7 @@ async function loadStartFees(wallet: WalletClient, ids: string[]): Promise<Start
     fees.skippedIds = skipped;
     fees.broadcastFeeSats = e.exitBroadcastFeeSats;
     fees.claimFeeSats = e.claimFeeSats;
-    fees.fundable = e.fundable;
+    sdkFundable = e.fundable;
     fees.txsToBroadcast = e.txsToBroadcast;
     fees.feeRateSatPerVb = e.feeRateSatPerVb;
   } catch (e) {
@@ -244,6 +247,7 @@ async function loadStartFees(wallet: WalletClient, ids: string[]): Promise<Start
   }
   const onchain = await withTimeout(wallet.onchainWallet.balance(), WALLET_CALL_TIMEOUT_MS, TIMEOUT_MESSAGE).catch(() => null);
   fees.onchainConfirmedSats = onchain ? onchain.confirmedSats : null;
+  if (fees.broadcastFeeSats !== null) fees.fundable = exitFundable(fees.broadcastFeeSats, fees.onchainConfirmedSats, sdkFundable);
   return fees;
 }
 

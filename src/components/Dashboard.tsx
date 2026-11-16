@@ -177,6 +177,7 @@ import GiftPasswordModal from "./GiftPasswordModal";
 import BumpOverlay from "./BumpOverlay";
 import { isBumpPayEnabled } from "../lib/bump/bump";
 import { isBumpReceiving, isPaymentPriority } from "../lib/wallet/paymentPriority";
+import { headlineSats } from "../lib/wallet/headlineBalance";
 import "./Dashboard.css";
 import "../motion.css";
 
@@ -232,6 +233,9 @@ function setPersistedLastSeenBalance(spendableSats: number): void {
 function balancesEqual(a: Balance, b: Balance): boolean {
   return (
     a.spendableSats === b.spendableSats &&
+    a.needsRefreshSats === b.needsRefreshSats &&
+    a.pendingArkoorSendSats === b.pendingArkoorSendSats &&
+    a.pendingOffboardSats === b.pendingOffboardSats &&
     a.pendingInRoundSats === b.pendingInRoundSats &&
     a.pendingExitSats === b.pendingExitSats &&
     a.pendingLightningSendSats === b.pendingLightningSendSats &&
@@ -1378,10 +1382,11 @@ export default function Dashboard({
   // call, so they can never land in different renders. `overrideSpendable`
   // lets a caller that already has a fresh value in hand (e.g. a receive
   // watcher's own refresh() result) pass it directly instead of relying on
-  // spendableRef having caught up to a just-settled setBalance() yet.
+  // headlineRef having caught up to a just-settled setBalance() yet.
   const [showBalanceBump, setShowBalanceBump] = useState(false);
   const bumpTimerRef = useRef<number | null>(null);
-  const spendableRef = useRef<number | undefined>(undefined);
+  const headlineRef = useRef<number | undefined>(undefined);
+  const inRoundRef = useRef(0);
   const [revealedSpendable, setRevealedSpendable] = useState<number | undefined>(undefined);
   const revealedSpendableRef = useRef<number | undefined>(undefined);
   revealedSpendableRef.current = revealedSpendable;
@@ -1393,19 +1398,21 @@ export default function Dashboard({
   // spanning several payments in either direction — only the NET direction
   // of what's about to visibly change matters here).
   const [bumpDirection, setBumpDirection] = useState<"up" | "down">("up");
-  const bumpBalance = useCallback((overrideSpendable?: number) => {
+  const bumpBalance = useCallback((overrideHeadline?: number) => {
     // Same reasoning as showToast's own guard above: while the claim modal
     // holds the headline at 0, a bump animation on that 0 would read as the
     // number flickering for no visible reason.
     if (giftRevealHoldRef.current) return;
     pendingBumpRef.current = false;
-    const nextSpendable = overrideSpendable !== undefined ? overrideSpendable : spendableRef.current;
+    // Callers hand over a complete headline (headlineSats of one balance
+    // snapshot); adding the current round amount here would mix snapshots.
+    const nextSpendable = overrideHeadline !== undefined ? overrideHeadline : headlineRef.current;
     // Marks this value as already handled so the quiet-catch-up effect
     // (declared below, near `spendable`) doesn't later see `spendable`
     // reach this same number and redundantly schedule its own no-op
     // update — see that effect's own comment for the actual bug this
     // class of mismatch used to cause.
-    if (nextSpendable !== undefined) processedSpendableRef.current = nextSpendable;
+    if (nextSpendable !== undefined) processedHeadlineRef.current = nextSpendable;
     const prevSpendable = revealedSpendableRef.current;
     setBumpDirection(nextSpendable !== undefined && prevSpendable !== undefined && nextSpendable < prevSpendable ? "down" : "up");
     setRevealedSpendable(nextSpendable);
@@ -1422,9 +1429,9 @@ export default function Dashboard({
   const pendingBumpRef = useRef(false);
   const balanceOnScreenRef = useRef(true);
   const requestBalanceBump = useCallback(
-    (overrideSpendable?: number) => {
+    (overrideHeadline?: number) => {
       if (balanceOnScreenRef.current) {
-        bumpBalance(overrideSpendable);
+        bumpBalance(overrideHeadline);
       } else {
         pendingBumpRef.current = true;
       }
@@ -1620,7 +1627,7 @@ export default function Dashboard({
               // Every pending round ours and locked, or no "+" at all.
               const safe = refreshNoteSafe(engineSnapshot().state, rounds);
               setRefreshNoteSafe(safe);
-              return safe ? { countedInHeadlineSats: 0, withheldSats: bal.pendingInRoundSats } : NO_REFRESHING;
+              return safe ? { countedInHeadlineSats: bal.pendingInRoundSats, withheldSats: 0 } : NO_REFRESHING;
             })
             .catch(() => null)
         : (setRefreshNoteSafe(false), Promise.resolve(NO_REFRESHING))
@@ -1869,7 +1876,7 @@ export default function Dashboard({
           "success",
           { title: t("Faktura zaplacena"), amountSats: current.invoice.amountSats, direction: "in" },
         );
-        requestBalanceBump(result.balance.spendableSats);
+        requestBalanceBump(headlineSats(result.balance));
         return;
       }
       // Newest incoming movement not seen yet, not history[0]: a refresh
@@ -1888,7 +1895,7 @@ export default function Dashboard({
           { title: t("Platba přijata"), amountSats: newest.effectiveBalanceSats, direction: "in" },
         );
       }
-      requestBalanceBump(result.balance.spendableSats);
+      requestBalanceBump(headlineSats(result.balance));
     },
     [showToast, requestBalanceBump, t, lang],
   );
@@ -2103,7 +2110,7 @@ export default function Dashboard({
         const bal = await withTimeout(wallet.onchainWallet.balance(), WALLET_CALL_TIMEOUT_MS, t(TIMEOUT_MESSAGE));
         setOnchainBalance(bal);
         showToast(t("Prostředky přesunuty do Ark"));
-        requestBalanceBump(arkResult?.balance.spendableSats);
+        requestBalanceBump(arkResult ? headlineSats(arkResult.balance) : undefined);
       } catch (e) {
         console.warn("refresh after board failed", e);
       }
@@ -2506,7 +2513,9 @@ export default function Dashboard({
   // and fee-estimate calls below, and a VTXO registered into a refresh
   // round is not selectable for a send until the round finishes.
   const spendable = balance ? balance.spendableSats : undefined;
-  spendableRef.current = spendable;
+  const headline = balance ? headlineSats(balance) : undefined;
+  headlineRef.current = headline;
+  inRoundRef.current = balance ? balance.pendingInRoundSats : 0;
   // Whether the balance headline is actually mounted AND on screen for the
   // user right now — `balance-card` (below) unmounts entirely on the
   // Receive/Settings screens, and `tabVisible` (above) covers the app being
@@ -2553,7 +2562,7 @@ export default function Dashboard({
   // entirely: this effect only ever reacts to `spendable` reaching a value
   // it hasn't seen before, never to revealedSpendable being provisionally
   // ahead of it.
-  const processedSpendableRef = useRef<number | undefined>(undefined);
+  const processedHeadlineRef = useRef<number | undefined>(undefined);
   // refresh() itself fetches balance twice in a row (once after sync(),
   // again after maintenance() — see refresh()'s own comment), which can
   // each land as a distinct `spendable` change moments apart. Debouncing
@@ -2573,7 +2582,7 @@ export default function Dashboard({
   // (busyRef clear), THEN decide against the truly-final value.
   const initialRevealTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    if (spendable === undefined) return;
+    if (headline === undefined) return;
     if (!initialRevealDoneRef.current) {
       if (initialRevealTimerRef.current !== null) window.clearTimeout(initialRevealTimerRef.current);
       const decide = () => {
@@ -2583,9 +2592,9 @@ export default function Dashboard({
         }
         initialRevealTimerRef.current = null;
         initialRevealDoneRef.current = true;
-        const settled = spendableRef.current;
+        const settled = headlineRef.current;
         if (settled === undefined) return;
-        processedSpendableRef.current = settled;
+        processedHeadlineRef.current = settled;
         const persisted = getPersistedLastSeenBalance();
         if (persisted !== null && persisted !== settled) {
           // The app was fully closed and reopened with the balance already
@@ -2606,8 +2615,8 @@ export default function Dashboard({
       decide();
       return;
     }
-    if (spendable === processedSpendableRef.current) return;
-    processedSpendableRef.current = spendable;
+    if (headline === processedHeadlineRef.current) return;
+    processedHeadlineRef.current = headline;
     if (pendingBumpRef.current) return;
     if (quietCatchUpTimerRef.current !== null) window.clearTimeout(quietCatchUpTimerRef.current);
     // setBalance() (which is what changed `spendable` to get here) always
@@ -2631,10 +2640,10 @@ export default function Dashboard({
       }
       quietCatchUpTimerRef.current = null;
       if (pendingBumpRef.current) return;
-      setRevealedSpendable(spendableRef.current);
+      setRevealedSpendable(headlineRef.current);
     };
     quietCatchUpTimerRef.current = window.setTimeout(tryApply, 400);
-  }, [spendable]);
+  }, [headline]);
   useEffect(() => {
     return () => {
       if (quietCatchUpTimerRef.current !== null) window.clearTimeout(quietCatchUpTimerRef.current);
@@ -2666,16 +2675,21 @@ export default function Dashboard({
   // them must not be: a 2026-09-08 attempt to add `pendingInRoundSats` into
   // it (commit 7cf13f2) produced real doubled-balance reports live.
   //
-  // That was blamed on the `allVtxos()` duplication quirk, but the likelier
-  // cause is now known and is not a quirk at all: `pendingInRoundSats` and
-  // `spendable` are only disjoint for an *interactive* round. A delegated
+  // bark 0.8 changed this: pendingInRoundSats now counts only the LOCKED inputs
+  // of a round, so it is disjoint from spendable for every round kind (a
+  // waiting delegated participation holds no lock and is in spendable only).
+  // The headline is headlineSats (spendable + the locked inputs); needsRefresh is a note.
+  //
+  // For bark 0.7 the doubled headline was blamed on the `allVtxos()`
+  // duplication quirk, but the likelier cause was not a quirk at all:
+  // `pendingInRoundSats` and `spendable` were only disjoint for an
+  // *interactive* round. A delegated
   // participation never locks its inputs, so they stay Spendable and sit in
   // BOTH numbers for the whole wait (see refreshingBalance.ts). Which is
   // also why the note can't just print `pendingInRoundSats`: during a
   // delegated refresh that would announce money the headline is already
   // showing. `refreshing` splits the real participation inputs by their
   // actual VTXO state so each half gets the wording that is true of it.
-  const refreshingWithheldSats = refreshing.withheldSats;
   const refreshingInHeadlineSats = refreshing.countedInHeadlineSats;
   // The headline number: what SendPanel can actually spend right now.
   // While a fresh gift-link recipient is still on the "Dostal jsi dárek"
@@ -2836,7 +2850,7 @@ export default function Dashboard({
     <ExitSheet
       wallet={wallet}
       tracker={exitTracker}
-      spendableSats={balance ? balance.spendableSats : null}
+      spendableSats={balance ? balance.spendableSats + balance.needsRefreshSats : null}
       inRoundSats={balance ? balance.pendingInRoundSats : 0}
       onClose={() => setShowExitSheet(false)}
       onKickOut={(message) => showToast(message, "danger", undefined, { quiet: true })}
@@ -3045,16 +3059,27 @@ export default function Dashboard({
                     })}
                   </div>
                 )}
-                {/* Like exitingSats, THIS half is not included in
-                    displayBalance above (its VTXOs are locked) — a refresh
-                    round is routine and normally resolves in
-                    seconds/minutes, but the amount is still temporarily
-                    untouchable, so it's surfaced here rather than silently
-                    vanishing. */}
-                {!balanceHidden && refreshingWithheldSats > 0 && (
+                {/* The locked inputs of a refresh round ARE in the headline
+                    (headlineSats: bark 0.8 counts them once, in
+                    pendingInRoundSats), so the number does not drop for the
+                    round. They cannot be paid with until it ends, which is
+                    what this says. */}
+                {!balanceHidden && (balance?.pendingInRoundSats ?? 0) > 0 && (
                   <div className="balance-exit-note">
-                    {tf(t(effectiveEngineMode() === "live" ? "+ {amount} sats v obnově mincí" : "+ {amount} sats v obnově VTXO"), {
-                      amount: refreshingWithheldSats.toLocaleString(localeFor(lang)),
+                    {tf(t("z toho {amount} sats v obnově"), {
+                      amount: (balance?.pendingInRoundSats ?? 0).toLocaleString(localeFor(lang)),
+                    })}
+                  </div>
+                )}
+                {/* bark 0.8 keeps expired coins and coins at the server's max
+                    exit depth out of spendableSats (needsRefreshSats): they
+                    cannot be sent out-of-round until a refresh, but are still
+                    the user's, so they are named here instead of vanishing
+                    from the headline. Disjoint from every other field. */}
+                {!balanceHidden && (balance?.needsRefreshSats ?? 0) > 0 && (
+                  <div className="balance-exit-note">
+                    {tf(t("+ {amount} sats čeká na obnovu"), {
+                      amount: (balance?.needsRefreshSats ?? 0).toLocaleString(localeFor(lang)),
                     })}
                   </div>
                 )}
@@ -3075,8 +3100,9 @@ export default function Dashboard({
                     above (their VTXOs are still Spendable), so this says
                     "of which", never "+". Still worth showing, because a
                     refresh round will consume them and a send competing
-                    with it can fail. */}
-                {!balanceHidden && refreshingInHeadlineSats > 0 && (
+                    with it can fail. Not with the engine live: its locked
+                    inputs are the note above. */}
+                {!balanceHidden && effectiveEngineMode() !== "live" && refreshingInHeadlineSats > 0 && (
                   <div className="balance-exit-note">
                     {tf(t("z toho {amount} sats je v obnově VTXO"), {
                       amount: refreshingInHeadlineSats.toLocaleString(localeFor(lang)),
@@ -3418,6 +3444,7 @@ export default function Dashboard({
                 wallet={wallet}
                 onSent={refresh}
                 spendable={spendable}
+                inRoundSats={balance?.pendingInRoundSats ?? 0}
                 rates={rates}
                 currency={currency}
                 onSentToast={showToast}
@@ -4259,6 +4286,7 @@ function SendPanel({
   currency,
   onSentToast,
   onSentBump,
+  inRoundSats,
   autoScan,
   onCancelAutoScan,
   onCriticalOpChange,
@@ -4285,7 +4313,9 @@ function SendPanel({
   // balance-lowering refresh() happens strictly *after* this fires, unlike
   // a receive, where by the time bumpBalance() is called the balance has
   // usually already been fetched.
-  onSentBump?: (overrideSpendable?: number) => void;
+  onSentBump?: (overrideHeadline?: number) => void;
+  // Locked refresh inputs, frozen with spendable at the tap: the bump target is one snapshot.
+  inRoundSats?: number;
   autoScan?: boolean;
   onCancelAutoScan?: () => void;
   onCriticalOpChange?: (active: boolean) => void;
@@ -4794,6 +4824,7 @@ function SendPanel({
     // minutes and both the ~4s balance poll and the debounced fee estimate
     // keep running behind the confirm screen.
     const spendableAtSend = spendable;
+    const inRoundAtSend = inRoundSats ?? 0;
     const feeSatsAtSend = feeEstimate?.feeSats;
     // Offline the SDK retries instead of failing, so the send would just hang
     // behind the confirm screen. Nothing has left yet: keep the plan and say so.
@@ -4966,7 +4997,7 @@ function SendPanel({
           // could otherwise send a negative number into the headline for
           // one frame (a real "-1 234 sats" would render, briefly, since
           // RollingDigits has no notion that a balance can't go negative).
-          onSentBump?.(Math.max(0, spendableAtSend - effectiveAmountSats - (feeSatsAtSend ?? 0)));
+          onSentBump?.(Math.max(0, spendableAtSend - effectiveAmountSats - (feeSatsAtSend ?? 0)) + inRoundAtSend);
         }
       }
       setDestination("");
@@ -5061,6 +5092,7 @@ function SendPanel({
     spendLimitReached,
     onCriticalOpChange,
     spendable,
+    inRoundSats,
     feeEstimate?.feeSats,
     onSentBump,
     onSendComplete,
