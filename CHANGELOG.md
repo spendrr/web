@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-16: Payment request
+
+Codename: Bold Badger
+
+- Pay a payment request in one tap, right after unlocking.
+- The detail of a failed payment shows the right title and amount.
+
 ## 2026-11-16: Balance during a refresh
 
 - Your balance no longer dips while coins are being refreshed.

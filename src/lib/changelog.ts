@@ -51,9 +51,12 @@ export const CODENAMES = [
   "Sturdy Seal", "Tough Toad", "Upright Urial", "Valiant Viper", "Wary Weasel", "Zippy Zebu",
 ] as const;
 
-// Position of the next codename: one step per entry that already has one, so a name swapped
-// for another on the same letter keeps the order.
+// The name after the newest named entry in the list, so a name that skipped ahead or was
+// swapped keeps the order from there. With no listed name yet, one step per named entry.
 export function nextCodename(entries: readonly { codename?: string }[]): string {
+  const newest = entries.find((e) => e.codename)?.codename;
+  const at = CODENAMES.findIndex((n) => n === newest);
+  if (at >= 0) return CODENAMES[(at + 1) % CODENAMES.length];
   return CODENAMES[entries.filter((e) => e.codename).length % CODENAMES.length];
 }
 
@@ -73,6 +76,15 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "16. 11. 2026",
+    title: "Požadavek k platbě",
+    codename: "Bold Badger",
+    items: [
+      "Požadavek k platbě zaplatíš jedním ťuknutím, rovnou po odemknutí.",
+      "Detail neúspěšné platby ukazuje správný název a částku.",
+    ],
+  },
   {
     date: "16. 11. 2026",
     title: "Zůstatek při obnově",

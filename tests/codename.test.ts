@@ -39,6 +39,7 @@ describe("release codenames", () => {
     expect(nextCodename([{}])).toBe("Agile Axolotl");
     expect(nextCodename([{ codename: "Agile Axolotl" }, {}])).toBe("Bold Badger");
     expect(nextCodename([{ codename: "Anxious Ant" }])).toBe("Bold Badger");
+    expect(nextCodename([{ codename: "Bold Badger" }, { codename: "Agile Axolotl" }])).toBe("Clever Capybara");
     const all = Array.from({ length: 72 }, () => ({ codename: "x" }));
     expect(nextCodename(all)).toBe("Agile Axolotl");
   });

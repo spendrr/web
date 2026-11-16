@@ -811,6 +811,8 @@ const DICT: Record<string, string> = {
   "Vyzvednuto": "Claimed",
   "Přerušeno: mince byla utracena jinak, než se exit dostal na blockchain": "Aborted: the coin was spent some other way before its exit reached the blockchain",
   "+ {amount} sats čeká na obnovu": "+ {amount} sats waiting for a refresh",
+  "Požadavek k platbě zaplatíš jedním ťuknutím, rovnou po odemknutí.": "Pay a payment request in one tap, right after unlocking.",
+  "Detail neúspěšné platby ukazuje správný název a částku.": "The detail of a failed payment shows the right title and amount.",
   "Zůstatek při obnově": "Balance during a refresh",
   "Zůstatek už při obnově mincí neklesá a zase nevzroste.": "Your balance no longer dips while coins are being refreshed.",
   "Mince, které čekají na obnovu, vidíš pod zůstatkem.": "Coins waiting for a refresh show up under your balance.",
