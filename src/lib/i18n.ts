@@ -451,6 +451,8 @@ const DICT: Record<string, string> = {
   "Probíhá": "In progress",
   "Čeká na potvrzení na blockchainu": "Waiting for blockchain confirmation",
   "Zrušeno": "Canceled",
+  "Platba selhala": "Payment failed",
+  "Platba zrušena": "Payment canceled",
   // VtxoConsolidate's own round-outcome toast (Settings.tsx)
   "Kolo selhalo. Zkus to znovu.": "The round failed. Try again.",
   "Kolo bylo zrušeno.": "The round was canceled.",
