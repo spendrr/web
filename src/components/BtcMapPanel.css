@@ -10,9 +10,9 @@
   gap: 8px;
 }
 
-/* Plnobarevná pilulka v appčině vlastním jazyce (viz .big-action-btn v
-   Dashboard.css) místo generického .secondary.small, které vedle mapy
-   nevypadalo jako skutečná akce, jen jako drobný odkaz. */
+/* A solid pill in the app's own language (see .big-action-btn in
+   Dashboard.css) instead of the generic .secondary.small, which next to the
+   map did not look like a real action, only a small link. */
 .btcmap-locate-btn {
   display: flex;
   align-items: center;
@@ -39,36 +39,36 @@
   height: 100%;
 }
 
-/* Přes spodní část mapy, ne jako blok pod tlačítkem — přesně tam, kam se
-   uživatel dívá po tapnutí na "Najít podniky poblíž", a mapa i tlačítko
-   zůstávají na svém místě, žádné poskočení layoutu. Gradient místo
-   plného pozadí, aby přechod mezi dlaždicemi mapy a kartičkami nebyl
-   ostrý řez. */
+/* Over the bottom of the map, not as a block under the button: exactly where
+   the user looks after tapping "Najít podniky poblíž", and the map and the
+   button stay in place, no layout jump. A gradient instead of a solid
+   background so the transition between the map tiles and the cards is not a
+   sharp cut. */
 .btcmap-nearby-overlay {
   position: absolute;
   left: 0;
   right: 0;
-  /* Ne 0 — Leaflet's vlastní "Leaflet | OpenStreetMap © BTC Map" attribution
-     řádek sedí v pravém dolním rohu mapy a panel na bottom: 0 ho celý
-     zakryl (a spolu s ním i klikatelné odkazy na licence). 22px odpovídá
-     výšce toho řádku, takže zůstane vidět nad panelem. */
+  /* Not 0: Leaflet's own "Leaflet | OpenStreetMap © BTC Map" attribution line
+     sits in the bottom right corner of the map, and a panel at bottom: 0
+     covered all of it (and the clickable licence links with it). 22px is the
+     height of that line, so it stays visible above the panel. */
   bottom: 22px;
   z-index: 600;
   padding: 28px 12px 12px;
   background: linear-gradient(to top, var(--surface) 60%, transparent);
 }
 
-/* Vodorovný pruh kartiček — stejný vizuální jazyk jako .utility-hub-card v
-   UtilityHub.css (karta/border/box-shadow), jen jako scrollovatelný řádek
-   místo gridu, protože přes mapu už není místo na víc než jednu řadu
-   najednou. */
+/* A horizontal strip of cards: the same visual language as .utility-hub-card
+   in UtilityHub.css (card/border/box-shadow), only as a scrollable row instead
+   of a grid, because over the map there is no room for more than one row at a
+   time. */
 .btcmap-nearby-list {
   display: flex;
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 2px;
-  /* Dovnitř scrollovatelného pruhu, ne mimo — jinak by se poslední karta
-     zarovnala přesně na okraj bez dýchacího prostoru. */
+  /* Inside the scrollable strip, not outside it: otherwise the last card would
+     sit exactly on the edge with no breathing room. */
   scroll-padding-inline: 4px;
 }
 
@@ -91,8 +91,8 @@
   font-weight: 700;
   font-size: 13.5px;
   color: var(--text-h);
-  /* Karty jsou úzké — dlouhý název podniku se zalomí do dvou řádků a
-     zbytek uřízne, spíš než roztáhne kartu do šířky a rozbije řádek. */
+  /* Cards are narrow: a long business name wraps to two lines and the rest is
+     cut off, rather than stretching the card and breaking the row. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -124,10 +124,9 @@
 .btcmap-map-wrap {
   position: relative;
   width: 100%;
-  /* .utility-hub-page caps at 420px, ale mapa má stejně chtít co nejvíc
-     výšky, ne poměr podle šířky — fixní výška je tu čitelnější než
-     aspect-ratio. Zmenšeno o ~38px (~1cm) oproti prvnímu odhadu na
-     uživatelovu žádost. */
+  /* .utility-hub-page caps at 420px, but the map should take as much height as
+     possible, not a ratio from the width: a fixed height is clearer here than
+     aspect-ratio. */
   height: 72vh;
   min-height: 420px;
   border-radius: 16px;
@@ -144,10 +143,10 @@
 .btcmap-zoom-hint {
   position: absolute;
   left: 50%;
-  /* Bylo bottom: 12px — přesně tam, kde sedí Leaflet's vlastní attribution
-     řádek ("Leaflet | OpenStreetMap © BTC Map"), takže se dlouhý text
-     překrýval. Svisle na střed mapy míjí attribution i zoom +/- ovladač
-     vlevo nahoře. */
+  /* Not bottom: 12px, which is where Leaflet's own attribution line sits
+     ("Leaflet | OpenStreetMap © BTC Map") and a long text would overlap it.
+     Vertically centered on the map it misses both the attribution and the zoom
+     +/- control at the top left. */
   top: 50%;
   transform: translate(-50%, -50%);
   max-width: calc(100% - 32px);
@@ -155,25 +154,25 @@
   background: var(--surface);
   color: var(--text-h);
   border: var(--border-w) solid var(--border);
-  /* 999px (pilulka) vypadalo divně, jakmile text zabral dva řádky na
-     užším telefonu — natažený ovál místo pilulky. Menší, konzistentní
-     rádius funguje na jednom i dvou řádcích stejně dobře. */
+  /* A 999px (pill) radius looks odd once the text takes two lines on a
+     narrower phone: a stretched oval instead of a pill. A smaller, consistent
+     radius works equally well for one and two lines. */
   border-radius: 14px;
   padding: 10px 16px;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.35;
   box-shadow: var(--pop-sm);
-  /* Nad Leaflet's vlastními ovládacími prvky (zoom +/-, attribution), ale
-     nesmí blokovat gesta na mapě pod ní. */
+  /* Above Leaflet's own controls (zoom +/-, attribution), but it must not
+     block gestures on the map below. */
   z-index: 500;
   pointer-events: none;
 }
 
-/* Nenápadný stavový štítek pro probíhající/neúspěšný fetchElements() —
-   pravý horní roh, mimo Leaflet's vlastní zoom +/- (vlevo nahoře) a
-   attribution/btcmap-zoom-hint (dole/uprostřed). pointer-events: none, aby
-   neblokoval gesta na mapě pod ním, stejně jako .btcmap-zoom-hint. */
+/* An unobtrusive status tag for a running/failed fetchElements(): top right
+   corner, away from Leaflet's own zoom +/- (top left) and the
+   attribution/btcmap-zoom-hint (bottom/middle). pointer-events: none so it
+   does not block gestures on the map below, like .btcmap-zoom-hint. */
 .btcmap-status-badge {
   position: absolute;
   top: 12px;
@@ -196,10 +195,9 @@
   border-color: var(--danger);
 }
 
-/* Jednotlivý podnik (mimo shluk) — nahrazuje dřívější Canvas circleMarker
-   tečku. box-sizing: border-box, aby 2px okraj nezvětšil skutečnou
-   vykreslenou velikost nad iconSize [16,16] z BtcMapPanel.tsx, se kterým
-   počítá i iconAnchor [8,8] (přesný střed). */
+/* A single business (outside a cluster). box-sizing: border-box so the 2px
+   border does not enlarge the rendered size beyond the iconSize [16,16] from
+   BtcMapPanel.tsx, which iconAnchor [8,8] (the exact center) also relies on. */
 .btcmap-marker-dot {
   width: 100%;
   height: 100%;
@@ -209,9 +207,10 @@
   border: 2px solid var(--border);
 }
 
-/* Shluk více podniků — appčin vlastní jazyk (ohraničení + tvrdý stín) místo
-   plugin's default zeleno-žluto-oranžové kruhové témy (MarkerCluster.Default.css
-   se záměrně vůbec neimportuje, viz komentář u importu v BtcMapPanel.tsx). */
+/* A cluster of several businesses: the app's own language (border + hard
+   shadow) instead of the plugin's default green-yellow-orange circle theme
+   (MarkerCluster.Default.css is deliberately not imported at all, see the
+   comment at the import in BtcMapPanel.tsx). */
 .btcmap-cluster-icon {
   display: flex;
   align-items: center;
@@ -228,9 +227,9 @@
   font-size: 13px;
 }
 
-/* Leaflet's popup .leaflet-popup-content-wrapper/.leaflet-popup-tip mají
-   vlastní bílé pozadí natvrdo v leaflet.css — přepsáno na appčiny CSS
-   proměnné, jinak by popup v dark módu svítil bíle. */
+/* Leaflet's popup .leaflet-popup-content-wrapper/.leaflet-popup-tip have their
+   own white background hard-coded in leaflet.css: overridden with the app's
+   CSS variables, otherwise the popup would glow white in dark mode. */
 .leaflet-popup-content-wrapper {
   background: var(--surface);
   color: var(--text-h);
@@ -318,8 +317,8 @@
 
 .btcmap-popup-meta-glyph {
   flex: none;
-  /* Emoji glyphy mají vlastní barvu, ne currentColor — line-height 1 tu
-     drží zarovnání s první řádkou textu vedle sebe. */
+  /* Emoji glyphs have their own colour, not currentColor: line-height 1 keeps
+     them aligned with the first line of the text next to them. */
   line-height: 1;
 }
 
@@ -330,12 +329,12 @@
   margin-top: 2px;
 }
 
-/* Appčin vlastní "sticker" jazyk (viz .btcmap-nearby-card/.utility-hub-card) —
-   ohraničený štítek + malý posunutý stín, žádná měkká barevná pilulka.
-   Jeden sjednocený vzhled pro všechny druhy plateb, ne barva na typ.
-   Ohraničení je tu tenčí než appčino obvyklé --border-w (2px) — na takhle
-   malém štítku (11.5px text, pár px paddingu) už 2px vizuálně převažovalo
-   nad obsahem. */
+/* The app's own "sticker" language (see
+   .btcmap-nearby-card/.utility-hub-card): a bordered tag + a small offset
+   shadow, no soft coloured pill. One unified look for all payment kinds, not a
+   colour per type. The border is thinner than the app's usual --border-w
+   (2px): on such a small tag (11.5px text, a few px of padding) 2px visually
+   outweighed the content. */
 .btcmap-popup-chip {
   display: inline-flex;
   align-items: center;

@@ -246,11 +246,11 @@ export async function handleBtcMapElements(request: Request, url: URL, env: Env)
 
   return new Response(JSON.stringify(matches), {
     status: 200,
-    // public, ne no-store — data samotná se na serveru obnovují jen jednou
-    // za REFRESH_INTERVAL_MS (24 h) a nejsou per-uživatel, takže je
-    // bezpečné je krátce cachovat i v prohlížeči/na edge. max-age výrazně
-    // kratší než ten interval, aby cache nikdy neukazovala o moc starší data
-    // než server sám.
+    // public, not no-store: the data itself is refreshed on the server only
+    // once per REFRESH_INTERVAL_MS (24 h) and is not per-user, so it is safe to
+    // cache it briefly in the browser and on the edge too. max-age is much
+    // shorter than that interval, so the cache never shows data much older than
+    // the server's own.
     headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
   });
 }

@@ -44,21 +44,19 @@ const meIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// Nahrazuje dřívější L.circleMarker (Canvas-rendered tečka) — clustering
-// (viz níže) potřebuje skutečné L.Marker instance, CircleMarker s ním
-// nefunguje (markercluster interně volá marker.setIcon() atd.). Jeden sdílený
-// DivIcon pro všechny podniky, stylovaný přes .btcmap-marker-dot v
-// BtcMapPanel.css (--accent výplň, --border obrys) — stejný vzhled jako
-// dřívější tečka, jen jako skutečný (byť malý) DOM prvek místo Canvas pixelu.
+// A real L.Marker per business, not a Canvas circle: clustering (below) needs
+// Marker instances (markercluster calls marker.setIcon() and so on) and does
+// not work with CircleMarker. One shared DivIcon for all businesses, styled by
+// .btcmap-marker-dot in BtcMapPanel.css (--accent fill, --border outline).
 const businessIcon = L.divIcon({
   className: "btcmap-marker-dot",
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
 
-// Velikost bubliny roste v pár skocích s počtem podniků uvnitř — čistě
-// vizuální odstupňování (žádná jiná logika se na velikosti nezakládá), aby
-// shluk s 60 podniky nevypadal stejně jako shluk se 3.
+// The bubble size grows in a few steps with the number of businesses inside.
+// Purely visual (nothing else depends on the size), so a cluster of 60 does not
+// look like a cluster of 3.
 function clusterIcon(count: number): L.DivIcon {
   const size = count >= 50 ? 44 : count >= 10 ? 38 : 32;
   return L.divIcon({
@@ -68,19 +66,19 @@ function clusterIcon(count: number): L.DivIcon {
   });
 }
 
-// Praha — appka je česká, tohle je jen výchozí pohled než uživatel použije
-// geolokaci nebo mapu sám posune.
+// Prague: the app is Czech, this is only the initial view before the user
+// locates themselves or moves the map.
 const DEFAULT_CENTER: L.LatLngTuple = [50.0755, 14.4378];
 const DEFAULT_ZOOM = 13;
-// Bylo 15 — na tak těsném výřezu (pár bloků) je snadné trefit místo bez
-// jediného podniku v datasetu, i v rozumně pokryté oblasti. 13 ukáže širší
-// okolí hned po lokalizaci, blíž tomu, co uživatel čeká pod "poblíž".
+// 13 shows the wider surroundings right after locating, closer to what a user
+// expects under "nearby". A tighter view (a few blocks) easily lands on a spot
+// with no business in the dataset even in a well covered area.
 const GEOLOCATE_ZOOM = 13;
-// Bylo 10 — pořád moc brzo, uživatel chtěl vidět třeba celé Česko naráz
-// (~6.8° na šířku). worker/btcmap.ts teď dovoluje bbox až MAX_BBOX_SPAN_DEG
-// = 12°, což na výšku mapy odpovídá zoomu zhruba 6. Pod tím je viditelný
-// výřez v podstatě kontinent a piny by byly jen náhodný vzorek, ne
-// "podniky poblíž" v žádném smyslu.
+// Lowest zoom that still searches: the whole country should fit at once (about
+// 6.8° wide for Czechia). worker/btcmap.ts allows a bbox up to
+// MAX_BBOX_SPAN_DEG = 12°, which for the height of the map is about zoom 6.
+// Below that the visible area is roughly a continent and the pins would be a
+// random sample, not "businesses nearby" in any sense.
 const MIN_ELEMENTS_ZOOM = 6;
 const FETCH_DEBOUNCE_MS = 400;
 // Normal pan/zoom on a warm edge cache resolves well under this — showing
@@ -101,9 +99,9 @@ interface BtcMapElement {
   openingHours?: string;
 }
 
-// Krátké české popisky pro nejběžnější OSM tagy v datasetu — zbytek padá na
-// syrovou hodnotu tagu (viz categoryLabel), což je čitelné i bez překladu
-// (např. "car_repair").
+// Short Czech labels for the most common OSM tags in the dataset. The rest
+// falls back to the raw tag value (see categoryLabel), which is readable
+// without a translation (e.g. "car_repair").
 const CATEGORY_LABELS: Record<string, string> = {
   cafe: "Kavárna",
   restaurant: "Restaurace",
@@ -133,13 +131,13 @@ function categoryLabel(t: ReturnType<typeof useT>, category: string): string {
   return known ? t(known) : category;
 }
 
-// Popup obsah se skládá výhradně přes DOM API (createElement/textContent),
-// nikdy přes innerHTML se string interpolací — `name`/`category` pochází ze
-// syrových OSM tagů, které může upravit kdokoliv (btcmap.org čerpá přímo z
-// OpenStreetMap), takže je to nedůvěryhodný vstup. fetch-guard.js chrání jen
-// proti konkrétní rodině síťových prvků vložených přes innerHTML (link/a
-// ping/meta refresh/script), ne proti obecnému <img onerror=...> stored XSS
-// — jediná bezpečná cesta je DOM stavět ručně.
+// Popup content is built only through the DOM API (createElement/textContent),
+// never through innerHTML with string interpolation: `name`/`category` come
+// from raw OSM tags that anyone can edit (btcmap.org reads straight from
+// OpenStreetMap), so they are untrusted input. fetch-guard.js protects only
+// against a specific family of network elements injected through innerHTML
+// (link/a ping/meta refresh/script), not against a general <img onerror=...>
+// stored XSS: the only safe way is to build the DOM by hand.
 function buildPopupContent(t: ReturnType<typeof useT>, el: BtcMapElement): HTMLElement {
   const root = document.createElement("div");
   root.className = "btcmap-popup";
@@ -158,9 +156,9 @@ function buildPopupContent(t: ReturnType<typeof useT>, el: BtcMapElement): HTMLE
     root.appendChild(makeMetaRow("📍", el.address));
   }
   if (el.openingHours) {
-    // Syrová OSM opening_hours syntaxe (např. "Mo-Fr 08:00-18:00") — čitelné
-    // i bez parsování, plný parser na formát by byl výrazně větší práce než
-    // tenhle popup potřebuje.
+    // Raw OSM opening_hours syntax (e.g. "Mo-Fr 08:00-18:00"): readable without
+    // parsing, a full parser for the format would be far more work than this
+    // popup needs.
     root.appendChild(makeMetaRow("🕓", el.openingHours));
   }
 
@@ -196,10 +194,9 @@ function makeMetaRow(glyph: string, text: string): HTMLElement {
   return row;
 }
 
-// Jeden sjednocený vzhled pro všechny druhy plateb (dřív každý typ vlastní
-// barvu pozadí/textu) — sladěno s appčiným vlastním jazykem tvrdých
-// ohraničených "sticker" tagů (viz .big-action-btn/.utility-hub-card), ne
-// s generickou barevnou pilulkou.
+// One unified look for all payment kinds (not a background/text colour per
+// type), matching the app's own language of hard-bordered "sticker" tags (see
+// .big-action-btn/.utility-hub-card), not a generic coloured pill.
 function makeChip(glyph: string, label: string): HTMLElement {
   const chip = document.createElement("span");
   chip.className = "btcmap-popup-chip";
@@ -212,11 +209,11 @@ function makeChip(glyph: string, label: string): HTMLElement {
   return chip;
 }
 
-// Čte, jestli appka aktuálně vykresluje dark mode — stejná dvoukroková
-// logika jako theme.ts's (neexportovaná) resolvedTheme(): explicitní
-// data-theme na <html> (Settings) vyhrává, jinak OS preference. Duplikováno
-// tady místo importu, aby BtcMapPanel.tsx nezávisel na theme.ts's interním
-// stavu jen kvůli jednomu čtení atributu.
+// Reads whether the app currently renders dark mode: the same two-step logic as
+// theme.ts's (unexported) resolvedTheme(): an explicit data-theme on <html>
+// (Settings) wins, otherwise the OS preference. Duplicated here instead of
+// imported, so BtcMapPanel.tsx does not depend on theme.ts's internal state
+// just for one attribute read.
 function getEffectiveTheme(): "light" | "dark" {
   const attr = document.documentElement.getAttribute("data-theme");
   if (attr === "light" || attr === "dark") return attr;
@@ -265,8 +262,9 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-// null = síťová/serverová chyba na prvním kroku, kde nemá smysl zkoušet dál.
-// [] = i po nejširším výřezu opravdu nic (datová mezera, ne chyba).
+// null = a network/server error on the first step, where trying further makes
+// no sense.
+// [] = nothing even in the widest view (a data gap, not an error).
 // The widening search below costs up to six requests in a thinly covered area.
 // Its raw result is remembered for a few minutes per ~1 km cell, so opening
 // the nearby list again (or moving a little) costs none.
@@ -306,12 +304,11 @@ async function fetchNearestElements(
 }
 
 const NEARBY_COUNT = 10;
-// Jeden pevný malý výřez (dřív jen 0.03°) uměl v řidčeji pokryté oblasti
-// dopadnout prázdně, i když nejbližší podnik byl jen o kousek dál — uživatel
-// pak viděl "v okolí nejsou žádné podniky" místo seznamu. Místo toho zkoušet
-// postupně širší výřezy, dokud něco nenajdeme (nebo nedojdeme na
-// MAX_BBOX_SPAN_DEG ve worker/btcmap.ts — poslední krok 6° na každou stranu
-// dá bbox span 12°, přesně na hraně limitu).
+// A single small fixed view could come back empty in a sparsely covered area
+// even when the nearest business was just a bit further away, and the user saw
+// "no businesses nearby" instead of a list. So try progressively wider views
+// until something is found (or until MAX_BBOX_SPAN_DEG in worker/btcmap.ts: the
+// last step of 6° on each side gives a bbox span of 12°, exactly at the limit).
 const NEARBY_BBOX_STEPS_DEG = [0.03, 0.1, 0.3, 1, 3, 6];
 
 export default function BtcMapPanel() {
@@ -330,13 +327,14 @@ export default function BtcMapPanel() {
   const [elementsError, setElementsError] = useState<string | null>(null);
   const [locateError, setLocateError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
-  // null = žádný dotaz zatím neproběhl (tlačítko ještě nebylo použité),
-  // [] = dotaz proběhl a v okolí nic není — dvě různé věci na zobrazení.
+  // null = no query has run yet (the button was not used yet),
+  // [] = the query ran and there is nothing nearby: two different things to
+  // show.
   const [nearby, setNearby] = useState<(BtcMapElement & { distanceM: number })[] | null>(null);
-  // Odděleno od `nearby` samotného — tlačítko je přepínač zobrazit/skrýt.
-  // Skrytí nemaže `nearby`, takže opětovné otevření po skrytí sice znovu
-  // lokalizuje a přepíše data (poloha se mezitím mohla změnit), ale
-  // nemusí čekat na čerstvou odpověď, aby vůbec něco ukázalo.
+  // Kept apart from `nearby` itself: the button toggles show/hide. Hiding does
+  // not clear `nearby`, so opening it again after hiding does locate again and
+  // overwrite the data (the position may have changed meanwhile), but does not
+  // have to wait for a fresh answer to show anything at all.
   const [nearbyVisible, setNearbyVisible] = useState(false);
 
   useEffect(() => {
@@ -359,24 +357,22 @@ export default function BtcMapPanel() {
       updateWhenIdle: true,
       updateWhenZooming: false,
     }).addTo(map);
-    // Nahrazuje dřívější prosté L.layerGroup() — v hustě pokryté oblasti
-    // (centrum Prahy) se desítky teček v jednom bloku překrývaly a nešlo se
-    // trefit na konkrétní podnik. Shlukuje blízké body do jednoho číselného
-    // bublinu (.btcmap-cluster-icon), který se při kliknutí přiblíží/rozpadne.
-    // Tohle je taky proč `preferCanvas` na mapě výše zmizelo — markercluster
-    // pracuje se skutečnými L.Marker instancemi (potřebuje setIcon() atd.),
-    // ne s Canvas-rendered CircleMarker, takže Canvas renderer tu už nemá co
-    // dělat. Náhrada za původní obavu z DOM zátěže: v husté oblasti teď
-    // vzniká jeden shlukový uzel místo desítek jednotlivých markerů, takže
-    // reálný počet DOM uzlů je nižší, ne vyšší, než dřív.
+    // Clusters nearby points into one numbered bubble (.btcmap-cluster-icon)
+    // that zooms in or breaks apart on click. In a densely covered area
+    // (central Prague) dozens of dots in one block overlapped and a single
+    // business could not be hit. markercluster works with real L.Marker
+    // instances (it needs setIcon() and so on), not Canvas-rendered
+    // CircleMarker, which is why the map has no `preferCanvas`. DOM load is no
+    // concern: a dense area now produces one cluster node instead of dozens of
+    // single markers, so the real number of DOM nodes is lower, not higher.
     const markers = L.markerClusterGroup({
       iconCreateFunction: (cluster) => clusterIcon(cluster.getChildCount()),
     }).addTo(map);
     markersRef.current = markers;
 
-    // Přepne dlaždice na tmavý/světlý styl při změně motivu, aniž by se
-    // celá mapa musela znovu vytvářet — jak OS preference (system motiv),
-    // tak ruční přepnutí v Settings (data-theme na <html>).
+    // Switches the tiles to the dark/light style when the theme changes,
+    // without recreating the whole map: both the OS preference (system theme)
+    // and a manual switch in Settings (data-theme on <html>).
     const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
     const updateTileTheme = () => tiles.setUrl(tileUrlTemplate(getEffectiveTheme()));
     darkMedia.addEventListener("change", updateTileTheme);
@@ -425,9 +421,9 @@ export default function BtcMapPanel() {
         if (seq === fetchSeqRef.current) setElementsLoading(true);
       }, LOADING_BADGE_DELAY_MS);
       const elements = await loadElements(elementsCoverage, bbox, fetchElementsInBbox);
-      // Zahodit odpověď, pokud mezitím proběhl novější dotaz (rychlé
-      // posouvání mapy by jinak mohlo vykreslit zastaralá data přes nová) —
-      // ta newer request si svůj vlastní loading/error stav dořeší sama.
+      // Drop the response if a newer query has run meanwhile (fast panning
+      // could otherwise draw stale data over new data). The newer request
+      // settles its own loading/error state.
       if (seq !== fetchSeqRef.current) return;
       clearLoadingBadgeTimer();
       setElementsLoading(false);
@@ -438,9 +434,9 @@ export default function BtcMapPanel() {
       setElementsError(null);
 
       layer.clearLayers();
-      // Sestavit pole a naráz zavolat addLayers() — markercluster tohle
-      // dokáže vypočítat jedním průchodem, zatímco addTo() po jednom by pro
-      // každý z až 200 markerů přepočítával shluky zvlášť.
+      // Build an array and call addLayers() once: markercluster computes this
+      // in one pass, while addTo() one by one would recompute the clusters for
+      // each of up to 200 markers.
       const newMarkers: L.Marker[] = [];
       for (const el of elements) {
         const marker = L.marker([el.lat, el.lon], { icon: businessIcon });
@@ -450,11 +446,11 @@ export default function BtcMapPanel() {
         // DOM trees per pan/zoom (most of which the user never clicks) was
         // the real cost, not the marker rendering itself.
         marker.on("click", () => {
-          // autoPan: false — jinak Leaflet po otevření popupu mapu jemně
-          // posune, aby se popup vešel do výřezu, což vyvolá moveend →
-          // scheduleFetch → za 400ms fetchElements() → layer.clearLayers(),
-          // který smaže právě otevřený marker i s popupem. Uživatel to vidí
-          // jako "okýnko po chvilce samo zmizí".
+          // autoPan: false: otherwise Leaflet nudges the map after opening a
+          // popup so that it fits into the view, which fires moveend →
+          // scheduleFetch → after 400 ms fetchElements() → layer.clearLayers(),
+          // which deletes the marker that was just opened together with its
+          // popup. The user sees the popup vanish by itself after a moment.
           marker.bindPopup(buildPopupContent(t, el), { autoPan: false }).openPopup();
         });
         newMarkers.push(marker);
@@ -476,9 +472,9 @@ export default function BtcMapPanel() {
       markersRef.current = null;
       meMarkerRef.current = null;
     };
-    // t je stabilní přes useCallback (viz i18n.ts) a mění se jen při reálné
-    // změně jazyka — přeinicializovat celou mapu kvůli tomu je zbytečné,
-    // popupy si čerstvý `t` stejně vyzvednou při dalším otevření.
+    // `t` is stable through useCallback (see i18n.ts) and changes only on a
+    // real language change: re-initializing the whole map for that is
+    // pointless, the popups pick up a fresh `t` at their next open anyway.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -500,22 +496,22 @@ export default function BtcMapPanel() {
         if (meMarkerRef.current) {
           meMarkerRef.current.setLatLng(latlng);
         } else {
-          // bindPopup(string) je tu v pořádku (na rozdíl od buildPopupContent
-          // pro OSM data výše) — "Jste tady" je pevný, appkou kontrolovaný
-          // text, ne nedůvěryhodný vstup zvenčí.
+          // bindPopup(string) is fine here (unlike buildPopupContent for the
+          // OSM data above): "Jste tady" is fixed text controlled by the app,
+          // not untrusted input from outside.
           meMarkerRef.current = L.marker(latlng, { title: t("Jste tady"), icon: meIcon })
             .addTo(map)
             .bindPopup(t("Jste tady"));
         }
 
-        // Samostatný dotaz kolem uživatele — nezávislý na mapou řízeném
-        // fetchElements výše (ten reaguje na moveend/zoom a vrací max
-        // MAX_RESULTS bodů z celého viditelného výřezu, ne konkrétně
-        // "nejbližší"), aby "Najít podniky poblíž" spolehlivě ukázalo
-        // seřazený seznam kartiček i těsně po prvním otevření mapy.
-        // fetchNearestElements samo zkouší čím dál širší výřez, dokud něco
-        // nenajde, takže řídce pokrytá oblast nedopadne rovnou na "v okolí
-        // nejsou žádné podniky".
+        // A separate query around the user, independent of the map-driven
+        // fetchElements above (that one reacts to moveend/zoom and returns at
+        // most MAX_RESULTS points from the whole visible area, not specifically
+        // "the nearest"), so that "Najít podniky poblíž" reliably shows an
+        // ordered list of cards even right after the map is first opened.
+        // fetchNearestElements itself tries ever wider views until it finds
+        // something, so a sparsely covered area does not end up at "no
+        // businesses nearby" straight away.
         setNearby(null);
         const seq = ++nearbySeqRef.current;
         void fetchNearestElements(latlng).then((elements) => {
@@ -534,9 +530,9 @@ export default function BtcMapPanel() {
   };
 
   const handleLocateButtonClick = () => {
-    // Přepínač: panel už je vidět → tenhle klik ho jen schová, bez nové
-    // geolokace. Panel schovaný (i s daty z minula, i úplně bez dat) →
-    // klik pokaždé lokalizuje znovu, viz handleLocate.
+    // Toggle: if the panel is already visible this click only hides it, without
+    // a new geolocation. If the panel is hidden (with data from last time or
+    // with no data at all), every click locates again, see handleLocate.
     if (nearbyVisible) {
       setNearbyVisible(false);
       return;
@@ -544,10 +540,10 @@ export default function BtcMapPanel() {
     handleLocate();
   };
 
-  // Netahá popup z existujícího markeru (mohl by mezitím zmizet, přestavět
-  // se kvůli moveend fetchi, nebo být schovaný uvnitř shluku) — otevře
-  // vlastní popup přímo, funguje spolehlivě bez ohledu na to, co se zrovna
-  // děje s vrstvou pinů.
+  // Does not take the popup from an existing marker (it could disappear
+  // meanwhile, be rebuilt by a moveend fetch, or be hidden inside a cluster):
+  // it opens its own popup directly, which works reliably whatever is happening
+  // with the layer of pins.
   const handleCardClick = (el: BtcMapElement) => {
     const map = mapRef.current;
     if (!map) return;
