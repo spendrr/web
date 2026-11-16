@@ -29,7 +29,7 @@ export default function ChangelogSheet({ onClose }: { onClose: () => void }) {
         <div className="clg-list">
           {CHANGELOG.map((entry, i) => (
             <section key={i} className="clg-entry">
-              <div className="clg-date">{entry.date}</div>
+              <div className="clg-date">{entry.codename ? `${entry.date} · ${entry.codename}` : entry.date}</div>
               <h3 className="clg-title">{t(entry.title)}</h3>
               <ul className="clg-items">
                 {entry.items.map((item, j) => (

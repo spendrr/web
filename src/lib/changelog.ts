@@ -26,14 +26,41 @@
 //   { text, beta: true }. The UI renders the "V betě" label from the flag;
 //   never put "V betě:" into the text itself.
 // - Copy rules of the whole app apply: Czech, terse, no em dash, no emoji.
+// - codename: the release name. `npm run codename` prints the next one in CODENAMES
+//   (A to Z, three rounds); the user confirms it or asks for another name on the same
+//   letter. Never skip a letter. Codenames are 14 characters or fewer. Set on every entry from now on; older ones have none.
+//   English by design, never goes through t().
 // - Every title and item text needs an English entry in src/lib/i18n.ts
 //   (tests/i18n.fuzz.test.ts fails otherwise).
 
 export type ChangelogItem = string | { text: string; beta: true };
 
+// Ubuntu style: three rounds of one name per letter (X and Y skipped), then it starts over.
+export const CODENAMES = [
+  "Agile Axolotl", "Bold Badger", "Clever Capybara", "Daring Dingo", "Eager Egret", "Frugal Ferret",
+  "Gentle Gecko", "Honest Hedgehog", "Independent Ibex", "Jolly Jackal", "Keen Kiwi", "Lucky Lynx",
+  "Mighty Meerkat", "Nimble Numbat", "Odd Otter", "Patient Pangolin", "Quick Quokka", "Rapid Rhino",
+  "Sovereign Stoat", "Trustless Tapir", "Unstoppable Urchin", "Verified Vole", "Wise Wombat", "Zesty Zebra",
+  "Apt Armadillo", "Brave Beaver", "Calm Coyote", "Dapper Deer", "Earnest Eland", "Fleet Falcon",
+  "Gallant Gnu", "Humble Heron", "Ideal Impala", "Jaunty Jay", "Kind Kudu", "Loyal Llama",
+  "Modest Marmot", "Noble Narwhal", "Open Ocelot", "Prudent Puffin", "Quiet Quail", "Ready Raccoon",
+  "Steady Sparrow", "Tidy Tamarin", "Upbeat Uakari", "Vivid Vicuna", "Witty Walrus", "Zany Zorilla",
+  "Alert Alpaca", "Bright Bison", "Cozy Crane", "Dutiful Dugong", "Elegant Emu", "Fair Flamingo",
+  "Good Gibbon", "Hardy Hare", "Iron Iguana", "Jovial Jaguar", "Kindly Koala", "Lively Lemur",
+  "Mellow Manatee", "Neat Newt", "Ornate Osprey", "Plucky Penguin", "Quirky Quoll", "Ruddy Robin",
+  "Sturdy Seal", "Tough Toad", "Upright Urial", "Valiant Viper", "Wary Weasel", "Zippy Zebu",
+] as const;
+
+// Position of the next codename: one step per entry that already has one, so a name swapped
+// for another on the same letter keeps the order.
+export function nextCodename(entries: readonly { codename?: string }[]): string {
+  return CODENAMES[entries.filter((e) => e.codename).length % CODENAMES.length];
+}
+
 export interface ChangelogEntry {
   date: string;
   title: string;
+  codename?: string;
   items: ChangelogItem[];
 }
 

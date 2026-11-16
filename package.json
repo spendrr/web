@@ -13,6 +13,7 @@
     "test": "vitest run",
     "fuzz:ui": "node scripts/fuzz-send-form.mjs",
     "e2e": "sh e2e/run.sh",
+    "codename": "node scripts/next-codename.mjs",
     "status:keygen": "node scripts/status-keygen.mjs"
   },
   "dependencies": {
