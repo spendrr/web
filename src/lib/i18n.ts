@@ -504,8 +504,8 @@ const DICT: Record<string, string> = {
     "Invalid address or invoice. Check that you copied it in full and without a typo.",
   "Faktura už obsahuje částku {amount} sats — smaž zadanou částku, aby se použila ta z faktury.":
     "The invoice already has an amount of {amount} sats — clear the amount you typed so the invoice's own amount is used.",
-  "Nevíme, jestli platba prošla. Zkontroluj historii — pokud tam platba není, zkus to za chvíli znovu.":
-    "We don't know if the payment went through. Check your history — if it's not there, try again in a moment.",
+  "Nevíme, jestli platba prošla. Zkontroluj historii. Pokud tam platba není, zkus to za chvíli znovu.":
+    "We don't know if the payment went through. Check your history. If it's not there, try again in a moment.",
   "On-chain": "On-chain",
   "Lightning faktura": "Lightning invoice",
   "Lightning adresa": "Lightning address",
@@ -656,7 +656,8 @@ const DICT: Record<string, string> = {
   "Zrušit jde, dokud neodejde poslední transakce mince. Odeslané kroky i jejich poplatky zůstanou.": "It can be canceled until a coin's last transaction goes out. Steps already sent, and their fees, stay.",
   "{amount} v drobných mincích zůstane v Ark (pod minimem pro blockchain).": "{amount} in tiny coins stays in Ark (below the blockchain minimum).",
   "Nestandardní mince zůstanou v Ark: {count}": "Non-standard coins stay in Ark: {count}",
-  "Poplatky nejde spočítat: {error}": "Can't work out the fees: {error}",
+  "Poplatky nejde spočítat.": "Can't work out the fees.",
+  "Kopírovat chybu": "Copy error",
   "Na poplatky chybí ~{amount} on-chain. Pošli je přes Přijmout → On-chain a nepřesouvej do Ark.": "~{amount} on-chain is missing for fees. Send it via Receive → On-chain and don't move it into Ark.",
   "Na poplatky nemáš dost on-chain. Pošli si pár tisíc sats přes Přijmout → On-chain.": "Not enough on-chain for fees. Send yourself a few thousand sats via Receive → On-chain.",
   "Spustit i tak, počká na doplnění": "Start anyway, it waits for the top-up",

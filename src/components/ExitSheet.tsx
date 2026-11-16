@@ -331,6 +331,12 @@ function StartScreen({
   const lang = useLang();
   const [info, setInfo] = useState<StartInfo | null>(null);
   const [infoError, setInfoError] = useState<string | null>(null);
+  const [errorCopied, setErrorCopied] = useState(false);
+  useEffect(() => {
+    if (!errorCopied) return;
+    const h = setTimeout(() => setErrorCopied(false), 2000);
+    return () => clearTimeout(h);
+  }, [errorCopied]);
   // Prefilled only when the stored address has a tag; startExit still checks
   // that tag against the password before trusting it (addressFromStorage).
   const [prefilled] = useState(() => (getExitDestinationTag() !== null ? (getExitDestinationAddress() ?? "") : ""));
@@ -561,9 +567,19 @@ function StartScreen({
           )}
           {fees?.estimateError && (
             <p className="ex-note">
-              {tf(t("Poplatky nejde spočítat: {error}"), {
-                error: fees.estimateError,
-              })}
+              {t("Poplatky nejde spočítat.")}{" "}
+              <button
+                type="button"
+                className="sht-link"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(fees.estimateError ?? "")
+                    .then(() => setErrorCopied(true))
+                    .catch(() => {});
+                }}
+              >
+                {errorCopied ? t("Zkopírováno") : t("Kopírovat chybu")}
+              </button>
             </p>
           )}
           {expirySoon && (

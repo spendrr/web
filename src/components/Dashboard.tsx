@@ -4268,7 +4268,7 @@ export function describeSendStatus(
   return {
     ok: false,
     indeterminate: true,
-    text: t("Nevíme, jestli platba prošla. Zkontroluj historii — pokud tam platba není, zkus to za chvíli znovu."),
+    text: t("Nevíme, jestli platba prošla. Zkontroluj historii. Pokud tam platba není, zkus to za chvíli znovu."),
   };
 }
 
@@ -4863,7 +4863,6 @@ function SendPanel({
       setResolvedKind(null);
       setPlan(null);
       setConfirmPassword("");
-      setError(text);
       onSentToast(text, "danger");
       onSent();
     };
@@ -5031,7 +5030,7 @@ function SendPanel({
       // whole component unmounts and there is no filled form left to tap.
       if (isWalletCallTimeout(e)) {
         finishIndeterminate(
-          t("Nevíme, jestli platba prošla. Zkontroluj historii — pokud tam platba není, zkus to za chvíli znovu."),
+          t("Nevíme, jestli platba prošla. Zkontroluj historii. Pokud tam platba není, zkus to za chvíli znovu."),
         );
         return;
       }
