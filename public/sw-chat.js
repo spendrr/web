@@ -180,5 +180,63 @@
     }
   }
 
-  self.spendrrChatPush = { chatNotification, describe, openBlob, unreadTotal, rememberOpen };
+  // A payment reminder (src/lib/chat/reminderBlob.ts): sealed on the device with
+  // the key in meta "remindKey", forwarded by the shard as it came. The text
+  // follows the user's own preview level, as for chat. Anything that cannot be
+  // opened shows the generic line the Worker sent.
+  const REMIND_AAD = "spendrr-remind-v1";
+  const REMIND_FALLBACK = { title: "Spendrr", body: "Platba je splatná", tag: "spendrr-reminder", data: {} };
+
+  async function reminderNotification(data) {
+    const blob = data && data.data && typeof data.data.b === "string" ? data.data.b : null;
+    if (!blob) return REMIND_FALLBACK;
+    let db;
+    try {
+      db = await openDb();
+      const key = await run(db, "meta", "readonly", (s) => s.get("remindKey"));
+      if (!key) return REMIND_FALLBACK;
+      const bytes = b64urlDecode(blob);
+      const plain = new Uint8Array(
+        await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: bytes.slice(0, 12), additionalData: new TextEncoder().encode(REMIND_AAD) },
+          key,
+          bytes.slice(12),
+        ),
+      );
+      let end = plain.length;
+      while (end > 0 && plain[end - 1] === 0) end--;
+      const body = JSON.parse(new TextDecoder().decode(plain.subarray(0, end)));
+      if (!body || body.v !== 1 || typeof body.id !== "string" || typeof body.s !== "number") return REMIND_FALLBACK;
+      const level = (await run(db, "meta", "readonly", (s) => s.get("level"))) || "text";
+      const name = level !== "none" && typeof body.n === "string" && body.n ? " @" + str(body.n, 40) : "";
+      const amount = level === "text" ? " " + sats(body.s) + " sats" : "";
+      const note = level === "text" ? str(body.o, 60) : "";
+      return {
+        title: "Spendrr",
+        body: "Zaplatit" + amount + name + (note ? " · " + note : ""),
+        tag: "spendrr-reminder",
+        data: { remind: body.id },
+      };
+    } catch {
+      return REMIND_FALLBACK;
+    } finally {
+      if (db) db.close();
+    }
+  }
+
+  // A tapped reminder, for an app that is not running yet (the schedule id goes
+  // through IndexedDB, as the chat slot does).
+  async function rememberSchedule(id) {
+    let db;
+    try {
+      db = await openDb();
+      await run(db, "meta", "readwrite", (s) => s.put({ id, at: Date.now() }, "pendingSchedule"));
+    } catch {
+      // The app just opens on its home screen.
+    } finally {
+      if (db) db.close();
+    }
+  }
+
+  self.spendrrChatPush = { chatNotification, describe, openBlob, unreadTotal, rememberOpen, reminderNotification, rememberSchedule };
 })();

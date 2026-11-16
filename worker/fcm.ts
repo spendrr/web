@@ -128,7 +128,7 @@ async function getAccessToken(sa: ServiceAccount): Promise<string | null> {
 export interface PushMessage {
   title: string;
   body: string;
-  type?: "expiry" | "chat" | "payment";
+  type?: "expiry" | "chat" | "payment" | "reminder";
   // Extra data fields (string values, as FCM requires).
   data?: Record<string, string>;
 }
@@ -149,7 +149,7 @@ export function buildFcmMessage(token: string, msg: PushMessage): unknown {
           channel_id: expiry ? "expiry" : "payments",
           // Same split as sw.js's tags: an expiry nudge never replaces a
           // payment notification in the tray or the other way round.
-          tag: expiry ? "spendrr-expiry" : msg.type === "chat" ? "spendrr-chat" : "spendrr-payment",
+          tag: expiry ? "spendrr-expiry" : msg.type === "chat" ? "spendrr-chat" : msg.type === "reminder" ? "spendrr-reminder" : "spendrr-payment",
           icon: "ic_stat_spendrr",
         },
       },

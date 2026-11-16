@@ -56,6 +56,7 @@ import { refreshBtcMapCacheIfStale, handleBtcMapElements, handleBtcMapTile } fro
 import { parseVersion, resolveCommitVersion } from "./backupVersion";
 import { WRITE_TOKEN_RE, checkWriteToken, hashWriteToken } from "./backupAuth";
 import { HEIGHT_TOKEN_RE, hashHeightToken } from "./pushHeight";
+import { isRemindAt, MAX_REMIND_BODY_BYTES, REMINDER_BLOB_RE } from "./reminder";
 import {
   buildPayRequest,
   buildVerifyResponse,
@@ -372,6 +373,11 @@ export interface PushSubscriptionRecord {
   // SHA-256 of the client's height token, set by a verified subscribe; lets
   // /api/push/height move the watch while the Ark server is down (pushHeight.ts).
   heightTokenHash?: string;
+  // A payment reminder the app sealed on the device (reminder.ts): when to
+  // push it (seconds) and the opaque blob to forward. Must survive every
+  // rewrite of the record, a renewing subscribe included.
+  remindAt?: number;
+  remindBlob?: string;
   // True while the mailbox's first read (its whole history, drained without
   // notifying) is spread over several ticks, with `checkpoint` holding how far
   // it got. Must survive every rewrite of the record: without it a checkpoint
@@ -409,6 +415,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (request.method === "POST" && url.pathname === "/api/push/height") {
     return handlePushHeight(request, env);
+  }
+  if (request.method === "POST" && url.pathname === "/api/push/remind") {
+    return handlePushRemind(request, env);
   }
   if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") {
     return handlePushUnsubscribe(request, env);
@@ -1671,6 +1680,43 @@ async function handlePushHeight(request: Request, env: Env): Promise<Response> {
   const res = await mailboxWatcherStub(env, shardId).fetch("https://mailbox-watcher.internal/height", {
     method: "POST",
     body: JSON.stringify({ mailboxId, heightTokenHash: await hashHeightToken(heightToken), height }),
+  });
+  if (res.status === 204) return new Response(null, { status: 204 });
+  // 403 and 404 look the same from outside: no probing which mailboxes exist.
+  if (res.status === 403 || res.status === 404) return jsonError(403, "Not allowed.");
+  return jsonError(502, "Failed to update.");
+}
+
+// A payment reminder to push later (reminder.ts, beta). `remindAt` and `blob`
+// both null clears it. The blob is opaque here: only its shape is checked.
+async function handlePushRemind(request: Request, env: Env): Promise<Response> {
+  const originError = checkSameOrigin(request);
+  if (originError) return originError;
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const { success } = await env.PUSH_RATE_LIMITER.limit({ key: bumpRateLimitKey(ip) });
+  if (!success) return jsonError(429, "Rate limit exceeded.");
+
+  const bodyText = await readCappedBody(request, MAX_REMIND_BODY_BYTES);
+  if (typeof bodyText !== "string") return bodyText;
+  let body: unknown;
+  try {
+    body = JSON.parse(bodyText);
+  } catch {
+    return jsonError(400, "Invalid JSON body.");
+  }
+  const { mailboxId, heightToken, remindAt, blob } = (body ?? {}) as Record<string, unknown>;
+  if (typeof mailboxId !== "string" || !HEX_66.test(mailboxId)) return jsonError(400, "Invalid mailboxId.");
+  if (typeof heightToken !== "string" || !HEIGHT_TOKEN_RE.test(heightToken)) return jsonError(400, "Invalid heightToken.");
+  const clear = remindAt === null && blob === null;
+  if (!clear) {
+    if (!isRemindAt(remindAt, Math.floor(Date.now() / 1000))) return jsonError(400, "Invalid remindAt.");
+    if (typeof blob !== "string" || !REMINDER_BLOB_RE.test(blob)) return jsonError(400, "Invalid blob.");
+  }
+
+  const shardId = await resolveShardForLookup(env, mailboxId);
+  const res = await mailboxWatcherStub(env, shardId).fetch("https://mailbox-watcher.internal/remind", {
+    method: "POST",
+    body: JSON.stringify({ mailboxId, heightTokenHash: await hashHeightToken(heightToken), remindAt: clear ? null : remindAt, blob: clear ? null : blob }),
   });
   if (res.status === 204) return new Response(null, { status: 204 });
   // 403 and 404 look the same from outside: no probing which mailboxes exist.

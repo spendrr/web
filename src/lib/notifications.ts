@@ -99,6 +99,8 @@ export async function browserPushSubscription(): Promise<PushSubscription | null
 // Fired when the subscription was replaced: the payment push registration has
 // to follow the new endpoint (Dashboard re-posts it with what it knows).
 export const PUSH_SUBSCRIPTION_EVENT = "spendrr-push-subscription-change";
+// Turning notifications on finished: the push subscription and its token exist now.
+export const NOTIFY_ENABLED_EVENT = "spendrr-notify-enabled";
 
 // A new endpoint, so every chat token made for the old one stops working: how
 // blocking a contact or turning chat notifications off takes back what was
@@ -298,6 +300,12 @@ function pushHeightToken(): string | null {
   }
 }
 
+// The same token, for the payment reminder (src/lib/chat/reminderSync.ts):
+// proof of the record this browser's verified subscribe created.
+export function getPushHeightToken(): string | null {
+  return pushHeightToken();
+}
+
 export function clearPushHeightToken(): void {
   forgetSentSubscribe();
   try {
@@ -400,6 +408,7 @@ export async function enableNotifications(wallet: WalletClient): Promise<boolean
     // Push setup failed (unsupported browser, network hiccup, etc.) — the
     // existing in-tab Notification path still works, so the toggle stays on.
   }
+  window.dispatchEvent(new Event(NOTIFY_ENABLED_EVENT));
   return true;
 }
 
