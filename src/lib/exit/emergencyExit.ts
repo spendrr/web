@@ -316,5 +316,5 @@ export function clearAllExitState(): void {
 
 // States in which an exit still needs the app (for the wallet-reset warning).
 export function isLiveExitState(type: string): boolean {
-  return type !== "claimed" && type !== "vtxo-already-spent" && type !== "canceled";
+  return type !== "claimed" && type !== "vtxo-already-spent" && type !== "vtxo-swept" && type !== "canceled";
 }

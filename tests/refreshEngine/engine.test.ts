@@ -437,6 +437,53 @@ describe("gates", () => {
   });
 });
 
+describe("in flight (bark 0.8 server)", () => {
+  const IN_FLIGHT = "error submitting round participation to server: code: 'Client specified an invalid argument', message: \"bad user input: input vtxo(s) in flight in another operation\"";
+
+  it("a round already holds the inputs: no quarantine, no failure, no isolation, attempt stays charged, retried later", async () => {
+    const t = setup();
+    const a = t.wallet.add({ amountSats: 50_000, expiryHeight: TIP + 100, exitDepth: 1 });
+    t.wallet.faults.push({ kind: "reject", message: IN_FLIGHT });
+    await tick(t.deps);
+    expect(t.state().quarantine).toEqual({});
+    expect(t.state().stranded).toEqual({});
+    expect(t.state().aloneRejects[a.id]).toBeUndefined();
+    expect(t.state().breaker.consecutiveFailures).toBe(0);
+    expect(t.state().breaker.attempts).toHaveLength(1);
+    expect(t.state().submitting).toBeNull();
+    expect(t.state().log.filter((e) => e.kind !== "check").at(-1)?.note).toBe("in-flight");
+    // Held back for the in-flight wait only, then planned again.
+    t.advance(ENGINE.IN_FLIGHT_HOLD_MS + MIN);
+    await tick(t.deps);
+    expect(t.wallet.submits).toHaveLength(2);
+    expect(t.wallet.violations).toEqual([]);
+  });
+
+  it("the same refusal on a resubmit does not strand the coin", async () => {
+    const t = setup();
+    const a = t.wallet.add({ amountSats: 50_000, expiryHeight: TIP + 100, exitDepth: 1 });
+    t.wallet.faults.push({ kind: "lost-before-store", message: "network error" });
+    await tick(t.deps);
+    expect(t.state().submitting).not.toBeNull();
+    const before = t.state().submitting;
+    t.wallet.faults.push({ kind: "reject", message: IN_FLIGHT });
+    t.advance(HOUR);
+    await tick(t.deps);
+    expect(t.state().stranded).toEqual({});
+    expect(t.state().quarantine).toEqual({});
+    expect(t.state().strandCheck).toBeNull();
+    // The earlier participation's record survives the refusal.
+    expect(t.state().submitting).toEqual(before);
+    expect(a.id).toBeTruthy();
+    // Inside the hold nothing is resubmitted again (each call burns a key index).
+    const submits = t.wallet.submits.length;
+    t.advance(HOUR);
+    await tick(t.deps);
+    expect(t.wallet.submits.length).toBe(submits);
+    expect(t.state().breaker.attempts).toHaveLength(2);
+  });
+});
+
 describe("lock failures", () => {
   it("a lock that fails before the submit sends nothing and refunds the attempt", async () => {
     const t = setup();

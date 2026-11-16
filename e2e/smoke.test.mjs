@@ -22,7 +22,7 @@ try {
 
   const p = a.page;
   await p.getByRole("button", { name: /^Odeslat$/ }).click();
-  await p.getByPlaceholder(/ark1/).fill(bAddr);
+  await p.getByPlaceholder(/^ark…/).fill(bAddr);
   await p.locator("input[type=number]").fill(String(SEND));
   await p.getByRole("button", { name: /^Odeslat$/ }).click();
   await p.getByRole("button", { name: /Potvrdit a odeslat/ }).click();

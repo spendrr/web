@@ -146,6 +146,15 @@ describe("buildExitOverview", () => {
     expect(o.abortedSats).toBe(10_000);
   });
 
+  it("vtxo-swept is finished and failed, not live and not a benign abort", () => {
+    const o = buildExitOverview([exit("a", { type: "vtxo-swept", tipHeight: 1, spentInputs: [] })], [], [], NOW);
+    expect(o.live).toBe(false);
+    expect(o.liveSats).toBe(0);
+    expect(o.sweptSats).toBe(10_000);
+    expect(o.abortedSats).toBe(0);
+    expect(o.coins[0].phase).toBe("swept");
+  });
+
   it("never loses a coin and never counts one twice", () => {
     const states = [start(), processing(["awaiting-cpfp-broadcast"]), awaitingDelta(100, 120), claimable(), claimInProgress(), claimed()];
     fc.assert(

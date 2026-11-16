@@ -5,7 +5,7 @@
 //
 // What a tick guarantees, each for a reason seen live or read in bark-0.7.1:
 // - Inputs are checked by a lock (holder = this engine) taken right before
-//   the submit and released right after it, in the same worker queue item: a
+//   the submit and released before it (bark 0.8 wants Spendable inputs), in the same worker queue item: a
 //   coin a payment took fails the lock and nothing is submitted. No lock of
 //   ours stays on a submitted coin: bark locks the inputs itself under the
 //   round's movement once the server issues the round (round/mod.rs
@@ -82,6 +82,10 @@ export const ENGINE = {
   // (orphaned) participation on the server until its round has run. Rounds
   // are hourly; keep them out of any new participation for two.
   ORPHAN_HOLD_MS: 2 * 60 * 60_000,
+  // A submit refused because a round holds the inputs. bark derives the key
+  // before it calls the server, so the refusal burned a key index and counts
+  // as an attempt; 4 h keeps refusals under the 6 per 24 h cap.
+  IN_FLIGHT_HOLD_MS: 4 * 60 * 60_000,
   // Island threshold: breaker stopped and a coin is this close to expiry.
   URGENT_BLOCKS: 144,
   LOG_MAX: 300,
@@ -472,6 +476,13 @@ export function classifySubmitError(message: string, offered: readonly string[])
   return "uncertain";
 }
 
+// bark 0.8 server (#2706): a submit over inputs a round attempt already holds
+// is refused with this text. Nothing is wrong with the coins, the round has
+// them: wait for it, never isolate, quarantine or strand on it.
+export function isInFlightRejection(message: string): boolean {
+  return /in flight in another operation/i.test(message);
+}
+
 // A definite rejection that is about one of the inputs, even though it
 // doesn't say which: the server's "input vtxo(s) unusable" (spent or exited,
 // round/mod.rs:1970) and "input vtxo does not exist" (NotFound, :601), and
@@ -836,10 +847,14 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
       } else {
         const backoff = ENGINE.RESUBMIT_BACKOFF_MS;
         const due = now - s.lastAt >= backoff[Math.min(s.resubmits, backoff.length - 1)];
+        // An in-flight refusal holds these inputs: a resubmit now would be
+        // refused again and burn another key index. The record stays, so
+        // adoption still works.
+        const heldNow = state.held.some((h) => h.until > now && h.ids.some((id) => s.ids.includes(id)));
         const room = pruneAttempts(state.breaker, now).attempts.length < BREAKER.MAX_ATTEMPTS_PER_WINDOW - ENGINE.RESUBMIT_RESERVE;
         const amountSats = s.ids.reduce((sum, id) => sum + (byId.get(id)?.amountSats ?? 0), 0);
         const verdict = mayAttempt(state.breaker, now, { urgent: true });
-        if (due && room && verdict.ok) {
+        if (due && !heldNow && room && verdict.ok) {
           let feeSats = 0;
           try {
             feeSats = (await wallet.estimateRefreshFee(s.ids)).feeSats;
@@ -1000,6 +1015,20 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
         save();
         return "stop";
       }
+      if (isInFlightRejection(fullError)) {
+        // Not a failure and not a bad coin: the server refused because a round
+        // already holds these inputs. The attempt stays charged (bark burned a
+        // key index before the call). On a resubmit the earlier participation
+        // may be that round: keep its record so adoption can still match it.
+        state = {
+          ...state,
+          submitting: prev,
+          held: [...state.held, { ids, until: deps.now() + ENGINE.IN_FLIGHT_HOLD_MS }],
+        };
+        logOnce("in-flight", ids.join(), { kind: "skipped", ids, note: "in-flight" });
+        save();
+        return "stop";
+      }
       if (classifySubmitError(fullError, ids) === "uncertain") {
         log({ kind: "uncertain", ids, amountSats, error });
         save();
@@ -1062,11 +1091,12 @@ async function tickInner(deps: EngineDeps, mode: TickMode, expect: ManualExpecta
       return isInputRejection(error) ? "input" : "stop";
     }
 
-    const { "rate-waits": _r, "isolation-waits": _i, "inputs-changed": _c, "waits-network": _w, ...quiet } = state.quiet;
+    const { "rate-waits": _r, "isolation-waits": _i, "inputs-changed": _c, "waits-network": _w, "in-flight": _f, ...quiet } = state.quiet;
     void _r;
     void _i;
     void _c;
     void _w;
+    void _f;
     state = {
       ...state,
       quiet,

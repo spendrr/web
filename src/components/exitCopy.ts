@@ -93,6 +93,8 @@ export function coinLine(c: ExitCoinView, t: T, lang: Lang): string {
         : t("Vyzvednuto");
     case "aborted":
       return t("Přerušeno: mince byla utracena jinak, než se exit dostal na blockchain");
+    case "swept":
+      return t("Selhalo: část exitu utratil na blockchainu někdo jiný");
     case "canceled":
       return t("Zrušeno, mince zůstala v Ark");
   }

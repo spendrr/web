@@ -2,7 +2,7 @@
 // seed; afterwards the wallet is an ordinary password wallet. A larger payment (here: the event the spend flows raise)
 // asks for the same sheet in the first session.
 import assert from "node:assert/strict";
-import { launch, newWallet, fundAndBoard, waitForText, balanceText, failOnPageProblems, debugDump, BASE } from "./lib.mjs";
+import { launch, newWallet, fundAndBoard, waitForText, balanceText, failOnPageProblems, debugDump, copyGiftLink, BASE } from "./lib.mjs";
 
 const browser = await launch();
 let current;
@@ -17,8 +17,7 @@ async function createGiftLink(page, sats) {
   await page.getByRole("button", { name: /^Vytvořit odkaz$/ }).click();
   await page.getByRole("button", { name: /^Potvrdit$/ }).click();
   await waitForText(page, /Dárek je připravený/, 120_000);
-  await page.locator(".shl-qr").click();
-  const link = await page.evaluate(() => navigator.clipboard.readText());
+  const link = await copyGiftLink(page);
   assert.match(link, /\/g#v=1&g=.*&n=1/, "a V2 sender's link asks for a passwordless wallet");
   await page.getByRole("button", { name: /^Hotovo$/ }).click();
   return link.replace(/^https?:\/\/[^/]+/, BASE);
@@ -63,7 +62,7 @@ try {
   await b.page.getByPlaceholder("Heslo znovu").fill(PW);
   await b.page.getByRole("button", { name: /^Pokračovat$/ }).click();
   await waitForText(b.page, /Zapiš si seed/, 60_000);
-  const words = await b.page.locator(".sht-sheet .sht-stack div[style*='display: flex']").allInnerTexts();
+  const words = await b.page.locator(".mnemonic-w").allInnerTexts();
   assert.ok(words.length >= 12, `the seed words are shown (${words.length})`);
   await b.page.getByRole("button", { name: /^Hotovo$/ }).click().catch(() => {});
   await b.page.locator(".sht-sheet input[type=checkbox]").check();
@@ -86,6 +85,9 @@ try {
   // 2. First session, a flow that needs a password asks for the sheet.
   const c = await claim(link2, "C");
   current = c.page;
+  // A spend flow only starts once the recipient has closed the "Je tvůj!" card.
+  await c.page.getByRole("button", { name: /^Hotovo$/ }).click({ timeout: 10_000 }).catch(() => {});
+  await c.page.waitForTimeout(1_000);
   await c.page.evaluate(() => window.dispatchEvent(new Event("spendrr:password-setup")));
   await waitForText(c.page, /Větší platby se potvrzují heslem/, 30_000);
   step("a spend flow raises the sheet in the first session");

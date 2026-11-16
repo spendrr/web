@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { headlineSats } from "../lib/wallet/headlineBalance";
 import { BUMP_EMOJI, BumpSession, findBumpArrival, maxMovementId, type BumpOutcome, type FlowView } from "../lib/bump/bump";
 import {
   SPEND_AUTH_FAILED,
@@ -97,8 +98,8 @@ export default function BumpOverlay({
   spendable: number | undefined;
   rates: Record<FiatCurrency, number> | null;
   currency: FiatCurrency;
-  onSent: () => Promise<{ balance: { spendableSats: number }; history: Movement[] } | undefined> | void;
-  onSentBump?: (overrideSpendable?: number) => void;
+  onSent: () => Promise<{ balance: { spendableSats: number; pendingInRoundSats: number }; history: Movement[] } | undefined> | void;
+  onSentBump?: (overrideHeadline?: number) => void;
   // Same mechanism SendPanel's own send() uses (Dashboard.tsx) to defer
   // App.tsx's inactivity auto-lock while a payment is actually in flight.
   onCriticalOpChange?: (active: boolean) => void;
@@ -368,7 +369,7 @@ export default function BumpOverlay({
       hapticNotify();
       void sessionRef.current?.confirmReceived();
       void Promise.resolve(onSent())
-        .then((result) => onSentBump?.(result?.balance.spendableSats))
+        .then((result) => onSentBump?.(result ? headlineSats(result.balance) : undefined))
         .catch(() => {});
     },
     [historyBaseline, expectedSats, onSentBump, onSent],
@@ -480,7 +481,7 @@ export default function BumpOverlay({
         session.reportSendResult(true);
         setSendResult("sent");
         const result = await onSent();
-        onSentBump?.(result?.balance.spendableSats);
+        onSentBump?.(result ? headlineSats(result.balance) : undefined);
       } catch (e) {
         if (isWalletCallTimeout(e)) {
           setSendResult("timeout");

@@ -382,7 +382,7 @@ async function syncExitLocks(w: Wallet): Promise<ExitLockSync> {
   };
 }
 
-const FINISHED_EXIT_STATES: ReadonlySet<string> = new Set(["claimed", "vtxo-already-spent", "canceled"]);
+const FINISHED_EXIT_STATES: ReadonlySet<string> = new Set(["claimed", "vtxo-already-spent", "vtxo-swept", "canceled"]);
 
 // A send, under the user's limits. Everything runs under the limits lock, so a check and its charge cannot
 // interleave with another send or a limits change.
@@ -800,7 +800,7 @@ async function runRequest(msg: Request): Promise<unknown> {
         return result;
       }
       if (msg.target === "wallet" && msg.method === "refreshVtxosDelegatedAndLock") {
-        // Lock (a check), submit, unlock, in this one queue item (refreshSubmit.ts).
+        // Lock as a probe, unlock, submit, in this one queue item (refreshSubmit.ts).
         const [ids, holderId] = msg.args as [string[], string];
         return refreshAndRelease(currentWallet!, ids, holderId, () => refreshSubmitBudget.tryCharge(Date.now()));
       }

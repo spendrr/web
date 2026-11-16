@@ -80,8 +80,8 @@ export class FakeWallet implements EngineWallet {
     return { feeSats, netAmountSats: gross - feeSats };
   }
 
-  // The worker's refreshVtxosDelegatedAndLock: one queue item, lock (a
-  // check), submit, unlock whatever the outcome.
+  // The worker's refreshVtxosDelegatedAndLock: one queue item, lock as a
+  // probe, unlock, submit (bark 0.8 refuses inputs that are not Spendable).
   async refreshAndLock(ids: string[], holderId: string) {
     for (const id of ids) await this.unlockVtxos([id], holderId).catch(() => {});
     try {
@@ -89,12 +89,8 @@ export class FakeWallet implements EngineWallet {
     } catch (e) {
       throw new Error(`REFRESH_INPUTS_UNAVAILABLE: ${e instanceof Error ? e.message : String(e)}`);
     }
-    let round: { id: number; state: string } | undefined;
-    try {
-      round = await this.refreshVtxosDelegated(ids, holderId);
-    } finally {
-      await this.unlockVtxos(ids, holderId).catch(() => {});
-    }
+    await this.unlockVtxos(ids, holderId).catch(() => {});
+    const round = await this.refreshVtxosDelegated(ids);
     this.betweenCalls?.();
     return { round };
   }
@@ -103,12 +99,11 @@ export class FakeWallet implements EngineWallet {
   // it. Tests use it to try to spend coins the engine just submitted.
   betweenCalls: (() => void) | null = null;
 
-  async refreshVtxosDelegated(ids: string[], lockedBy?: string) {
+  async refreshVtxosDelegated(ids: string[]) {
     this.submits.push([...ids]);
     for (const id of ids) {
       const v = this.vtxos.get(id);
-      const ours = lockedBy !== undefined && v?.state.type === "locked" && v.state.holder?.id === lockedBy;
-      if (!v || (v.state.type !== "spendable" && !ours)) this.violations.push(`submitted non-spendable ${id} (${v?.state.type})`);
+      if (!v || v.state.type !== "spendable") this.violations.push(`submitted non-spendable ${id} (${v?.state.type})`);
     }
     if (this.maxVtxoAmountSats !== undefined) {
       const total = ids.reduce((s, id) => s + (this.vtxos.get(id)?.amountSats ?? 0), 0);

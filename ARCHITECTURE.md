@@ -86,7 +86,7 @@ The build must stay reproducible (no timestamps or machine values).
 - Cloud backup: two-phase upload, sha256 of the UNCOMPRESSED JSON, version CAS, write token, serialized
   uploads. A failed restore latches uploads off; `liftConflictLatchIfCovered` lifts it (also for failed
   restores) only when nothing on the server is missing locally. Test with realistic data volume.
-- Headline balance is `spendableSats` only, never `+ pendingInRoundSats` (delegated rounds overlap it).
+- Headline balance is `headlineSats` (`spendableSats + pendingInRoundSats`, one balance read, so a refresh round does not make it drop). Sending uses `spendableSats` alone. bark 0.8 fields are disjoint (0.7 overlapped, never sum on 0.7). `needsRefreshSats` is a note, not in the headline; expired coins stay exitable (ExitSheet gets spendable + needsRefresh).
 
 **Worker**
 - Limiters: per-IP keys go through `bumpRateLimitKey` (IPv6 /64); abuse-sensitive per-source counters use

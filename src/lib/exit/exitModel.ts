@@ -16,7 +16,7 @@
 //   to claim-in-progress, and back to claimable if that transaction drops out
 //   of the mempool. bark only notices on its next progressExits(), which the
 //   app runs every minute, hence CLAIM_GRACE_MS below.
-// - claimed / vtxo-already-spent / canceled are finished. bark keeps them in
+// - claimed / vtxo-already-spent / vtxo-swept / canceled are finished. bark keeps them in
 //   getExitVtxos() until the wallet is reopened, then forgets them (it only
 //   loads live exits), so "done" has to be remembered by the app.
 import type { ExitVtxo } from "@secondts/bark";
@@ -80,6 +80,9 @@ export type ExitCoinPhase =
   | "claimed"
   // The coin was spent some other way before its exit got on-chain. Finished.
   | "aborted"
+  // An output its exit chain needed was spent on chain by someone else (bark
+  // 0.8 "vtxo-swept"): the exit cannot finish. Finished, and not a benign end.
+  | "swept"
   // The user canceled it; the coin is back in Ark. Finished.
   | "canceled";
 
@@ -129,6 +132,7 @@ export interface ExitOverview {
   claimingSats: number;
   claimedSats: number;
   abortedSats: number;
+  sweptSats: number;
   cancelableIds: string[];
   // Blocks until the first / last timelocked coin can be claimed.
   firstReadyInBlocks: number | null;
@@ -169,7 +173,7 @@ function countTxs(seen: ExitTxsSeen): { confirmed: number; total: number } {
   return { confirmed: values.filter(Boolean).length, total: values.length };
 }
 
-const FINISHED: ReadonlySet<ExitCoinPhase> = new Set(["claimed", "aborted", "canceled"]);
+const FINISHED: ReadonlySet<ExitCoinPhase> = new Set(["claimed", "aborted", "swept", "canceled"]);
 
 function waitReason(status: string): ExitWaitReason {
   switch (status) {
@@ -278,6 +282,8 @@ export function viewCoin(
       return { ...base, phase: "claimed", claimTxid: s.txid, claimBlock: s.block.height };
     case "vtxo-already-spent":
       return { ...base, phase: "aborted" };
+    case "vtxo-swept":
+      return { ...base, phase: "swept" };
     case "canceled":
       return { ...base, phase: "canceled" };
     default:
@@ -345,6 +351,7 @@ export function buildExitOverview(
     claimingSats: sum(coins, ["claim-sent", "claiming"]),
     claimedSats: sum(coins, ["claimed"]),
     abortedSats: sum(coins, ["aborted"]),
+    sweptSats: sum(coins, ["swept"]),
     cancelableIds: coins.filter((c) => c.cancelable).map((c) => c.vtxoId),
     firstReadyInBlocks: timelockBlocks.length > 0 ? Math.min(...timelockBlocks) : null,
     lastReadyInBlocks: timelockBlocks.length > 0 ? Math.max(...timelockBlocks) : null,

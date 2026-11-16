@@ -1,33 +1,22 @@
 // How much of the wallet is sitting in a VTXO refresh round right now, split
-// by whether the headline balance already counts it.
+// by whether the VTXO is still Spendable.
 //
-// The split exists because `balance().pendingInRoundSats` alone cannot answer
-// that, and the answer differs per round kind. In bark, `pending_in_round` is
-// the sum of every non-final round state's *output* amounts
-// (`pending_round_balance` -> `RoundState::pending_balance`,
-// `round/mod.rs:1844-1851,599-616`), which is NOT derived from VTXO states at
-// all. Meanwhile:
+// bark 0.8 counts every VTXO in one balance field only: `pendingInRoundSats` is
+// the locked inputs of a round (headlineSats adds it to the headline). A
+// delegated participation that still waits for its round locks nothing, so its
+// coins stay Spendable, are inside `spendableSats` and are not in
+// `pendingInRoundSats`. This module buckets the real participation inputs
+// (`wallet.pendingRoundInputVtxos()`) by their actual state, for the notes
+// that say which half is which:
 //
-// - an *interactive* participation locks its inputs before the round state
-//   even exists (`round/mod.rs:1616`, `:1784`), so they leave `spendable` and
-//   `pendingInRoundSats` is genuinely money the headline no longer shows;
-// - a *delegated* participation leaves its inputs `Spendable` until the
-//   server issues its round (bark 0.7.1 locks them then, `progress_delegated`),
-//   so while it waits they are counted in the headline, while
-//   `pendingInRoundSats` reports their post-fee value as well.
+// - Spendable: still in the headline and payable, but a round will take them.
+// - locked: in the headline through `pendingInRoundSats`, not payable until the
+//   round ends.
 //
-// So during a delegated refresh the same coins are in both numbers, and a
-// note reading "+ N sats in refresh" claims money the user is already
-// looking at. (This is also the most plausible explanation for the
-// 2026-09-08 doubled-headline incident, which was blamed on the
-// `allVtxos()` duplication: adding `pendingInRoundSats` into the headline
-// double-counts exactly when the pending round is a delegated one.)
-//
-// Rather than guess from the aggregate, this buckets the actual participation
-// inputs by their real VTXO state. Dashboard feeds it
-// `wallet.pendingRoundInputVtxos()`, which in bark 0.7.1 lists only the inputs
-// a round holds (wallet/roundInputs.ts): a waiting participation's coins are
-// then missing from the split, under-reported rather than counted twice.
+// (bark 0.7 counted a waiting delegated refresh in both numbers, which is why
+// the two were never summed there. wallet/roundInputs.ts still lists a waiting
+// participation's inputs from the round movements, because
+// pendingRoundInputVtxos() lists only issued rounds' inputs.)
 
 // Only the fields this module reads. The SDK's own Vtxo is assignable.
 export interface RefreshingVtxo {
