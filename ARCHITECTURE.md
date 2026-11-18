@@ -112,6 +112,7 @@ The build must stay reproducible (no timestamps or machine values).
 
 - Verify visual changes in the browser before a mainnet deploy; the desktop pane is not touch verification.
 - Do not trade the design for performance; diagnose with a trace instead.
+- A release plan is one file, `docs/release-<codename>.md`, and only the version on `main` counts: no copies in notes or uncommitted files. Status lives only in its table; the items below hold the spec and a checklist. Edit it through a branch and PR.
 - Comments explain invariants and non-obvious why, not history. Do not add "used to" narratives; keep incident
   history out of comments.
 - Give calibrated confidence before a mainnet deploy: say what is actually verified.
