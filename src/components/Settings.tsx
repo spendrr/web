@@ -58,7 +58,7 @@ import {
   type TipBlock,
 } from "../lib/send/fees";
 import { fetchBtcRates, formatFiat, satsToFiat } from "../lib/price";
-import { getLastBackupStatus } from "../lib/backup/backup";
+import { getBackupEngineNote, getLastBackupStatus } from "../lib/backup/backup";
 import { isHapticsEnabled, isHapticsSupported, setHapticsEnabled } from "../lib/ui/haptics";
 import { useMotionOn } from "../lib/ui/motion";
 import {
@@ -2207,6 +2207,7 @@ function formatCallLogText(entries: readonly CallLogEntry[]): string {
     lastAt: entries.length > 0 ? entries[entries.length - 1].time : null,
     count: entries.length,
     errors: entries.filter((e) => e.status === "error").length,
+    backup: getBackupEngineNote(),
   });
   const lines = entries
     .map((e) => {

@@ -52,7 +52,7 @@ function loadGuard() {
     console: { error() {} },
   };
   runInNewContext(readFileSync("public/fetch-guard.js", "utf8"), ctx);
-  return { fetch: win.fetch as (input: string, init?: RequestInit) => Promise<Response>, sent };
+  return { win, fetch: win.fetch as (input: string, init?: RequestInit) => Promise<Response>, sent };
 }
 
 describe("fetch-guard: the public price exception", () => {
@@ -96,6 +96,27 @@ describe("fetch-guard: the public price exception", () => {
       ["https://data.spendrr.app/fees.json", { method: "POST", body: "secret" }],
     ] as [string, RequestInit | undefined][]) {
       await expect(g.fetch(url, init)).rejects.toThrow("Blocked unexpected network request");
+    }
+  });
+});
+
+describe("fetch-guard: which workers may start", () => {
+  it("allows the wallet, chat and backup worker chunks, and nothing else", () => {
+    const { win } = loadGuard();
+    const Worker = win.Worker as new (url: string, opts?: unknown) => unknown;
+    for (const ok of [
+      "https://spendrr.app/assets/wallet.worker-abc.js",
+      "https://spendrr.app/assets/chat.worker-abc.js",
+      "https://spendrr.app/assets/backup.worker-abc.js",
+    ]) {
+      expect(() => new Worker(ok, { type: "module" }), ok).not.toThrow();
+    }
+    for (const bad of [
+      "https://spendrr.app/assets/main-abc.js",
+      "https://spendrr.app/assets/other.worker-abc.js",
+      "https://evil.test/assets/backup.worker-abc.js",
+    ]) {
+      expect(() => new Worker(bad, { type: "module" }), bad).toThrow("Blocked unexpected Worker");
     }
   });
 });

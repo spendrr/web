@@ -17,6 +17,8 @@ export interface CallLogHeaderInput {
   lastAt: number | null;
   count: number;
   errors: number;
+  // Which path the last backup cycle took (backup.ts getBackupEngineNote), when there is one.
+  backup?: string | null;
 }
 
 export function formatCallLogHeader(h: CallLogHeaderInput): string {
@@ -28,6 +30,7 @@ export function formatCallLogHeader(h: CallLogHeaderInput): string {
     `exported: ${iso(h.exportedAt)}`,
     `entries: ${h.count} (errors ${h.errors}), ${iso(h.firstAt)} to ${iso(h.lastAt)}`,
     `device: ${h.userAgent}`,
+    ...(h.backup ? [`backup: ${h.backup}`] : []),
     `locale: ${h.language}, timezone: ${h.timeZone}, online: ${h.online === null ? "?" : h.online}, page: ${h.visibility}`,
     "---",
   ].join("\n");

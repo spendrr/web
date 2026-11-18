@@ -10,10 +10,18 @@
 // caller that isn't explicitly awaiting a result (uploads are fire-and-forget
 // by design; restore is the one path that does propagate failure, since the
 // caller needs to know whether it got real data back).
-import { encryptBackupBlob, decryptBackupBlob, sha256Hex, type BackupKeys } from "./backupCrypto";
-import { compressBackup, decompressBackup } from "./backupCompress";
-import { dumpWithoutChainCheckpoints } from "./backupFingerprint";
-import { ARK_DB_NAME, ONCHAIN_DB_NAME, dumpDatabase, hasAnyLocalWalletData, restoreDatabase, type SerializedDb } from "./backupStore";
+import { decryptBackupBlob, type BackupKeys } from "./backupCrypto";
+import { decompressBackup } from "./backupCompress";
+import { ARK_DB_NAME, ONCHAIN_DB_NAME, hasAnyLocalWalletData, restoreDatabase } from "./backupStore";
+import { VOUCHERS_DB_NAME, dumpAllDatabases, stringifyDump, type BundledDump } from "./backupCycle";
+import {
+  BackupJob,
+  BackupWorkerFailure,
+  createInlineEngine,
+  createWorkerEngine,
+  wantsBackupWorker,
+  type BackupEngine,
+} from "./backupEngine";
 import { GIFTS_DB_NAME } from "../gift/giftStore";
 import { maintenanceWithDeadline } from "../wallet/bark";
 import { isMaintenanceSuppressed } from "../maintenance/maintenanceSuppress";
@@ -22,7 +30,6 @@ import { isMaintenanceSuppressed } from "../maintenance/maintenanceSuppress";
 // its database stays in the backup: a device that bought something still has
 // the records, and a later release that brings the feature back must find
 // them in the backup too, not lose them to the first upload without it.
-const VOUCHERS_DB_NAME = "btc-wallet-vouchers";
 
 export { hasAnyLocalWalletData };
 
@@ -123,57 +130,12 @@ function recordFailure(e: unknown): void {
   }
 }
 
-interface BundledDump {
-  ark: SerializedDb | null;
-  onchain: SerializedDb | null;
-  // Outgoing gift links (btc-wallet-gifts). Optional, not just nullable:
-  // every backup written before gifts existed decodes without this field,
-  // and restore has to treat "absent" exactly like "no gifts" rather than
-  // failing on an older blob.
-  gifts?: SerializedDb | null;
-  // Bitrefill orders (btc-wallet-vouchers) — same optionality reasoning as
-  // gifts above, for the same kind of backup written before this feature
-  // existed.
-  vouchers?: SerializedDb | null;
-}
-
-async function dumpAllDatabases(): Promise<BundledDump> {
-  const [ark, onchain, gifts, vouchers] = await Promise.all([
-    dumpDatabase(ARK_DB_NAME),
-    dumpDatabase(ONCHAIN_DB_NAME),
-    // Small (one record per gift) but load-bearing: each record carries the
-    // encrypted reclaim seed for a gift whose funds are sitting on the Ark
-    // server. Lose it and the 7-day auto-return and the manual "Vzít zpět"
-    // both have nothing to work with, and the money is unreachable for good.
-    dumpDatabase(GIFTS_DB_NAME),
-    // Also small and load-bearing in the same way: an order paid for but not
-    // yet delivered has real money already spent riding on it, and a
-    // delivered order's redemption code is the only copy of something as
-    // spendable as the gift card itself — losing this record after paying
-    // but before the app ever showed the code would be an unrecoverable
-    // loss with nothing to point at.
-    dumpDatabase(VOUCHERS_DB_NAME),
-  ]);
-  return { ark, onchain, gifts, vouchers };
-}
-
 async function postJson(path: string, body: unknown): Promise<Response> {
   return fetch(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-}
-
-// Belt-and-suspenders on top of backupStore.ts's own tagValue(): if any
-// value ever reaches JSON.stringify still untagged in a form JSON can't
-// represent (a bigint slipping through, most plausibly — that exact bug hit
-// production once already, see backupStore.ts's tagValue comment), fail
-// with a clear, attributable error instead of JSON.stringify's own opaque
-// TypeError, and coerce bigints to strings rather than crashing outright so
-// a single unanticipated field doesn't block the whole backup.
-function stringifyDump(dump: unknown): string {
-  return JSON.stringify(dump, (_key, value) => (typeof value === "bigint" ? value.toString() : value));
 }
 
 // Every backup request carries the write token (see backupCrypto.ts): the
@@ -378,30 +340,82 @@ export async function clearSelfInflictedConflictLatch(keys: BackupKeys): Promise
 // skips entirely on the unchanged-hash check).
 let localUploadChain: Promise<unknown> = Promise.resolve();
 
-function runUploadExclusive(keys: BackupKeys): Promise<void> {
+function runUploadExclusive(keys: BackupKeys, job: BackupJob = new BackupJob()): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.locks) {
-    return navigator.locks.request("btc-wallet-backup-upload", () => performUpload(keys));
+    return navigator.locks.request("btc-wallet-backup-upload", () => performUpload(keys, job));
   }
-  const run = localUploadChain.then(() => performUpload(keys));
+  const run = localUploadChain.then(() => performUpload(keys, job));
   localUploadChain = run.catch(() => {});
   return run;
 }
 
-async function performUpload(keys: BackupKeys): Promise<void> {
-  const dump = await dumpAllDatabases();
-  if (!dump.ark && !dump.onchain) return; // Nothing local to back up yet.
-  // The Ark database is the one that holds the VTXOs — the whole reason this
-  // feature exists. Every caller runs only *after* a successful openWallet(),
-  // which always creates it, so a null here doesn't mean "new wallet", it
-  // means the dump itself didn't see what it should have (a failed/blocked
-  // open, a restore that died partway through). Committing that would
-  // overwrite the one server-side copy with a bundle missing its important
-  // half — permanently, since there is only ever one blob per wallet. Refuse
-  // and surface it instead.
-  if (!dump.ark) throw new Error("refusing to upload: Ark database dumped empty");
+// One cycle. The heavy half (dump, serialize, hash, compress, encrypt, hash of the read-back copy) runs in the
+// backup worker, and on the main thread where workers do not exist (backupEngine.ts). A worker that fails at any step
+// repeats the whole cycle on the main thread: nothing before the commit has side effects that matter.
+async function performUpload(keys: BackupKeys, job: BackupJob): Promise<void> {
+  job.assertLive();
+  let fallbackReason: string | undefined;
+  if (wantsBackupWorker()) {
+    const started = Date.now();
+    try {
+      await runCycle(keys, job, createWorkerEngine());
+      recordEngineUse("worker", Date.now() - started);
+      return;
+    } catch (e) {
+      if (!(e instanceof BackupWorkerFailure) || job.cancelled) throw e;
+      fallbackReason = e.message;
+      console.warn("[backup] worker failed, running the cycle on the main thread", e);
+    }
+  }
+  const started = Date.now();
+  await runCycle(keys, job, createInlineEngine());
+  recordEngineUse("inline", Date.now() - started, fallbackReason);
+}
 
-  const plaintext = new TextEncoder().encode(stringifyDump(dump));
-  const expectedHash = await sha256Hex(plaintext);
+// Which path the last finished cycle took and how long it ran, and the last time the worker had to be given up on.
+// Kept so a worker that silently never works (the cycle still succeeds on the main thread) shows up in the exported
+// call log instead of only as a UI freeze. Best-effort, never throws.
+const ENGINE_NOTE_KEY = "btc-wallet-backup-engine";
+
+function recordEngineUse(path: "worker" | "inline", ms: number, fallbackReason?: string): void {
+  try {
+    const prev = JSON.parse(localStorage.getItem(ENGINE_NOTE_KEY) ?? "null") as { fallback?: unknown } | null;
+    const fallback = fallbackReason !== undefined ? { at: Date.now(), reason: fallbackReason.slice(0, 120) } : prev?.fallback;
+    localStorage.setItem(ENGINE_NOTE_KEY, JSON.stringify({ path, ms, at: Date.now(), fallback }));
+  } catch {
+    // Diagnostics only.
+  }
+}
+
+export function getBackupEngineNote(): string | null {
+  try {
+    const raw = localStorage.getItem(ENGINE_NOTE_KEY);
+    if (!raw) return null;
+    const n = JSON.parse(raw) as { path: string; ms: number; at: number; fallback?: { at: number; reason: string } };
+    const iso = (t: number) => new Date(t).toISOString();
+    const last = `${n.path}, ${n.ms} ms, ${iso(n.at)}`;
+    return n.fallback ? `${last}; worker given up ${iso(n.fallback.at)}: ${n.fallback.reason}` : last;
+  } catch {
+    return null;
+  }
+}
+
+async function runCycle(keys: BackupKeys, job: BackupJob, engine: BackupEngine): Promise<void> {
+  job.attach(engine);
+  try {
+    await cycleSteps(keys, job, engine);
+  } finally {
+    engine.dispose();
+  }
+}
+
+async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine): Promise<void> {
+  const prepared = await engine.prepare(keys.encryptionKey);
+  job.assertLive();
+  if (prepared.kind === "nothing") return;
+  // See prepareDump: an Ark database that dumped empty is refused, never committed.
+  if (prepared.kind === "noArk") throw new Error("refusing to upload: Ark database dumped empty");
+  const { expectedHash, fingerprint } = prepared;
 
   // Skip the network round-trip entirely when the last successfully
   // committed backup for this wallet already matches byte-for-byte. Most
@@ -414,11 +428,8 @@ async function performUpload(keys: BackupKeys): Promise<void> {
   const hashKey = lastUploadedHashKey(keys.lookupKey);
   if (localStorage.getItem(hashKey) === expectedHash) return;
 
-  // Same skip, but blind to the block checkpoints that move with every block
-  // (backupFingerprint.ts). Equal to expectedHash when the dump has none, in
-  // which case the check above already decided.
-  const withoutChain = dumpWithoutChainCheckpoints(dump);
-  const fingerprint = withoutChain ? await sha256Hex(new TextEncoder().encode(stringifyDump(withoutChain))) : expectedHash;
+  // Same skip, but blind to the block checkpoints that move with every block (backupFingerprint.ts). Equal to
+  // expectedHash when the dump has none, in which case the check above already decided.
   if (fingerprintUnchanged(keys.lookupKey, fingerprint)) return;
 
   // Optimistic-concurrency guard against a stale device silently
@@ -456,7 +467,8 @@ async function performUpload(keys: BackupKeys): Promise<void> {
 
   // Compressed before encryption (backupCompress.ts); the hash above and the
   // verify below stay on the uncompressed JSON.
-  const { ivHex, cipherB64 } = await encryptBackupBlob(keys.encryptionKey, await compressBackup(plaintext));
+  const { ivHex, cipherB64 } = await engine.encrypt();
+  job.assertLive();
 
   const uploadRes = await postJson("/api/backup/upload-tmp", {
     ...authBody(keys),
@@ -478,8 +490,8 @@ async function performUpload(keys: BackupKeys): Promise<void> {
     iv: string;
     ciphertext: string;
   };
-  const roundTripped = await decompressBackup(await decryptBackupBlob(keys.encryptionKey, readBackIv, readBackCipher));
-  const actualHash = await sha256Hex(roundTripped);
+  const actualHash = await engine.verify(readBackIv, readBackCipher);
+  job.assertLive();
   if (actualHash !== expectedHash) {
     throw new Error("backup verify failed: hash mismatch after round-trip");
   }
@@ -560,12 +572,16 @@ export function createBackupUploader(keys: BackupKeys): { trigger: () => void; c
   // resolves (rather than requeuing into a runNow() this uploader has no
   // business making any more).
   let cancelled = false;
+  // The cycle in flight, so cancel() can end its worker (see BackupJob).
+  let job: BackupJob | null = null;
 
   const runNow = () => {
     if (cancelled) return;
     inFlight = true;
     recordAttempt();
-    runUploadExclusive(keys)
+    const thisJob = new BackupJob();
+    job = thisJob;
+    runUploadExclusive(keys, thisJob)
       .then(() => {
         if (!cancelled) recordSuccess();
       })
@@ -602,11 +618,11 @@ export function createBackupUploader(keys: BackupKeys): { trigger: () => void; c
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
-      // An upload already in flight (its network calls already dispatched)
-      // can't be aborted from here — cancelled only stops it from recording
-      // an outcome or requeuing once it resolves. That upload's own dump was
-      // taken before this cancel() ran, so it still reflects the wallet this
-      // uploader was created for, not whatever opens next.
+      // An upload already in flight: a network call already dispatched can't be
+      // aborted from here, but the job ends its worker and stops before the next
+      // step, so a cycle never finishes under a retired uploader's keys.
+      // cancelled stops it from recording an outcome or requeuing.
+      job?.cancel();
     },
   };
 }
