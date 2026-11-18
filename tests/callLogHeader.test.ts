@@ -33,4 +33,9 @@ describe("formatCallLogHeader", () => {
     expect(text).toContain("entries: 0 (errors 0), - to -");
     expect(text).toContain("online: ?");
   });
+
+  it("adds the backup line only when there is one", () => {
+    expect(formatCallLogHeader(base)).not.toContain("backup:");
+    expect(formatCallLogHeader({ ...base, backup: "worker, 800 ms, t" })).toContain("backup: worker, 800 ms, t");
+  });
 });

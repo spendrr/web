@@ -109,6 +109,12 @@ describe("per-realm CSP in public/_headers", () => {
     expect(connect.filter((s) => !s.startsWith("wss://"))).toEqual(["'self'"]);
   });
 
+  it("the backup worker may not connect anywhere", () => {
+    const csp = cspOf(ruleFor("/assets/backup.worker-*"));
+    expect(directive(csp, "connect-src")).toEqual(["'none'"]);
+    expect(directive(csp, "script-src")).toEqual(["'self'"]);
+  });
+
   it("the status page may reach only the probe Worker beside itself", () => {
     expect(directive(cspOf(ruleFor("/status*")), "connect-src")).toEqual([
       "'self'",

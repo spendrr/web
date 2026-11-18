@@ -31,6 +31,12 @@
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self' wss://relay.damus.io wss://nos.lol wss://relay.primal.net wss://purplepag.es wss://nostr.mom wss://nostr.wine wss://offchain.pub wss://relay.snort.social wss://relay.satlantis.io
 
+# The backup worker (src/lib/backup/backup.worker.ts) holds the whole plaintext bundle and the backup key for one
+# cycle and never touches the network: the main thread makes every request.
+/assets/backup.worker-*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'none'
+
 # The status page reads the probe Worker on its own account (public/status.js).
 /status*
   ! Content-Security-Policy

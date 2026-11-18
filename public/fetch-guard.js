@@ -209,10 +209,12 @@
     // Vite dev server serves the unbundled source at /src/lib/wallet/wallet.worker.ts
     // instead — both are legitimate. The money chat worker (beta) is the only
     // other one; like the wallet worker it installs its own guard first
-    // (src/lib/chat/chat.worker.ts). Nothing else is legitimate.
+    // (src/lib/chat/chat.worker.ts). The backup worker is the third. Nothing else is legitimate.
     var isWalletWorker = /^\/assets\/wallet\.worker-/.test(url) || url === "/src/lib/wallet/wallet.worker.ts";
     var isChatWorker = /^\/assets\/chat\.worker-/.test(url) || url === "/src/lib/chat/chat.worker.ts";
-    if (!isSameOrigin(scriptURL) || !(isWalletWorker || isChatWorker)) {
+    // The backup worker never touches the network (its own guard blocks every primitive, src/lib/backup/backupWorkerGuard.ts).
+    var isBackupWorker = /^\/assets\/backup\.worker-/.test(url) || url === "/src/lib/backup/backup.worker.ts";
+    if (!isSameOrigin(scriptURL) || !(isWalletWorker || isChatWorker || isBackupWorker)) {
       console.error("[fetch-guard] blocked unexpected Worker: " + scriptURL);
       throw new Error("Blocked unexpected Worker");
     }
