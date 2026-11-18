@@ -1153,6 +1153,7 @@ const DICT: Record<string, string> = {
   "Kdo odkaz otevře, ten si dárek vyzvedne. Posílej ho jen komu věříš.":
     "Whoever opens the link claims the gift. Only send it to someone you trust.",
   "Dárek se nepodařilo vytvořit": "The gift couldn't be created",
+  "Odkaz na dárek nejde přečíst.": "The gift link can't be read.",
   "Tenhle dárek už je vyzvednutý": "This gift has already been claimed",
   "Dárek se nepodařilo vyzvednout": "The gift couldn't be claimed",
   "Je tvůj!": "It's yours!",

@@ -83,6 +83,18 @@ export function isGiftPath(pathname: string): boolean {
   return pathname === GIFT_PATH || pathname === GIFT_PATH + "/";
 }
 
+// A scanned text that is a gift link of THIS origin: its decoded result. null when it is anything else (another
+// origin, another path, not a URL), which then goes on to the normal destination parse. Never throws.
+export function giftFromScannedUrl(raw: string, origin: string): GiftLinkDecode | null {
+  try {
+    const url = new URL(raw);
+    if (url.origin !== origin || !isGiftPath(url.pathname)) return null;
+    return decodeGiftFragment(url.hash);
+  } catch {
+    return null;
+  }
+}
+
 // `hash` is location.hash (with or without the leading "#"). Total function:
 // any string in, a tagged result out, never throws.
 export function decodeGiftFragment(hash: string): GiftLinkDecode {

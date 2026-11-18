@@ -3432,6 +3432,12 @@ export default function Dashboard({
                 onCancelAutoScan={() => navigate("home")}
                 onSendComplete={motionOn ? () => navigate("home") : undefined}
                 onCriticalOpChange={onCriticalOpChange}
+                onScannedGift={(gift) => {
+                  // The same claim sheet a gift from a chat opens, in this session: no reload, no re-unlock.
+                  navigate("home");
+                  if (hasClaimedGift(gift.id)) showToast(t("Tenhle dárek už je vyzvednutý"), "neutral");
+                  else setChatGift(gift);
+                }}
                 initialDestination={sendPrefill?.destination}
                 initialAmountSats={sendPrefill?.amountSats}
               />

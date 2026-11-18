@@ -60,7 +60,7 @@ import {
   pinnedNamesStartingWith,
   type PinCheck,
 } from "../../lib/names/namePins";
-import { isGiftPath } from "../../lib/gift/giftLink";
+import { giftFromScannedUrl, isGiftPath, type GiftLinkParams } from "../../lib/gift/giftLink";
 import { isRequestPath } from "../../lib/send/paymentRequest";
 import { ScanIcon } from "../dashboard/icons";
 import { type ToastDetail } from "../dashboard/toastIsland";
@@ -378,6 +378,7 @@ export function SendPanel({
   autoScan,
   onCancelAutoScan,
   onCriticalOpChange,
+  onScannedGift,
   initialDestination,
   initialAmountSats,
   onSendComplete,
@@ -407,6 +408,8 @@ export function SendPanel({
   autoScan?: boolean;
   onCancelAutoScan?: () => void;
   onCriticalOpChange?: (active: boolean) => void;
+  // A scanned gift link of this app: the parent opens the claim sheet. Without it the link is opened by a page load.
+  onScannedGift?: (gift: GiftLinkParams) => void;
   // Prefill from a payment-request link. Read once at mount (this panel is
   // remounted whenever the Send view is entered, and again on a new
   // request), never as a controlled value — the fields stay the user's from
@@ -1388,6 +1391,11 @@ export function SendPanel({
     }
   }, [buildPlan, send, spendLimitReached, motionOn, quickBeta, currency, rates]);
 
+  // The parent passes a new function each render; a ref keeps handleScanResult (given to the scanner) stable.
+  const onScannedGiftRef = useRef(onScannedGift);
+  useEffect(() => {
+    onScannedGiftRef.current = onScannedGift;
+  }, [onScannedGift]);
   const handleScanResult = useCallback((raw: string) => {
     // A QR of this app's own gift/payment-request link (the composer's own
     // ShareLinkResult renders one, precisely so another phone's camera can
@@ -1396,6 +1404,14 @@ export function SendPanel({
     // link this app generated, not merely something claiming to be one.
     try {
       const url = new URL(raw);
+      // The fragment holds the gift's mnemonic: decoded here, never stored or logged.
+      const gift = onScannedGiftRef.current ? giftFromScannedUrl(raw, window.location.origin) : null;
+      if (gift) {
+        setScanning(false);
+        if (gift.ok) onScannedGiftRef.current?.(gift.gift);
+        else setError(t("Odkaz na dárek nejde přečíst."));
+        return;
+      }
       if (
         url.origin === window.location.origin &&
         (isGiftPath(url.pathname) || isRequestPath(url.pathname))
@@ -1437,7 +1453,7 @@ export function SendPanel({
     if (!auto) setJustScanned(true);
     if (amountSats !== undefined) setAmount(String(amountSats));
     setScanning(false);
-  }, [quickBeta]);
+  }, [quickBeta, t]);
 
   // Quick pay: a scan that carries its amount goes on by itself once the form can be built, which is a send
   // when it fits the user's limits and the confirm screen when it does not. On-chain is always reviewed, so
