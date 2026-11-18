@@ -2,7 +2,6 @@ import { swipeAway } from "../lib/ui/swipeAway";
 import { IS_REGTEST } from "../lib/network";
 import { RollingDigits } from "./RollingDigits";
 import {
-  lazy,
   Suspense,
   useCallback,
   useEffect,
@@ -64,11 +63,14 @@ const ENGINE_STATE_CHANGING: ReadonlySet<LogKind> = new Set<LogKind>([
 // parse all of them — including QrScanner's jsQR dependency — before they
 // ever reach the dashboard. React only fetches each chunk the first time its
 // gate flips true.
-const loadSettings = () => import("./Settings");
-const Settings = lazy(loadSettings);
-const UtilityHub = lazy(() => import("./UtilityHub"));
-const BtcPriceModal = lazy(() => import("./BtcPriceModal"));
-const WhatsNewModal = lazy(() => import("./WhatsNewModal"));
+// lazyReady (not React.lazy): a resolved chunk renders directly instead of
+// suspending, so the first open does not wait out React's 300 ms reveal delay.
+const Settings = lazyReady(() => import("./Settings"));
+const UtilityHub = lazyReady(() => import("./UtilityHub"));
+const QrScannerModal = lazyReady(() => import("./QrScanner"));
+const BtcPriceModal = lazyReady(() => import("./BtcPriceModal"));
+const WhatsNewModal = lazyReady(() => import("./WhatsNewModal"));
+import { lazyReady } from "../lib/ui/lazyReady";
 import { shouldShowWhatsNew, markWhatsNewSeen } from "../lib/whatsNew";
 import { hasSeenHint, markHintSeen, type HintKey } from "../lib/ui/onboardingHints";
 import { WarningIcon } from "./BannerIcons";
@@ -437,7 +439,7 @@ export default function Dashboard({
   // screen (the Suspense fallback is null) for as long as the download took.
   // A failed load still opens, so the error boundary reports it.
   const openSettings = useCallback(() => {
-    void loadSettings().then(
+    void Settings.preload().then(
       () => setShowSettings(true),
       () => setShowSettings(true),
     );
@@ -620,12 +622,12 @@ export default function Dashboard({
   useEffect(() => {
     // Not idle-gated: right after unlock the first tap on the gear is likely,
     // and the idle callback can fire late under that load.
-    void loadSettings().catch(() => {});
+    void Settings.preload().catch(() => {});
     const prefetch = () => {
-      void import("./Settings");
-      void import("./QrScanner");
+      void Settings.preload().catch(() => {});
+      void QrScannerModal.preload().catch(() => {});
       if (designVersion === "v2") {
-        void import("./UtilityHub");
+        void UtilityHub.preload().catch(() => {});
       }
     };
     // typeof, not `"requestIdleCallback" in window` — lib.dom.d.ts declares
