@@ -1174,6 +1174,15 @@ const DICT: Record<string, string> = {
 
   // Payment requests: the asking side (PaymentRequestModal.tsx)
   "Požadavek k platbě": "Payment request",
+  "Skener a dárky": "Scanner and gifts",
+  "Rychlejší skener": "Faster scanner",
+  "Skener a Nastavení se otevřou hned, bez prodlevy.": "The scanner and Settings open at once, with no delay.",
+  "Skener z domovské obrazovky rovnou zapne kameru.": "The scanner on the home screen turns the camera on right away.",
+  "Záloha a platby": "Backup and payments",
+  "Záloha peněženky běží na pozadí a appka se při ní méně zasekává.": "The wallet backup runs in the background and the app freezes less during it.",
+  "Když jeden zdroj blockchainu neodpovídá, platba zkusí další.": "When one blockchain source does not answer, a payment tries another.",
+  "Naskenovaný dárek se otevře rovnou v appce, bez nového odemykání.": "A scanned gift opens right in the app, without unlocking again.",
+  "Nedokončené platby jsou chráněné, při pochybnosti tě appka požádá o potvrzení.": "Unfinished payments are protected; if in doubt, the app asks you to confirm.",
   "Kolik chceš, aby ti poslali": "How much you're asking for",
   "Za co? (nepovinné)": "What for? (optional)",
   "Připravuju odkaz…": "Preparing the link…",

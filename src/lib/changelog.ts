@@ -77,6 +77,31 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "18. 11. 2026",
+    title: "Skener a dárky",
+    codename: "Clever Capybara",
+    items: [
+      "Naskenovaný dárek se otevře rovnou v appce, bez nového odemykání.",
+      "Nedokončené platby jsou chráněné, při pochybnosti tě appka požádá o potvrzení.",
+    ],
+  },
+  {
+    date: "18. 11. 2026",
+    title: "Rychlejší skener",
+    items: [
+      "Skener a Nastavení se otevřou hned, bez prodlevy.",
+      "Skener z domovské obrazovky rovnou zapne kameru.",
+    ],
+  },
+  {
+    date: "18. 11. 2026",
+    title: "Záloha a platby",
+    items: [
+      "Záloha peněženky běží na pozadí a appka se při ní méně zasekává.",
+      "Když jeden zdroj blockchainu neodpovídá, platba zkusí další.",
+    ],
+  },
+  {
     date: "16. 11. 2026",
     title: "Požadavek k platbě",
     codename: "Bold Badger",

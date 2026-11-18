@@ -2,6 +2,23 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-18: Scanner and gifts
+
+Codename: Clever Capybara
+
+- A scanned gift opens right in the app, without unlocking again.
+- Unfinished payments are protected; if in doubt, the app asks you to confirm.
+
+## 2026-11-18: Faster scanner
+
+- The scanner and Settings open at once, with no delay.
+- The scanner on the home screen turns the camera on right away.
+
+## 2026-11-18: Backup and payments
+
+- The wallet backup runs in the background and the app freezes less during it.
+- When one blockchain source does not answer, a payment tries another.
+
 ## 2026-11-16: Payment request
 
 Codename: Bold Badger
