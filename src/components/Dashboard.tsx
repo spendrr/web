@@ -117,6 +117,8 @@ import RefreshInfoSheet from "./RefreshInfoSheet";
 import InstallAppSheet from "./InstallAppSheet";
 import SeedBackupSheet from "./SeedBackupSheet";
 import { neverShowInstallHint, shouldAutoShowInstallHint, snoozeInstallHint } from "../lib/vault/storageProtection";
+import { RecordSealSheet } from "./RecordSealSheet";
+import { checkRecordSeal, clearRecordSeal } from "../lib/wallet/recordSealClient";
 import { useBackLayer } from "../lib/ui/backLayers";
 import { createTapCounter, TAP_MAX_GAP_MS } from "../lib/ui/tapCounter";
 import PaymentRequestModal from "./PaymentRequestModal";
@@ -403,6 +405,11 @@ export default function Dashboard({
   useEffect(() => {
     void refreshSpendLimits();
     return clearSpendLimitsStatus;
+  }, [wallet]);
+  // bark records the worker held back (recordSeal.ts): asked once per opened wallet and after every sync below.
+  useEffect(() => {
+    void checkRecordSeal();
+    return clearRecordSeal;
   }, [wallet]);
   // Money chat (beta): its own opt-in on top of V2, off by default.
   const chatEnabled = useChatEnabled();
@@ -3478,6 +3485,7 @@ export default function Dashboard({
           </div>
         </div>
       )}
+      <RecordSealSheet />
       {showPriceEasterEgg && (
         <Suspense fallback={null}>
           <BtcPriceModal currency={currency} onClose={() => setShowPriceEasterEgg(false)} />
