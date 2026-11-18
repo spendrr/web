@@ -68,6 +68,7 @@ const ENGINE_STATE_CHANGING: ReadonlySet<LogKind> = new Set<LogKind>([
 const Settings = lazyReady(() => import("./Settings"));
 const UtilityHub = lazyReady(() => import("./UtilityHub"));
 const QrScannerModal = lazyReady(() => import("./QrScanner"));
+const QrSourceSheet = lazyReady(() => import("./QrSourceSheet"));
 const BtcPriceModal = lazyReady(() => import("./BtcPriceModal"));
 const WhatsNewModal = lazyReady(() => import("./WhatsNewModal"));
 import { lazyReady } from "../lib/ui/lazyReady";
@@ -134,7 +135,8 @@ import { getCachedName, hasHandleFlag, maybeTouchName, setCachedName, type Cache
 import { lastLnAddressServiceOk, lnAddressServiceOk } from "../lib/names/lnAddrHealth";
 import { type ActionMenuItem } from "./ActionMenu";
 import { SEED_BACKUP_CHANGED_EVENT, getPendingGiftPassword, hasClaimedGift, needsSeedBackup } from "../lib/gift/giftStore";
-import { type GiftLinkParams } from "../lib/gift/giftLink";
+import { giftFromScannedUrl, isGiftPath, type GiftLinkParams } from "../lib/gift/giftLink";
+import { isRequestPath } from "../lib/send/paymentRequest";
 import GiftClaimModal from "./GiftClaimModal";
 import { autoReturnExpiredGifts } from "../lib/gift/giftReclaim";
 import GiftPasswordModal from "./GiftPasswordModal";
@@ -824,11 +826,14 @@ export default function Dashboard({
       ends ? { name: "nav-morph", from: find(fromSel), to: find(toSel), requireBothEnds: true } : undefined,
     );
   }, []);
-  // Set true only by the homepage's QR shortcut button, so SendPanel opens
-  // straight into the scanner instead of the destination form. Reset to
-  // false by the plain "Odeslat" button so it doesn't linger and reopen the
-  // scanner the next time Send is entered normally.
-  const [sendAutoScan, setSendAutoScan] = useState(false);
+  // The QR scanner is a sheet of this screen, not of the Send form: the home
+  // button opens the camera over Home, the scan icon in Send first asks camera
+  // or gallery. Cancelling just closes the sheet over where the person was.
+  const [scanner, setScanner] = useState<"source" | "camera" | null>(null);
+  // What the scanner read, for the Send form to fill in once it is open.
+  const [scanned, setScanned] = useState<{ raw: string; nonce: number } | null>(null);
+  const scannedNonceRef = useRef(0);
+  const closeScanner = useCallback(() => setScanner(null), []);
   // The two flows behind the Home buttons' hold-menus. They live here, not
   // in SendPanel/ReceiveScreen, because the buttons that open them are on the
   // home screen — the gift composer used to be mounted inside SendPanel
@@ -906,14 +911,17 @@ export default function Dashboard({
     if (!payRequest) return;
     prefillNonceRef.current += 1;
     setSendPrefill({ ...payRequest, nonce: prefillNonceRef.current });
-    setSendAutoScan(false);
+    setScanner(null);
     setView("send");
     onPayRequestConsumed?.();
   }, [payRequest, onPayRequestConsumed]);
   // Leaving Send drops the prefill, so returning to it later is a blank
   // form rather than one still holding somebody else's request.
   useEffect(() => {
-    if (view !== "send") setSendPrefill(null);
+    if (view !== "send") {
+      setSendPrefill(null);
+      setScanned(null);
+    }
   }, [view]);
   const [loadError, setLoadError] = useState<string | null>(null);
   // The friendly copy in loadError itself is deliberately generic (see
@@ -1315,6 +1323,35 @@ export default function Dashboard({
       hapticNotify();
     }
   }, []);
+  // A scan result. This app's own gift link opens the claim sheet in this session (no reload, no re-unlock),
+  // its other same-origin links (a payment request) are opened by a page load, and anything else is a
+  // payment destination for the Send form, which is opened with it when it is not open yet.
+  const handleScanResult = useCallback((raw: string) => {
+    setScanner(null);
+    try {
+      const gift = giftFromScannedUrl(raw, window.location.origin);
+      if (gift) {
+        // The fragment holds the gift's mnemonic: decoded here, never stored or logged.
+        if (!gift.ok) showToast(t("Odkaz na dárek nejde přečíst."), "danger", undefined, { quiet: true });
+        else {
+          setView("home");
+          if (hasClaimedGift(gift.gift.id)) showToast(t("Tenhle dárek už je vyzvednutý"), "neutral");
+          else setChatGift(gift.gift);
+        }
+        return;
+      }
+      const url = new URL(raw);
+      if (url.origin === window.location.origin && (isGiftPath(url.pathname) || isRequestPath(url.pathname))) {
+        window.location.href = raw;
+        return;
+      }
+    } catch {
+      // Not a URL at all (a bitcoin:/lightning:/ark: URI, or a bare address/invoice): a destination.
+    }
+    scannedNonceRef.current += 1;
+    setScanned({ raw, nonce: scannedNonceRef.current });
+    setView("send");
+  }, [showToast, t]);
 
   // Some of bark's chain requests for the exit went to Second's esplora
   // because the independent one didn't answer (walletWorkerGuard.ts,
@@ -3281,13 +3318,8 @@ export default function Dashboard({
             <button
               type="button"
               className="big-action-scan"
-              // Plain setView: the scanner sheet opens in the same render,
-              // and a View Transition's header layer would sit above its dim
-              // (lit buttons over the darkened page) until it finished.
-              onClick={() => {
-                setSendAutoScan(true);
-                setView("send");
-              }}
+              // The sheet opens over Home in the same render; no Send form behind it.
+              onClick={() => setScanner("camera")}
               aria-label={t("Naskenovat QR kód")}
             >
               <ScanIcon />
@@ -3296,10 +3328,7 @@ export default function Dashboard({
               kind="send"
               label={t("Odeslat")}
               icon={<SendArrowIcon />}
-              onClick={() => {
-                setSendAutoScan(false);
-                navigate("send", "send");
-              }}
+              onClick={() => navigate("send", "send")}
               menu={sendMenu}
               innerRef={sendButtonRef}
               onMenuOpen={dismissHoldHint}
@@ -3428,16 +3457,11 @@ export default function Dashboard({
                 currency={currency}
                 onSentToast={showToast}
                 onSentBump={requestBalanceBump}
-                autoScan={sendAutoScan}
-                onCancelAutoScan={() => navigate("home")}
+                onOpenScanner={() => setScanner("source")}
+                scanned={scanned}
+                onScannedConsumed={() => setScanned(null)}
                 onSendComplete={motionOn ? () => navigate("home") : undefined}
                 onCriticalOpChange={onCriticalOpChange}
-                onScannedGift={(gift) => {
-                  // The same claim sheet a gift from a chat opens, in this session: no reload, no re-unlock.
-                  navigate("home");
-                  if (hasClaimedGift(gift.id)) showToast(t("Tenhle dárek už je vyzvednutý"), "neutral");
-                  else setChatGift(gift);
-                }}
                 initialDestination={sendPrefill?.destination}
                 initialAmountSats={sendPrefill?.amountSats}
               />
@@ -3510,7 +3534,7 @@ export default function Dashboard({
             setChatOpen(false);
             prefillNonceRef.current += 1;
             setSendPrefill({ ...target, nonce: prefillNonceRef.current });
-            setSendAutoScan(false);
+            setScanner(null);
             setView("send");
           }}
           onClaimGift={(gift) => {
@@ -3528,6 +3552,20 @@ export default function Dashboard({
             />
           )}
         />
+      )}
+      {scanner === "source" && (
+        <Suspense fallback={null}>
+          <QrSourceSheet
+            onCamera={() => setScanner("camera")}
+            onResult={handleScanResult}
+            onClose={closeScanner}
+          />
+        </Suspense>
+      )}
+      {scanner === "camera" && (
+        <Suspense fallback={null}>
+          <QrScannerModal onResult={handleScanResult} onClose={closeScanner} />
+        </Suspense>
       )}
       {chatGift && (
         <GiftClaimModal

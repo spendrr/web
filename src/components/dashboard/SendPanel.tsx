@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -60,13 +58,9 @@ import {
   pinnedNamesStartingWith,
   type PinCheck,
 } from "../../lib/names/namePins";
-import { giftFromScannedUrl, isGiftPath, type GiftLinkParams } from "../../lib/gift/giftLink";
-import { isRequestPath } from "../../lib/send/paymentRequest";
 import { ScanIcon } from "../dashboard/icons";
 import { type ToastDetail } from "../dashboard/toastIsland";
 
-const QrScannerModal = lazy(() => import("../QrScanner"));
-const QrSourceSheet = lazy(() => import("../QrSourceSheet"));
 
 // Taps on Send this soon after a paste are ignored (a double tap on Paste).
 const SEND_AFTER_PASTE_GUARD_MS = 350;
@@ -375,10 +369,10 @@ export function SendPanel({
   onSentToast,
   onSentBump,
   inRoundSats,
-  autoScan,
-  onCancelAutoScan,
+  onOpenScanner,
+  scanned,
+  onScannedConsumed,
   onCriticalOpChange,
-  onScannedGift,
   initialDestination,
   initialAmountSats,
   onSendComplete,
@@ -405,11 +399,12 @@ export function SendPanel({
   onSentBump?: (overrideHeadline?: number) => void;
   // Locked refresh inputs, frozen with spendable at the tap: the bump target is one snapshot.
   inRoundSats?: number;
-  autoScan?: boolean;
-  onCancelAutoScan?: () => void;
+  // The scanner is a sheet of the Dashboard, not of this form. It asks the person camera or gallery.
+  onOpenScanner: () => void;
+  // What the scanner read, to be filled in here (a payment destination), or why it could not be read.
+  scanned?: { raw: string; nonce: number } | null;
+  onScannedConsumed?: () => void;
   onCriticalOpChange?: (active: boolean) => void;
-  // A scanned gift link of this app: the parent opens the claim sheet. Without it the link is opened by a page load.
-  onScannedGift?: (gift: GiftLinkParams) => void;
   // Prefill from a payment-request link. Read once at mount (this panel is
   // remounted whenever the Send view is entered, and again on a new
   // request), never as a controlled value — the fields stay the user's from
@@ -482,11 +477,6 @@ export function SendPanel({
   // A failed estimate stops the "loading" state of the V2 sheet's fee row.
   const [feeFailed, setFeeFailed] = useState(false);
 
-  // Initial value only — the homepage QR shortcut passes autoScan={true} to
-  // jump straight into the scanner. SendPanel remounts fresh (key={view} on
-  // its wrapper) every time Send is entered, so reading this once at mount
-  // is enough; afterwards `scanning` is just normal local state.
-  const [scanning, setScanning] = useState(autoScan ?? false);
   // The 🎁 "send bitcoin as a link" entry point moved to the home screen's
   // Odeslat hold-menu (ActionMenu.tsx) — it was a third icon in the address
   // row here, next to a field it had nothing to do with.
@@ -494,8 +484,6 @@ export function SendPanel({
   // Motion design: marks the destination field as the landing spot of the
   // scanner's lock frame for one View Transition (motion.css, scan-lock).
   const [justScanned, setJustScanned] = useState(false);
-  // The scan button first asks camera or gallery.
-  const [pickingSource, setPickingSource] = useState(false);
   useEffect(() => {
     if (!justScanned) return;
     const timer = window.setTimeout(() => setJustScanned(false), 800);
@@ -1391,46 +1379,15 @@ export function SendPanel({
     }
   }, [buildPlan, send, spendLimitReached, motionOn, quickBeta, currency, rates]);
 
-  // The parent passes a new function each render; a ref keeps handleScanResult (given to the scanner) stable.
-  const onScannedGiftRef = useRef(onScannedGift);
-  useEffect(() => {
-    onScannedGiftRef.current = onScannedGift;
-  }, [onScannedGift]);
+  // Same-origin gift / payment-request links and invalid gift links are decided by the Dashboard; this gets
+  // only what is a payment destination.
   const handleScanResult = useCallback((raw: string) => {
-    // A QR of this app's own gift/payment-request link (the composer's own
-    // ShareLinkResult renders one, precisely so another phone's camera can
-    // read it) isn't a send destination at all — it's a URL this same app
-    // already knows how to open. Same-origin only: this must actually be a
-    // link this app generated, not merely something claiming to be one.
-    try {
-      const url = new URL(raw);
-      // The fragment holds the gift's mnemonic: decoded here, never stored or logged.
-      const gift = onScannedGiftRef.current ? giftFromScannedUrl(raw, window.location.origin) : null;
-      if (gift) {
-        setScanning(false);
-        if (gift.ok) onScannedGiftRef.current?.(gift.gift);
-        else setError(t("Odkaz na dárek nejde přečíst."));
-        return;
-      }
-      if (
-        url.origin === window.location.origin &&
-        (isGiftPath(url.pathname) || isRequestPath(url.pathname))
-      ) {
-        setScanning(false);
-        window.location.href = raw;
-        return;
-      }
-    } catch {
-      // Not a URL at all (a bitcoin:/lightning:/ark: URI, or a bare
-      // address/invoice) — falls through to the normal destination parse.
-    }
     // A scanned profile link ("https://spendrr.app/@pavel"): pay the handle.
     const scannedHandle = handleFromProfileUrl(raw, window.location.origin);
     if (scannedHandle) {
       setDestination(`@${scannedHandle}`);
       setResolvedKind(null);
       setJustScanned(true);
-      setScanning(false);
       return;
     }
     const { destination: dest, amountSats } = parseScannedPayload(raw);
@@ -1452,8 +1409,17 @@ export function SendPanel({
     // The scan-lock landing animation is for a field the person is about to read; a quick payment skips the field.
     if (!auto) setJustScanned(true);
     if (amountSats !== undefined) setAmount(String(amountSats));
-    setScanning(false);
-  }, [quickBeta, t]);
+  }, [quickBeta]);
+
+  // The scanner (a Dashboard sheet) hands its result over here. The nonce keeps one result from being applied
+  // twice (strict-mode effects, a changed handleScanResult).
+  const scannedNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!scanned || scannedNonceRef.current === scanned.nonce) return;
+    scannedNonceRef.current = scanned.nonce;
+    handleScanResult(scanned.raw);
+    onScannedConsumed?.();
+  }, [scanned, handleScanResult, onScannedConsumed]);
 
   // Quick pay: a scan that carries its amount goes on by itself once the form can be built, which is a send
   // when it fits the user's limits and the confirm screen when it does not. On-chain is always reviewed, so
@@ -1681,7 +1647,7 @@ export function SendPanel({
           <button
             type="button"
             className="secondary scan-btn"
-            onClick={() => setPickingSource(true)}
+            onClick={onOpenScanner}
             aria-label={t("Naskenovat QR kód")}
           >
             <ScanIcon />
@@ -1729,39 +1695,6 @@ export function SendPanel({
           </>
         )}
       </div>
-      {pickingSource && (
-        <Suspense fallback={null}>
-          <QrSourceSheet
-            onCamera={() => {
-              setPickingSource(false);
-              setScanning(true);
-            }}
-            onResult={(text) => {
-              setPickingSource(false);
-              handleScanResult(text);
-            }}
-            onClose={() => setPickingSource(false)}
-          />
-        </Suspense>
-      )}
-      {scanning && (
-        <Suspense fallback={null}>
-          <QrScannerModal
-            onResult={handleScanResult}
-            onClose={() => {
-              setScanning(false);
-              // Only when this scanner was opened via the homepage's QR
-              // shortcut — cancelling it should feel like backing out of that
-              // shortcut entirely (back to Home), not landing on an empty Send
-              // form the user never asked to see. A manual reopen of the
-              // scanner from within the form (autoScan is a mount-time-only
-              // value, so this stays false after the first close) cancels
-              // back into the form as normal.
-              if (autoScan) onCancelAutoScan?.();
-            }}
-          />
-        </Suspense>
-      )}
       <AmountInput
         label={t("Částka")}
         sats={amount}
