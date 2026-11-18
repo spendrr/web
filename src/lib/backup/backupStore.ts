@@ -30,7 +30,8 @@ type Tagged =
   | { __t: "date"; iso: string }
   | { __t: "map"; entries: [unknown, unknown][] }
   | { __t: "set"; values: unknown[] }
-  | { __t: "bigint"; d: string };
+  | { __t: "bigint"; d: string }
+  | { __t: "undefined" };
 
 const TYPED_ARRAY_CTORS: Record<string, new (buf: ArrayBuffer) => ArrayBufferView> = {
   Int8Array,
@@ -52,7 +53,10 @@ const TYPED_ARRAY_CTORS: Record<string, new (buf: ArrayBuffer) => ArrayBufferVie
 // the JSON.stringify step in between, which a pure in-memory round trip
 // wouldn't have caught).
 export function tagValue(value: unknown): unknown {
-  if (value === null || value === undefined) return value;
+  if (value === null) return value;
+  // JSON drops an object's undefined fields and turns undefined array entries into null. bark's optional `sort_key` is
+  // such a field, and dropping it changes the record-seal MAC after a restore.
+  if (value === undefined) return { __t: "undefined" } satisfies Tagged;
   if (value instanceof ArrayBuffer) {
     return { __t: "ab", d: toB64(value) } satisfies Tagged;
   }
@@ -107,6 +111,8 @@ export function untagValue(value: unknown): unknown {
         return new Set(tagged.values.map(untagValue));
       case "bigint":
         return BigInt(tagged.d);
+      case "undefined":
+        return undefined;
     }
   }
   if (Array.isArray(value)) return value.map(untagValue);

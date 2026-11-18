@@ -38,6 +38,13 @@ describe("tagValue / untagValue JSON round trip", () => {
     }
   });
 
+  it("preserves explicit undefined fields and array entries", () => {
+    const result = roundTrip({ sort_key: undefined, values: [undefined] }) as { sort_key?: undefined; values: undefined[] };
+    expect(Object.hasOwn(result, "sort_key")).toBe(true);
+    expect(result.sort_key).toBeUndefined();
+    expect(result.values).toEqual([undefined]);
+  });
+
   it("round-trips ArrayBuffer contents exactly", () => {
     const bytes = new Uint8Array([1, 2, 3, 250, 251, 252]).buffer;
     const result = roundTrip(bytes) as ArrayBuffer;
