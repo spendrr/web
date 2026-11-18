@@ -457,6 +457,9 @@ export async function restoreDatabase(dbName: string, dump: SerializedDb): Promi
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(storeNames, "readwrite");
       tx.onerror = () => reject(tx.error ?? new Error(`Restore transaction failed on ${dbName}`));
+      // A failed commit (full storage, disk error) fires only `abort`, never `error` on the transaction. Without this the
+      // promise never settled and the unlock waited for it with no limit.
+      tx.onabort = () => reject(tx.error ?? new Error(`Restore transaction aborted on ${dbName}`));
       tx.oncomplete = () => resolve();
       for (const storeName of storeNames) {
         const store = tx.objectStore(storeName);

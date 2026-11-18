@@ -308,14 +308,23 @@ async function openGiftsDb(): Promise<IDBDatabase> {
   return openGiftsDbAt(next);
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+// Resolves when the TRANSACTION has committed, not when the request succeeded: a request can succeed and the commit
+// still fail (full storage, disk error), and callers such as GiftComposeModal move money on the strength of a stored
+// record. A failed commit fires only `abort` (no `error` on the transaction), so that is handled too.
+// `strict` asks the browser to flush to disk before `complete` (browsers without the option ignore it).
+async function tx<T>(
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T>,
+  strict = false,
+): Promise<T> {
   const db = await openGiftsDb();
   try {
     return await new Promise<T>((resolve, reject) => {
-      const t = db.transaction(GIFTS_STORE, mode);
+      const t = strict ? db.transaction(GIFTS_STORE, mode, { durability: "strict" }) : db.transaction(GIFTS_STORE, mode);
       const req = fn(t.objectStore(GIFTS_STORE));
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error ?? new Error("gifts DB tx failed"));
+      t.oncomplete = () => resolve(req.result);
+      t.onabort = () => reject(t.error ?? req.error ?? new Error("gifts DB transaction aborted"));
+      t.onerror = () => reject(t.error ?? req.error ?? new Error("gifts DB tx failed"));
     });
   } finally {
     db.close();
@@ -323,7 +332,7 @@ async function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => ID
 }
 
 export async function putGift(rec: OutgoingGift): Promise<void> {
-  await tx("readwrite", (s) => s.put(rec));
+  await tx("readwrite", (s) => s.put(rec), true);
 }
 
 export async function getGift(id: string): Promise<OutgoingGift | undefined> {
@@ -336,7 +345,7 @@ export async function listGifts(): Promise<OutgoingGift[]> {
 }
 
 export async function deleteGift(id: string): Promise<void> {
-  await tx("readwrite", (s) => s.delete(id));
+  await tx("readwrite", (s) => s.delete(id), true);
 }
 
 // --- Gift-mnemonic encryption (cloud-backup AES-GCM key) --------------

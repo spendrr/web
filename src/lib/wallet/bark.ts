@@ -695,6 +695,7 @@ async function flushCallLogDbWrites(): Promise<void> {
       for (const entry of batch) store.put(entry);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("call log transaction aborted"));
     });
   } catch {
     // Best-effort diagnostic persistence — never let a write failure here
@@ -731,6 +732,7 @@ async function callLogDbDelete(id: number): Promise<void> {
       tx.objectStore(CALL_LOG_STORE).delete(id);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("call log transaction aborted"));
     });
   } catch {
     // Same as callLogDbPut above — best-effort.
@@ -746,6 +748,7 @@ async function callLogDbClear(): Promise<void> {
       tx.objectStore(CALL_LOG_STORE).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("call log transaction aborted"));
     });
   } catch {
     // Same as callLogDbPut above — best-effort.
@@ -798,6 +801,7 @@ async function initCallLog(): Promise<void> {
       };
       tx.oncomplete = () => resolve(result);
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("call log transaction aborted"));
     });
     callLog.push(...loaded);
     enforceCallLogCap();
