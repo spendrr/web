@@ -10,7 +10,7 @@ import {
 } from "../lib/wallet/bark";
 import { BooleanSwitch } from "./BooleanSwitch";
 import { SpendLimitsSettings } from "./SpendLimitsSettings";
-import { CopyRow } from "./Dashboard";
+import { CopyRow } from "./dashboard/CopyRow";
 import {
   decryptMnemonic,
   decryptVaultBytes,
