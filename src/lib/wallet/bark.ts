@@ -328,7 +328,7 @@ function getWorker(): Worker {
     worker = new Worker(new URL("./wallet.worker.ts", import.meta.url), { type: "module" });
     worker.onmessage = (
       e: MessageEvent<
-        { id: number; started?: true; ok?: boolean; result?: unknown; error?: string } | NetProbeReply
+        { id: number; started?: true; ok?: boolean; result?: unknown; error?: string; seal?: number } | NetProbeReply
       >,
     ) => {
       // Answered by the worker's bootstrap, outside the request queue.
@@ -336,7 +336,8 @@ function getWorker(): Worker {
         settleNetProbe(e.data);
         return;
       }
-      const { id, started, ok, result, error } = e.data;
+      const { id, started, ok, result, error, seal } = e.data;
+      if (typeof seal === "number") sealCountListener?.(seal);
       const pending = pendingRequests.get(id);
       if (!pending) return;
       // The worker posts this the moment it pulls the request off its own
@@ -1107,6 +1108,28 @@ export async function getSpendLimits(): Promise<SpendLimitsStatus> {
 export async function changeSpendLimits(change: LimitChange, auth?: SpendAuth): Promise<LimitChangeOutcome> {
   const op = auth ? { kind: "change", change, auth } : { kind: "change", change };
   return (await request({ type: "limits", op })) as LimitChangeOutcome;
+}
+
+// bark records that do not verify (recordSeal.ts). "status" is a plain read; "accept" signs them and needs the password.
+export interface RecordSealStatus {
+  enabled: boolean;
+  unverified: { store: string; id: string; kind: string | null }[];
+  // False in a session whose seed the main thread can reach (typed mnemonic, biometric, device vault): no password to ask.
+  needsPassword: boolean;
+}
+
+// recordSealClient.ts registers here (it imports this file, so the dependency cannot run the other way).
+let sealCountListener: ((count: number) => void) | null = null;
+export function setSealCountListener(fn: ((count: number) => void) | null): void {
+  sealCountListener = fn;
+}
+
+export async function getRecordSealStatus(): Promise<RecordSealStatus> {
+  return (await request({ type: "recordSeal", op: { kind: "status" } })) as RecordSealStatus;
+}
+
+export async function acceptRecordSeal(auth: SpendAuth | undefined, only?: { store: string; id: string }[]): Promise<number> {
+  return ((await request({ type: "recordSeal", op: { kind: "accept", auth, only } })) as { accepted: number }).accepted;
 }
 
 export async function prepareSession(source: PrepareSource): Promise<PrepareResult> {

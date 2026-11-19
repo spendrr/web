@@ -15,6 +15,17 @@ export const PASSWORD = "E2e-Test-Password-1!";
 const problems = [];
 const PANIC = /memory access out of bounds|unreachable|RuntimeError|panicked at|out of bounds/i;
 function watchPage(page, label) {
+  // The record seal's sheet must never show up in a normal flow: a record the worker could not verify means the seal
+  // blocked something bark itself wrote. Every wallet runs with the seal on.
+  const sealTimer = setInterval(() => {
+    page
+      .evaluate(() => document.body?.innerText.includes("Neznámá čekající akce") ?? false)
+      .then((shown) => {
+        if (shown && !problems.some((p) => p.includes("seal sheet"))) problems.push(`[${label}] seal sheet shown`);
+      })
+      .catch(() => {});
+  }, 1000);
+  sealTimer.unref();
   page.on("pageerror", (e) => {
     problems.push(`[${label}] pageerror: ${String(e).slice(0, 300)}`);
     console.log(`[${label} pageerror]`, String(e).slice(0, 300));
@@ -32,7 +43,7 @@ export async function launch() {
   return chromium.launch();
 }
 
-export async function newWallet(browser, label = "wallet", { v2 = false } = {}) {
+export async function newWallet(browser, label = "wallet", { v2 = process.env.E2E_V2 === "1" } = {}) {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     locale: "cs-CZ",
