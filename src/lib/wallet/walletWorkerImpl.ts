@@ -78,7 +78,6 @@ import {
 } from "./walletSpendPolicy";
 import { SpendLimitsKeeper } from "./limitsKeeper";
 import { createIdbLimitsStore, deriveLimitsKey } from "./limitsStorage";
-import { RECORD_UNVERIFIED, acceptUnverified, deriveRecordSealKey, listUnverified, recordSeal } from "./recordSeal";
 import type { LimitChange, LimitChangeOutcome } from "./spendLimits";
 import { refreshAndRelease } from "./refreshSubmit";
 import { pendingRoundInputIds } from "./roundInputs";
@@ -161,8 +160,6 @@ export type Request =
   | { id: number; type: "extractTxFromPsbt"; psbtBase64: string }
   | { id: number; type: "prepareSession"; source: PrepareSource }
   | { id: number; type: "openHeld"; useFallbackChainSource?: boolean; exitChain?: boolean; runDaemon?: boolean }
-  // bark records that do not verify (recordSeal.ts): "status" lists them, "accept" signs them after the password.
-  | { id: number; type: "recordSeal"; op: { kind: "status" } | { kind: "accept"; auth?: SpendAuth; only?: { store: string; id: string }[] } }
   | { id: number; type: "call"; target: "wallet" | "onchain"; method: string; args: unknown[]; auth?: SpendAuth }
   | { id: number; type: "close" }
   // Money chat (beta): posts the session's chat key into `port`. See
@@ -184,8 +181,7 @@ export type Request =
   | { id: number; type: "giftCall"; method: string; args: unknown[] }
   | { id: number; type: "giftClose" };
 
-// `seal`: how many sealed reads the worker has refused so far (recordSeal.ts). The page asks for the list only when it changes.
-type Response = { id: number; ok: true; result: unknown; seal?: number } | { id: number; ok: false; error: string; seal?: number };
+type Response = { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string };
 // Posted the moment a request leaves the queue below and actually begins,
 // so the client's watchdog can tell "still waiting its turn" apart from
 // "running and wedged" and time only the latter. See armWatchdog in bark.ts.
@@ -264,11 +260,6 @@ function setHeldMnemonic(mnemonic: string | null): void {
 // a BIP39 mnemonic is not a route back to it.
 let sessionSeedHash: Uint8Array | null = null;
 let pendingSeedHash: Uint8Array | null = null;
-// Whether the password is a boundary in this session: only when the seed came from the password vault, so the main
-// thread never held it. A session opened from a typed mnemonic, a biometric or a device vault is one whose seed the
-// main thread can reach, where no password check could stop hostile page code anyway (recordSeal.ts says so too).
-let sessionPasswordBoundary = false;
-let pendingPasswordBoundary = false;
 
 // The money chat's Nostr key (chat/chatKey.ts), derived from the seed during
 // prepareSession and bound to the session the same way as the seed hash. It
@@ -305,8 +296,6 @@ const refreshSubmitBudget = createRefreshSubmitBudget(REFRESH_SUBMIT_MAX, REFRES
 const limitsKeeper = new SpendLimitsKeeper();
 // Derived in prepareSession (the seed is only there), promoted by a successful open like the chat key.
 let pendingLimitsKey: CryptoKey | null = null;
-// The key for the bark record seal (recordSeal.ts), derived in prepareSession like the limits key.
-let pendingSealKey: Uint8Array | null = null;
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
@@ -568,7 +557,6 @@ async function runRequest(msg: Request): Promise<unknown> {
       // choosing between a real prepareSession and its matching openHeld.
       if (currentWallet !== null || heldMnemonic !== null) throw new Error(WALLET_ALREADY_OPEN);
       const mnemonic = await resolveMnemonic(msg.source);
-      pendingPasswordBoundary = msg.source.kind === "vault";
       setHeldMnemonic(mnemonic);
       // Bound to the *pending* session, promoted to sessionSeedHash only by
       // a successful open — so a prepare that never opens can't authorize
@@ -604,15 +592,6 @@ async function runRequest(msg: Request): Promise<unknown> {
         // No key = no readable store = the strict fallback (password for every send), never "no limits".
         pendingLimitsKey = null;
         console.error("[wallet.worker] limits key derivation failed", e);
-      }
-
-      try {
-        pendingSealKey?.fill(0);
-        pendingSealKey = seed ? deriveRecordSealKey(seed) : null;
-      } catch (e) {
-        // No key = every sealed read throws (fail closed), never "records unchecked".
-        pendingSealKey = null;
-        console.error("[wallet.worker] record seal key derivation failed", e);
       }
 
       let backupKeys: BackupKeys | null = null;
@@ -680,10 +659,6 @@ async function runRequest(msg: Request): Promise<unknown> {
       // doesn't need it, and there is no fallback round coordinator to swap
       // it for even if there were.
       const config = msg.useFallbackChainSource ? { ...CONFIG, esploraAddress: FALLBACK_ESPLORA_ADDRESS } : CONFIG;
-      // Before the SDK opens the DB: from here every sealed bark record is checked on read and signed on write. This is
-      // deliberately not a request option: postMessage is untrusted, so letting the main thread turn the seal off would
-      // let it reopen the held session with the original forged-checkpoint vulnerability still intact.
-      recordSeal.enable(DB_NAME, pendingSealKey);
       // An exit the app believes is live (exitMayBeLive): off Second's esplora
       // from the very first request. syncExitLocks corrects it either way.
       exitChainRedirect.reset();
@@ -728,8 +703,6 @@ async function runRequest(msg: Request): Promise<unknown> {
       // This wallet is now the one spend authorization is checked against.
       sessionSeedHash = pendingSeedHash;
       pendingSeedHash = null;
-      sessionPasswordBoundary = pendingPasswordBoundary;
-      pendingPasswordBoundary = false;
       sessionChatKey?.fill(0);
       sessionChatKey = pendingChatKey;
       pendingChatKey = null;
@@ -741,8 +714,6 @@ async function runRequest(msg: Request): Promise<unknown> {
         await limitsKeeper.open(pendingLimitsKey ? createIdbLimitsStore(limitsId, pendingLimitsKey) : null);
       }
       pendingLimitsKey = null;
-      pendingSealKey?.fill(0);
-      pendingSealKey = null;
       // The receive address, read here while nothing else is queued yet. As a separate call from
       // Dashboard it waited behind the post-unlock sync/maintenance work, so
       // the profile sheet and Přijmout said "no address yet" for a while
@@ -851,16 +822,6 @@ async function runRequest(msg: Request): Promise<unknown> {
         releaseArbitraryDomain?.();
       }
     }
-    case "recordSeal": {
-      if (currentWallet === null) throw new Error(WALLET_NOT_OPEN);
-      if (msg.op.kind === "status") {
-        return { enabled: recordSeal.isEnabled(), unverified: await listUnverified(), needsPassword: sessionPasswordBoundary };
-      }
-      // The password where it is a boundary: this is the step that makes whatever sits in the DB the user's own. Where the
-      // main thread can reach the seed anyway the user's confirmation is all there is to ask for.
-      if (sessionPasswordBoundary) await requireSpendAuth(msg.op.auth);
-      return { accepted: await acceptUnverified(msg.op.only) };
-    }
     case "giftOpen": {
       await ensureWasm();
       // A previous claim that didn't tear down cleanly — free it rather than
@@ -937,12 +898,7 @@ async function runRequest(msg: Request): Promise<unknown> {
       // leave a binding behind that a later call could authorize against.
       sessionSeedHash = null;
       pendingSeedHash = null;
-      sessionPasswordBoundary = false;
-      pendingPasswordBoundary = false;
       pendingLimitsKey = null;
-      pendingSealKey?.fill(0);
-      pendingSealKey = null;
-      recordSeal.disable();
       await limitsKeeper.close();
       dropChatKeys();
       // Same order as above: release the borrower before the lender.
@@ -1001,19 +957,15 @@ export function handleMessage(msg: Request) {
     // "queued" to "running", and the client rearms its watchdog on it.
     const started: StartedNotice = { id: msg.id, started: true };
     self.postMessage(started);
-    const sealMark = recordSeal.violationCount();
     try {
       const result = await runRequest(msg);
-      const response: Response = { id: msg.id, ok: true, result, seal: recordSeal.violationCount() };
+      const response: Response = { id: msg.id, ok: true, result };
       self.postMessage(response);
     } catch (err) {
-      // A record that failed its MAC during this request: bark reports it as a generic storage error.
-      const sealed = recordSeal.violationCount() > sealMark;
       const response: Response = {
         id: msg.id,
         ok: false,
-        error: sealed ? RECORD_UNVERIFIED : err instanceof Error ? err.message : String(err),
-        seal: recordSeal.violationCount(),
+        error: err instanceof Error ? err.message : String(err),
       };
       self.postMessage(response);
     }

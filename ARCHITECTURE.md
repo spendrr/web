@@ -49,11 +49,6 @@ The build must stay reproducible (no timestamps or machine values).
   no-password cap applies, charged before the call and never refunded. Exit start/cancel/drain/broadcast always
   need auth. `progressExits` args are sanitized in the worker.
 - The confirm screen renders a frozen `SendPlan`; `send(plan)` uses exactly that. Do not re-derive inside `send()`.
-- bark's IndexedDB (`btc-wallet-mainnet`) is input with the same trust as `postMessage`: the main thread shares the origin.
-  Pending actions (`bark.v1.5`, `bark.v1.14`) are MAC-sealed in the worker (`recordSeal.ts`), including a check that each
-  out-of-line primary key matches `pk`; never add a code path that makes unverified records readable to bark or lets the
-  main thread disable verification, and re-check the store names and IndexedDB calls on an SDK bump
-  (`node scripts/dev/record-seal-wasm-check.mjs`).
 - Vault `iterations` is clamped; changing KDF/HKDF info strings or salts silently orphans data (vault, backup
   keys, write token). New derivation = new versioned info string plus migration.
 

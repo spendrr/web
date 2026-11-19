@@ -14,12 +14,9 @@
 // installNetworkGuards() below is guaranteed to run first.
 import type { Request } from "./walletWorkerImpl";
 import { installNetworkGuards } from "./walletWorkerGuard";
-import { installRecordSeal } from "./recordSeal";
 import { isNetProbeRequest, runNetProbe } from "../connectivity/netProbeWorker";
 
 installNetworkGuards();
-// Same reason, same place: the IndexedDB hooks must be in before the SDK module can capture anything (recordSeal.ts).
-installRecordSeal();
 
 // Connectivity probes (netProbeWorker.ts) are answered right here, before the
 // buffer below and outside walletWorkerImpl.ts's FIFO queue, in both phases:
