@@ -1343,6 +1343,7 @@ const DICT: Record<string, string> = {
     "This device's clock is off. Turn on automatic time in your phone's settings and try again.",
   "Zkopírovat chybu": "Copy error",
   "Peněženka neodpovídá. Zkus to za chvíli znovu.": "The wallet isn't responding. Try again in a moment.",
+  "Zdroj blockchainu neodpovídá. Zkus to za chvíli.": "Chain source is not answering. Try again shortly.",
   "On-chain prostředky ještě nemají dost potvrzení. Zkus to později.": "Your on-chain funds don't have enough confirmations yet. Try again later.",
   "Nemáš dost prostředků (včetně poplatku).": "Not enough funds (including the fee).",
   "Poplatek by byl vyšší než samotná částka.": "The fee would be higher than the amount itself.",

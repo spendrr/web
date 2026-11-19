@@ -247,6 +247,229 @@ export function withoutEsploraRetry(url: string, response: Response): Response {
   return out;
 }
 
+// --- Chain tip failover in normal operation -------------------------------------------------------------------------
+// Sending and receiving an Ark payment ask for the chain tip (bark: "cannot vet received arkoor VTXOs, no chain tip"),
+// to tell expired VTXOs apart. bark also acts on it: a tip too far ahead starts an exit of a board not yet registered,
+// turns a pending Lightning send into a failed one to revoke, and makes every coin look due for a refresh; a tip
+// behind only makes the server refuse an expired input. So a fallback is never believed further ahead than allowed.
+// The wallet has ONE esplora (CONFIG.esploraAddress); when it does not answer, the payment failed although the Ark server was fine. For these requests ONLY, the same path is asked of the independent
+// esploras the exit already uses (INDEPENDENT_ESPLORA_ADDRESSES, already on the allowlist). Nothing that names an
+// address, a transaction or a script is ever sent to them: they learn this IP asked for the tip height, nothing else.
+//
+// - A source that failed is skipped for a while (a refusal for as long as the exit does), the primary is tried again
+//   first when its pause is over. One source at a time, never in parallel.
+// - An answer taken from a fallback is cached for a short time, so a public instance is not asked on every sync.
+// - A fallback's height that is not a number, far behind the primary's last height, or further ahead than the time
+//   since then allows, is treated as that source failing. Only the primary's own answers move that reference, so a
+//   lying fallback can neither fake a tip nor make honest ones look stale.
+// - Until the primary has answered once in this worker there is no such reference. Then the fallbacks' tip heights are
+//   asked first, one after the other, and two of them must agree within TIP_AGREEMENT_BLOCKS; the lower of the two is
+//   the reference from then on (the primary's own, once it answers, takes over). No agreement: no fallback answer is
+//   taken at all. Two independent operators lying the same way is the one case this cannot catch.
+// - A hash from a fallback must be a 64-digit hex string, and that source's tip height must pass the same check.
+// - When every source has failed the request is simply sent to the primary again, so bark sees exactly what it saw
+//   before (a 502 for a retryable status, see withoutEsploraRetry).
+// A timeout of the wallet call is not a failure and nothing here retries a call: only this one GET moves to the next host.
+export const TIP_FAILOVER_PATH = /^\/(?:blocks\/tip\/(?:height|hash)|block-height\/\d+)$/;
+export const TIP_PAUSE_MS = 60_000;
+export const TIP_REFUSAL_PAUSE_MS = INDEPENDENT_REFUSAL_LIMIT_MS;
+// A fallback's height may trail ours by a block or two (propagation); more than this is a stale or lying source.
+export const TIP_MAX_LAG_BLOCKS = 3;
+// A fallback may be ahead of the primary's last height by this many blocks plus one per TIP_BLOCK_ALLOWANCE_MS since
+// that answer (blocks come about every 10 minutes; the allowance is twice as fast so a real chain never trips it).
+export const TIP_MAX_LEAD_BLOCKS = 3;
+export const TIP_BLOCK_ALLOWANCE_MS = 300_000;
+// Two fallbacks' tip heights agree, without a primary reference, when they differ by at most this (propagation).
+export const TIP_AGREEMENT_BLOCKS = 2;
+
+export interface TipFailoverState {
+  pausedUntil: Map<string, number>;
+  // The highest tip height the PRIMARY has answered and when, the reference for judging a fallback. 0 = none yet.
+  highest: number;
+  highestAt: number;
+  // Without that: the lower height two fallbacks agreed on and when. 0 = none.
+  agreed: number;
+  agreedAt: number;
+}
+export const tipFailoverState: TipFailoverState = { pausedUntil: new Map(), highest: 0, highestAt: 0, agreed: 0, agreedAt: 0 };
+
+// The cacheable path of a normal-operation tip request, or null.
+export function tipFailoverPath(method: string, url: string, primary: string = CONFIG.esploraAddress): string | null {
+  if (method.toUpperCase() !== "GET" || !url.startsWith(primary + "/")) return null;
+  const path = url.slice(primary.length);
+  return TIP_FAILOVER_PATH.test(path) ? path : null;
+}
+
+async function heightOf(response: Response, path: string): Promise<number | null | "n/a"> {
+  if (path !== "/blocks/tip/height") return "n/a";
+  const text = (await response.clone().text()).trim();
+  return /^\d{1,9}$/.test(text) ? Number(text) : null;
+}
+
+// The height a fallback is judged against: the primary's last answer, else what two fallbacks agreed on, else none.
+function tipReference(state: TipFailoverState): { height: number; at: number } | null {
+  if (state.highest > 0) return { height: state.highest, at: state.highestAt };
+  if (state.agreed > 0) return { height: state.agreed, at: state.agreedAt };
+  return null;
+}
+
+function highestPlausible(ref: { height: number; at: number }, nowMs: number): number {
+  return ref.height + TIP_MAX_LEAD_BLOCKS + Math.floor(Math.max(0, nowMs - ref.at) / TIP_BLOCK_ALLOWANCE_MS);
+}
+
+// Whether a fallback's tip height can be a real one. Without a reference nothing can be judged, so nothing passes.
+export function fallbackHeightPlausible(height: number, state: TipFailoverState, nowMs: number): boolean {
+  const ref = tipReference(state);
+  if (ref === null) return false;
+  return height >= ref.height - TIP_MAX_LAG_BLOCKS && height <= highestPlausible(ref, nowMs);
+}
+
+const HASH_RE = /^[0-9a-f]{64}$/;
+
+async function hashAnswerOk(response: Response): Promise<boolean> {
+  return HASH_RE.test((await response.clone().text()).trim());
+}
+
+// One source's tip height, or the status it failed with (null: no answer at all, 200: an answer that is not a height).
+async function askTipHeight(
+  source: string,
+  request: Request,
+  realFetch: (r: Request) => Promise<Response>,
+): Promise<{ height: number } | { failed: number | null }> {
+  try {
+    const res = await realFetch(
+      new Request(source + "/blocks/tip/height", { method: "GET", headers: request.headers, signal: request.signal, redirect: "error" }),
+    );
+    if (!res.ok) return { failed: res.status };
+    const height = await heightOf(res, "/blocks/tip/height");
+    return typeof height === "number" ? { height } : { failed: res.status };
+  } catch (e) {
+    if (request.signal.aborted) throw e;
+    return { failed: null };
+  }
+}
+
+async function fallbackTipHeightOk(
+  source: string,
+  request: Request,
+  realFetch: (r: Request) => Promise<Response>,
+  state: TipFailoverState,
+  nowMs: number,
+): Promise<boolean> {
+  const answer = await askTipHeight(source, request, realFetch);
+  return "height" in answer && fallbackHeightPlausible(answer.height, state, nowMs);
+}
+
+// Without a primary reference: asks the fallbacks' tip heights one after the other until two agree, and keeps the lower
+// one as the reference. A source that fails here is paused like anywhere else.
+async function agreeOnFallbackTip(
+  fallbacks: readonly string[],
+  request: Request,
+  realFetch: (r: Request) => Promise<Response>,
+  onFailover: (source: string, status: number | null) => void,
+  state: TipFailoverState,
+  now: () => number,
+): Promise<boolean> {
+  const seen: number[] = [];
+  for (const source of fallbacks) {
+    if ((state.pausedUntil.get(source) ?? 0) > now()) continue;
+    const answer = await askTipHeight(source, request, realFetch);
+    if (!("height" in answer)) {
+      state.pausedUntil.set(source, now() + (answer.failed === 429 ? TIP_REFUSAL_PAUSE_MS : TIP_PAUSE_MS));
+      onFailover(source, answer.failed);
+      continue;
+    }
+    const match = seen.find((h) => Math.abs(h - answer.height) <= TIP_AGREEMENT_BLOCKS);
+    if (match !== undefined) {
+      state.agreed = Math.min(match, answer.height);
+      state.agreedAt = now();
+      return true;
+    }
+    seen.push(answer.height);
+  }
+  return false;
+}
+
+export async function fetchTipWithFailover(
+  request: Request,
+  path: string,
+  sources: readonly string[],
+  realFetch: (r: Request) => Promise<Response>,
+  onFailover: (source: string, status: number | null) => void,
+  state: TipFailoverState = tipFailoverState,
+  now: () => number = Date.now,
+): Promise<Response | null> {
+  const signal = request.signal;
+  const primary = sources[0];
+  const fromFallback = (source: string) => source !== primary;
+  // The primary is already known to be down: a recent fallback answer serves this one too.
+  if ((state.pausedUntil.get(primary) ?? 0) > now()) {
+    const cached = cachedExitAnswer(path, now());
+    if (cached !== null) return cached;
+  }
+  for (const source of sources) {
+    // No reference to judge a fallback by: two fallbacks must agree first, or none is used.
+    if (fromFallback(source) && tipReference(state) === null) {
+      if (!(await agreeOnFallbackTip(sources.filter(fromFallback), request, realFetch, onFailover, state, now))) return null;
+    }
+    const paused = (state.pausedUntil.get(source) ?? 0) > now();
+    // The primary is always tried when nothing else is left (the caller's last resort); here a paused source is skipped.
+    if (paused) continue;
+    let response: Response;
+    try {
+      response = await realFetch(
+        new Request(source + path, { method: "GET", headers: request.headers, signal, redirect: "error" }),
+      );
+    } catch (e) {
+      if (signal.aborted) throw e;
+      state.pausedUntil.set(source, now() + TIP_PAUSE_MS);
+      onFailover(source, null);
+      continue;
+    }
+    if (response.status === 429 || response.status >= 500) {
+      state.pausedUntil.set(source, now() + (response.status === 429 ? TIP_REFUSAL_PAUSE_MS : TIP_PAUSE_MS));
+      onFailover(source, response.status);
+      continue;
+    }
+    if (!response.ok) {
+      // A 404 or other answer from the primary is an answer; from a fallback it means that host cannot serve this.
+      if (fromFallback(source)) continue;
+      return response;
+    }
+    const height = await heightOf(response, path);
+    let bad = false;
+    if (height !== "n/a") {
+      bad = height === null || (fromFallback(source) && !fallbackHeightPlausible(height, state, now()));
+    } else if (fromFallback(source)) {
+      bad = !(await hashAnswerOk(response));
+      const blockHeight = /^\/block-height\/(\d+)$/.exec(path)?.[1];
+      const ref = tipReference(state);
+      if (!bad && blockHeight !== undefined && ref !== null) {
+        // A block above any tip the reference allows by now does not exist.
+        bad = Number(blockHeight) > highestPlausible(ref, now());
+      }
+      if (!bad && path === "/blocks/tip/hash") {
+        // The hash of a stale or forked source's tip is as wrong as its height: the same source's height must pass.
+        bad = !(await fallbackTipHeightOk(source, request, realFetch, state, now()));
+      }
+    }
+    if (bad || height !== "n/a") {
+      if (bad) {
+        state.pausedUntil.set(source, now() + TIP_PAUSE_MS);
+        onFailover(source, response.status);
+        if (fromFallback(source)) continue;
+        return response; // a primary answer we cannot judge is still the primary's answer
+      }
+      if (!fromFallback(source) && typeof height === "number") {
+        state.highest = Math.max(state.highest, height);
+        state.highestAt = now();
+      }
+    }
+    return fromFallback(source) ? rememberExitAnswer(path, response, now()) : response;
+  }
+  return null;
+}
+
 // bark takes its fee rates from esplora's /fee-estimates with no upper bound
 // (chain.rs fetch_fee_rates) and uses the "fast" one for every exit CPFP, which
 // progressExits builds and broadcasts every minute without asking (and RBFs
@@ -512,6 +735,17 @@ export function installNetworkGuards() {
         const answer = key === null ? response : await rememberExitAnswer(key, response, Date.now());
         return capFeeEstimates(request.method, request.url, withoutEsploraRetry(request.url, answer));
       }
+    }
+    const tipPath = tipFailoverPath(request.method, request.url);
+    if (tipPath !== null) {
+      const sources = [
+        CONFIG.esploraAddress,
+        ...INDEPENDENT_ESPLORA_ADDRESSES.filter((a) => a !== CONFIG.esploraAddress && isAllowedRequest(a + tipPath, "GET")),
+      ];
+      const answered = await fetchTipWithFailover(request, tipPath, sources, realFetch, (source, status) => {
+        console.warn(`[wallet.worker] chain tip source ${new URL(source).host} failed (${status ?? "network"}) for ${tipPath}`);
+      });
+      if (answered !== null) return capFeeEstimates(request.method, request.url, withoutEsploraRetry(request.url, answered));
     }
     return capFeeEstimates(request.method, request.url, withoutEsploraRetry(request.url, await realFetch(request)));
   }) as typeof fetch;
