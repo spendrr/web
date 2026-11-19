@@ -52,11 +52,6 @@ const KNOWN: KnownError[] = [
       }),
   },
   {
-    // bark cannot vet or send an Ark payment without a chain tip (esplora down).
-    test: /Tip Retrieval Failure|no chain tip|cannot get chain tip/i,
-    text: (_m, t) => t("Zdroj blockchainu neodpovídá. Zkus to za chvíli."),
-  },
-  {
     test: /insufficient confirmed funds|more confirmations on your on-chain funds/i,
     text: (_m, t) => t("On-chain prostředky ještě nemají dost potvrzení. Zkus to později."),
   },
