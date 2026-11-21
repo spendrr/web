@@ -162,7 +162,7 @@ export type Request =
   | { id: number; type: "prepareSession"; source: PrepareSource }
   | { id: number; type: "openHeld"; useFallbackChainSource?: boolean; exitChain?: boolean; runDaemon?: boolean }
   // bark records that do not verify (recordSeal.ts): "status" lists them, "accept" signs them after the password.
-  | { id: number; type: "recordSeal"; op: { kind: "status" } | { kind: "accept"; auth?: SpendAuth; only?: { store: string; id: string }[] } }
+  | { id: number; type: "recordSeal"; op: { kind: "status" } | { kind: "accept"; auth?: SpendAuth; only: string[] } }
   | { id: number; type: "call"; target: "wallet" | "onchain"; method: string; args: unknown[]; auth?: SpendAuth }
   | { id: number; type: "close" }
   // Money chat (beta): posts the session's chat key into `port`. See
@@ -858,6 +858,7 @@ async function runRequest(msg: Request): Promise<unknown> {
       }
       // The password where it is a boundary: this is the step that makes whatever sits in the DB the user's own. Where the
       // main thread can reach the seed anyway the user's confirmation is all there is to ask for.
+      if (!Array.isArray(msg.op.only) || !msg.op.only.every((r) => typeof r === "string")) throw new Error("bad record list");
       if (sessionPasswordBoundary) await requireSpendAuth(msg.op.auth);
       return { accepted: await acceptUnverified(msg.op.only) };
     }
@@ -942,17 +943,21 @@ async function runRequest(msg: Request): Promise<unknown> {
       pendingLimitsKey = null;
       pendingSealKey?.fill(0);
       pendingSealKey = null;
-      recordSeal.disable();
-      await limitsKeeper.close();
-      dropChatKeys();
-      // Same order as above: release the borrower before the lender.
-      if (currentWallet) {
-        currentWallet.free();
-        currentWallet = null;
-      }
-      if (currentOnchainWallet) {
-        currentOnchainWallet.free();
-        currentOnchainWallet = null;
+      try {
+        await limitsKeeper.close();
+        dropChatKeys();
+        // Same order as above: release the borrower before the lender.
+        if (currentWallet) {
+          currentWallet.free();
+          currentWallet = null;
+        }
+        if (currentOnchainWallet) {
+          currentOnchainWallet.free();
+          currentOnchainWallet = null;
+        }
+      } finally {
+        // Last: until the wallet (and with it the SDK daemon) is gone, a read of a forged pending action must still fail.
+        recordSeal.disable();
       }
       return undefined;
     }

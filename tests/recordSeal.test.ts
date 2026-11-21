@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KNOWN_RECORD_KINDS, SEALED_STORES, deriveRecordSealKey, describeRecord, recordIsValid, recordMac } from "../src/lib/wallet/recordSeal";
+import { KNOWN_RECORD_KINDS, SEALED_STORES, deriveRecordSealKey, describeRecord, recordIsValid, recordMac, recordRef } from "../src/lib/wallet/recordSeal";
 
 const SEED = Uint8Array.from({ length: 64 }, (_, i) => i);
 const KEY = deriveRecordSealKey(SEED);
@@ -116,5 +116,39 @@ describe("describeRecord (what the confirm sheet shows)", () => {
   it("garbage data and a missing key do not throw", () => {
     expect(describeRecord("bark.v1.5", { pk: [1], data: [255, 254] }).kind).toBeNull();
     expect(describeRecord("bark.v1.5", null)).toEqual({ store: "bark.v1.5", id: "?", kind: null });
+  });
+});
+
+describe("recordRef (what a confirmation is bound to)", () => {
+  const bytes = (s: string) => Array.from(new TextEncoder().encode(s));
+  const forged = (data: string, pk: string) => ({ pk: bytes(pk), data: bytes(data) });
+  const rec = (pk: number[], extra: Record<string, unknown> = {}) => ({ pk, data: [1, 2, 3], ...extra });
+
+  it("tells apart records the sheet shows with the same id", () => {
+    const prefix = "a".repeat(100);
+    const a = forged("{}", prefix + "1");
+    const b = forged("{}", prefix + "2");
+    expect(describeRecord("bark.v1.14", a).id).toBe(describeRecord("bark.v1.14", b).id);
+    expect(recordRef("db", "bark.v1.14", "k1", a)).not.toBe(recordRef("db", "bark.v1.14", "k2", b));
+  });
+
+  it("changes with the contents, the key and the store", () => {
+    const base = recordRef("db", "bark.v1.14", "k", rec([1]));
+    expect(recordRef("db", "bark.v1.14", "k", { ...rec([1]), data: [9] })).not.toBe(base);
+    expect(recordRef("db", "bark.v1.14", "other", rec([1]))).not.toBe(base);
+    expect(recordRef("db", "bark.v1.5", "k", rec([1]))).not.toBe(base);
+    expect(recordRef("db", "bark.v1.14", "k", rec([1]))).toBe(base);
+  });
+
+  it("keeps the type of the primary key", () => {
+    const r = rec([1]);
+    expect(recordRef("db", "bark.v1.14", "01", r)).not.toBe(recordRef("db", "bark.v1.14", ["01"], r));
+    expect(recordRef("db", "bark.v1.14", 1, r)).not.toBe(recordRef("db", "bark.v1.14", "1", r));
+    expect(recordRef("db", "bark.v1.14", ["01"], r)).toBe(recordRef("db", "bark.v1.14", ["01"], r));
+  });
+
+  it("ignores an attached mac and survives a value that cannot be serialized", () => {
+    expect(recordRef("db", "bark.v1.14", "k", { ...rec([1]), mac: "x" })).toBe(recordRef("db", "bark.v1.14", "k", rec([1])));
+    expect(() => recordRef("db", "bark.v1.14", "k", rec([1], { extra: { value: 1n } }))).not.toThrow();
   });
 });

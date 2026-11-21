@@ -1113,7 +1113,7 @@ export async function changeSpendLimits(change: LimitChange, auth?: SpendAuth): 
 // bark records that do not verify (recordSeal.ts). "status" is a plain read; "accept" signs them and needs the password.
 export interface RecordSealStatus {
   enabled: boolean;
-  unverified: { store: string; id: string; kind: string | null }[];
+  unverified: { store: string; id: string; kind: string | null; ref: string }[];
   // False in a session whose seed the main thread can reach (typed mnemonic, biometric, device vault): no password to ask.
   needsPassword: boolean;
 }
@@ -1128,7 +1128,7 @@ export async function getRecordSealStatus(): Promise<RecordSealStatus> {
   return (await request({ type: "recordSeal", op: { kind: "status" } })) as RecordSealStatus;
 }
 
-export async function acceptRecordSeal(auth: SpendAuth | undefined, only?: { store: string; id: string }[]): Promise<number> {
+export async function acceptRecordSeal(auth: SpendAuth | undefined, only: string[]): Promise<number> {
   return ((await request({ type: "recordSeal", op: { kind: "accept", auth, only } })) as { accepted: number }).accepted;
 }
 

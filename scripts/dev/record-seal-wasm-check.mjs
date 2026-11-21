@@ -39,6 +39,7 @@ const MN = "abandon abandon abandon abandon abandon abandon abandon abandon aban
 const cfg = { serverAddress: "http://127.0.0.1:${port}/ark", esploraAddress: "http://127.0.0.1:${port}/esplora" };
 let Wallet, w;
 const race = (p) => Promise.race([p.then((v) => ["ok", v], (e) => ["err", String(e).slice(0, 140)]), new Promise((r) => setTimeout(() => r(["HANG"]), 10000))]);
+let snapped = [];
 const cmds = {
   async init() {
     const m = await import("/bark/bark_ffi_wasm.js");
@@ -52,7 +53,10 @@ const cmds = {
   async pending() { return race(w.pendingLightningSends().then((x) => x.length)); },
   async sync() { const before = recordSeal.violationCount(); const r = await race(w.sync().then(() => "returned")); return [r, recordSeal.violationCount() - before]; },
   async list() { return listUnverified(); },
-  async accept() { return acceptUnverified(); },
+  async accept() { return acceptUnverified((await listUnverified()).map((r) => r.ref)); },
+  async snap() { snapped = (await listUnverified()).map((r) => r.ref); return snapped.length; },
+  async acceptSnap() { return acceptUnverified(snapped); },
+  async acceptBogus() { return acceptUnverified(["00"]); },
   async acceptNone() { return acceptUnverified([]); },
   async off() { recordSeal.disable(); return "off"; },
   async on() { recordSeal.enable(DB, deriveRecordSealKey(Uint8Array.from({ length: 64 }, (_, i) => i))); return "on"; },
@@ -101,7 +105,7 @@ window.__done = (async () => {
   const p = await call("pending");
   log("bark does not see the forged payment (pendingLightningSends fails closed, no hang)", p[0] === "err", p);
   const s = await call("sync");
-  log("sync cannot execute it (violation counted)", s[1] > 0, s);
+  log("sync cannot execute it (violation counted)", s[0][0] === "ok" && s[1] > 0, s);
   const after = await readAll();
   log("forged record left untouched by bark", after.length === 1 && after[0].mac === undefined && JSON.stringify(after[0].data) === JSON.stringify(stored[0].data));
   const l = await call("list");
@@ -109,6 +113,13 @@ window.__done = (async () => {
   // The sheet signs only what it showed: an empty list signs nothing and the record stays held back.
   const none = await call("acceptNone");
   log("accept restricted to an empty list signs nothing", none === 0 && (await call("list")).length === 1, none);
+  // The record is swapped after the sheet was drawn: the confirmation must not sign or overwrite the new contents.
+  await call("snap");
+  await forge(true);
+  const stale = await call("acceptSnap");
+  const afterStale = await readAll();
+  log("a record changed after the list was read is not signed", stale === 0 && afterStale.length === 1 && afterStale[0].mac === undefined && afterStale[0].extra !== undefined, [stale, afterStale.length]);
+  await forge(); // the original contents again
   // control: the same forged record with the seal off is visible to bark (this is the hole)
   await call("off");
   const open = await call("pending");
@@ -128,7 +139,7 @@ window.__done = (async () => {
   const p2 = await call("pending");
   log("after accept bark sees it", p2[0] === "ok" && p2[1] === 1, p2);
   const s2 = await call("sync");
-  log("sync with a valid record raises no violation", s2[1] === 0, s2);
+  log("sync with a valid record raises no violation", s2[0][0] === "ok" && s2[1] === 0, s2);
   const fin = await readAll();
   log("every stored record carries a valid-looking mac string", fin.length === 1 && typeof fin[0].mac === "string" && fin[0].mac.length === 64, fin.length);
   log("listUnverified is empty after accept", (await call("list")).length === 0);
@@ -146,7 +157,11 @@ window.__done = (async () => {
   const malformed = await call("pending");
   log("nested BigInt cannot bypass the guard through a canonicalization exception", malformed[0] === "err", malformed);
   const malformedSync = await call("sync");
-  log("uncanonicalizable record raises a violation", malformedSync[1] > 0, malformedSync);
+  log("uncanonicalizable record raises a violation", malformedSync[0][0] === "ok" && malformedSync[1] > 0, malformedSync);
+  const bogus = await call("acceptBogus");
+  log("accept of a ref the sheet never showed signs nothing", bogus === 0, bogus);
+  const stuck = await call("accept");
+  log("an unsignable record is skipped, not signed, and does not throw", stuck === 0 && (await call("list")).length === 1, stuck);
 })().then(() => log("DONE", true), (e) => log("ERROR", false, String(e && e.stack || e)));
 `;
 
@@ -182,7 +197,8 @@ while (Date.now() - t0 < 90000) {
 const out = await p.evaluate(() => window.__out);
 await browser.close();
 server.close();
-let bad = 0;
+// A run that never reached DONE (a call that never answered) must not pass on the strength of what it printed so far.
+let bad = out.some(([k, ok]) => k === "DONE" && ok) ? 0 : 1;
 for (const [k, ok, v] of out) {
   if (!ok) bad++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${k}${v !== undefined && !ok ? "  " + JSON.stringify(v) : ""}`);
