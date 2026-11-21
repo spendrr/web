@@ -20,7 +20,7 @@
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@secondts/bark": "0.27.0",
+    "@secondts/bark": "0.28.0",
     "jsqr": "1.4.0",
     "leaflet": "1.9.4",
     "leaflet.markercluster": "1.5.3",

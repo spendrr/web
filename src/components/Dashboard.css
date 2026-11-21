@@ -40,6 +40,50 @@
   -webkit-touch-callout: none;
 }
 
+/* 3D mark. Same tap behaviour as the wordmark: a tap opens the price widget.
+   Light 3D render (4 mm extrusion, no shadow). The box is as tall as the header buttons so
+   the layout does not move. The images are trimmed to their content, sized so the visible
+   mark is about 34px tall, inset 4px from the content edge, centred on the buttons. */
+.header-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 42.56px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.header-mark-img {
+  display: block;
+  width: auto;
+  margin-left: 2.97px;
+  position: relative;
+}
+.header-mark-ink {
+  height: 36.6px;
+  top: 0.44px;
+}
+.header-mark-cream {
+  display: none;
+  height: 35.5px;
+  top: -0.1px;
+}
+/* Same dark-theme conditions as the tokens in index.css. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .header-mark-ink {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .header-mark-cream {
+    display: block;
+  }
+}
+:root[data-theme="dark"] .header-mark-ink {
+  display: none;
+}
+:root[data-theme="dark"] .header-mark-cream {
+  display: block;
+}
+
 .icon-btn {
   width: 48px;
   height: 48px;
@@ -1160,6 +1204,20 @@
 .scan-btn svg {
   width: 20px;
   height: 20px;
+}
+
+/* Flat: no offset shadow, so no lift on hover and no collapse on press (the
+   generic button rules in App.css move the shadow, which is not there here). */
+button.scan-btn,
+button.scan-btn:hover:not(:disabled),
+button.scan-btn:active:not(:disabled),
+button.scan-btn:disabled {
+  box-shadow: none;
+  transform: none;
+}
+
+button.scan-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .history-list {
@@ -2431,62 +2489,7 @@ button.qr-torch-a11y {
   color: var(--danger);
 }
 
-/* One-shot entrance for a movement that just arrived (HistoryPanel tracks
-   which ids are new vs. already-seen) — the icon flies in along the same
-   diagonal its own arrow points, so the motion reads as a continuation of
-   the arrow rather than a generic pop-in. Not `infinite` — plays once per
-   new item and HistoryPanel removes the class on animationend, since a
-   looping animation on every icon in a long list read as distracting/noisy
-   rather than a subtle detail. */
-@keyframes history-icon-fly-in-receive {
-  0% {
-    transform: translate(-18px, -18px) scale(0.55);
-    opacity: 0;
-    animation-timing-function: ease-in;
-  }
-  40% {
-    transform: translate(-9px, -9px) scale(0.78);
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  75% {
-    transform: translate(1.5px, 1.5px) scale(1.04);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-}
-@keyframes history-icon-fly-in-send {
-  0% {
-    transform: translate(-18px, 18px) scale(0.55);
-    opacity: 0;
-    animation-timing-function: ease-in;
-  }
-  40% {
-    transform: translate(-9px, 9px) scale(0.78);
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  75% {
-    transform: translate(1.5px, -1.5px) scale(1.04);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-}
-.history-icon.in.fly-in {
-  animation: history-icon-fly-in-receive 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.history-icon.out.fly-in {
-  animation: history-icon-fly-in-send 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  .history-icon.fly-in {
-    animation: none;
-  }
-}
+/* A movement that just arrived is revealed by HistoryPanel's revealRow (the row grows out of nothing); the icon does not move. */
 
 .history-info {
   flex: 1;

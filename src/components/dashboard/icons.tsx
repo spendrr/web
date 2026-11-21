@@ -37,7 +37,7 @@ export function SendArrowIcon() {
 // the receive trail visibly off-axis from the arrow it was supposed to
 // extend.
 // `g`: the beta's pastel-tile icon (design-v2.css) — a longer arrow with no
-// trailing dashes, same diagonal so the fly-in animation still matches it.
+// trailing dashes, same diagonal.
 export function HistoryReceiveIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -68,11 +68,13 @@ export function HistoryIcon() {
 export function GiftIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <rect x="3" y="8.5" width="18" height="4" rx="1.2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 8.5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path
-        d="M4 11h16M4 11v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9M4 11V8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3M12 7v14M12 7S9.5 7 8.5 6 8 3.5 9 3.5 12 7 12 7Zm0 0s2.5 0 3.5-1 .5-2.5-.5-2.5S12 7 12 7Z"
+        d="M12 8.5C10 8.5 7.8 8 7.8 6.2 7.8 4.8 8.8 4 10 4c1.6 0 2 2.4 2 4.5Zm0 0c2 0 4.2-.5 4.2-2.3C16.2 4.8 15.2 4 14 4c-1.6 0-2 2.4-2 4.5Z"
         stroke="currentColor"
         strokeWidth="2"
-        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
@@ -85,13 +87,13 @@ export function RequestIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
       <path
-        d="M20 14.5A2.5 2.5 0 0 1 17.5 17H9l-4 3.4V6.5A2.5 2.5 0 0 1 7.5 4h10A2.5 2.5 0 0 1 20 6.5z"
+        d="M20.5 14.5A2.5 2.5 0 0 1 18 17H9.5l-6 4.5V6.5A2.5 2.5 0 0 1 6 4h12a2.5 2.5 0 0 1 2.5 2.5z"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinejoin="round"
       />
       <path
-        d="M12.5 6.8v6M9.7 10.2l2.8 2.8 2.8-2.8"
+        d="M12 7.5v6.2M9 10.7l3 3 3-3"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
@@ -209,7 +211,7 @@ const HISTORY_TILE_BORDER = 2;
 
 const HISTORY_TILE_SHADOW = 1.75;
 
-const RING_GAP = 1;
+const RING_GAP = 2.5;
 
 const RING_STROKE = 2;
 

@@ -77,6 +77,15 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "21. 11. 2026",
+    title: "Nový vzhled",
+    codename: "Daring Dingo",
+    items: [
+      "Hlavička má nové 3D logo Spendrr, pro všechny.",
+      "Odesílání ukazuje papírové letadlo a nová platba v historii plynule naskočí.",
+    ],
+  },
+  {
     date: "18. 11. 2026",
     title: "Skener a dárky",
     codename: "Clever Capybara",

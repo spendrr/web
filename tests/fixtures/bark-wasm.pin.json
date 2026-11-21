@@ -1,6 +1,6 @@
 {
   "package": "@secondts/bark",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "file": "web/bark_ffi_wasm_bg.wasm",
-  "sha256": "4f89389359c3b3c0841862be0091dfd454bdb8170130471aaa31c00e5495bfb3"
+  "sha256": "401a3f39ffb186e5a42c3f398918b52e0f8061d826aa35064d06d14ea1cbfb6a"
 }

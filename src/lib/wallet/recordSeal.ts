@@ -23,7 +23,7 @@
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { bytesToHex, concatBytes } from "@noble/hashes/utils.js";
 
 // bark 0.7.1 / SDK 0.25.0: store `bark.v1.<partition>`, 5 = round state, 14 = wallet action checkpoints. A test pins
 // the names; an SDK bump re-checks them (docs: bump checklist).
@@ -65,6 +65,30 @@ function canonical(dbName: string, store: string, rec: Record<string, unknown>):
 
 export function recordMac(key: Uint8Array, dbName: string, store: string, rec: Record<string, unknown>): string {
   return bytesToHex(hmac(sha256, key, canonical(dbName, store, rec)));
+}
+
+// What the user confirms: one record, by its exact store, primary key and contents. The sheet shows a bounded,
+// sanitized id, which several different records can share; accepting by that would sign the ones never shown, or a
+// record swapped in under the same key after the sheet was drawn. A record that cannot be serialized for the MAC gets a
+// ref from its place alone: it is never signed, so there are no contents to bind.
+export function recordRef(dbName: string, store: string, key: IDBValidKey, rec: Record<string, unknown>): string {
+  let body: Uint8Array;
+  try {
+    body = canonical(dbName, store, rec);
+  } catch {
+    body = enc.encode("unserializable");
+  }
+  return bytesToHex(sha256(concatBytes(enc.encode(`${dbName}\0${store}\0${keyTag(key)}\0`), body)));
+}
+
+// Type-preserving: the string "01" and the array ["01"] are different keys and must not share a ref.
+function keyTag(key: IDBValidKey): string {
+  if (typeof key === "string") return `s${enc.encode(key).length}:${key}`;
+  if (typeof key === "number") return `n:${Object.is(key, -0) ? "-0" : String(key)}`;
+  if (key instanceof Date) return `d:${key.getTime()}`;
+  if (Array.isArray(key)) return `a${key.length}[${key.map(keyTag).join(",")}]`;
+  const b = bytesOf(key);
+  return b !== null ? `b:${bytesToHex(b)}` : "?";
 }
 
 // bark's stores have no keyPath: the primary key is the lowercase hex encoding of the record's `pk`. The key itself is
@@ -163,6 +187,7 @@ interface Native {
   update: IDBCursor["update"];
   getAll: IDBObjectStore["getAll"];
   getAllKeys: IDBObjectStore["getAllKeys"];
+  get: IDBObjectStore["get"];
 }
 let native: Native | null = null;
 
@@ -221,7 +246,7 @@ export function installRecordSeal(): void {
   const OS = IDBObjectStore.prototype;
   const IX = IDBIndex.prototype;
   const nativeUpdate = IDBCursor.prototype.update;
-  native = { put: OS.put, add: OS.add, delete: OS.delete, update: nativeUpdate, getAll: OS.getAll, getAllKeys: OS.getAllKeys };
+  native = { put: OS.put, add: OS.add, delete: OS.delete, update: nativeUpdate, getAll: OS.getAll, getAllKeys: OS.getAllKeys, get: OS.get };
 
   // Which requests carry stored records: those made by get / getAll / openCursor on a sealed store or an index of it.
   // Each gets a success listener registered at creation, so it runs before any handler bark sets or adds. A record
@@ -366,6 +391,22 @@ interface Entry {
   store: string;
   key: IDBValidKey;
   rec: Record<string, unknown>;
+  ref: string;
+  // False for a record whose value cannot be serialized: it can only stay held back.
+  signable: boolean;
+}
+
+export type ListedRecord = UnverifiedRecord & { ref: string };
+
+// Whether the record's contents can be bound to a ref at all. One that cannot (a value that does not serialize) has a
+// ref of its place alone, so a replacement would look unchanged: it stays held back, signed or discarded by no one.
+function canBeHandled(store: string, rec: Record<string, unknown>): boolean {
+  try {
+    canonical(state.dbName, store, rec);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function unverifiedEntries(db: IDBDatabase, key: Uint8Array): Promise<Entry[]> {
@@ -381,56 +422,79 @@ async function unverifiedEntries(db: IDBDatabase, key: Uint8Array): Promise<Entr
     ])) as [IDBValidKey[], unknown[]];
     recs.forEach((rec, i) => {
       if (!recordIsValid(key, state.dbName, name, rec, keys[i])) {
-        out.push({ store: name, key: keys[i], rec: (rec ?? {}) as Record<string, unknown> });
+        const r = (rec ?? {}) as Record<string, unknown>;
+        out.push({ store: name, key: keys[i], rec: r, ref: recordRef(state.dbName, name, keys[i], r), signable: canBeHandled(name, r) });
       }
     });
   }
-  return out;
+  // Records that can only stay held back go last, so a flood of them cannot keep the ones the user can deal with out of the
+  // first page of the sheet (stable sort: order otherwise unchanged).
+  return out.sort((a, b) => Number(b.signable) - Number(a.signable));
 }
 
-export async function listUnverified(): Promise<UnverifiedRecord[]> {
+export async function listUnverified(): Promise<ListedRecord[]> {
   if (!state.enabled || state.key === null) return [];
   const db = await openRaw(state.dbName);
   try {
     // A forged flood must not become a huge answer or sheet: the first MAX_LISTED_VIOLATIONS, the rest get their own sheet
     // once these are dealt with.
-    return (await unverifiedEntries(db, state.key)).slice(0, MAX_LISTED_VIOLATIONS).map((e) => describeRecord(e.store, e.rec));
+    return (await unverifiedEntries(db, state.key)).slice(0, MAX_LISTED_VIOLATIONS).map((e) => ({ ...describeRecord(e.store, e.rec), ref: e.ref }));
   } finally {
     db.close();
   }
 }
 
 // The user has seen them and given the password: sign canonical records. A value under a non-canonical key can never be
-// a legitimate bark row, so discard that copy instead of blessing a replay that bark could not later delete. Returns how
-// many were signed.
-export async function acceptUnverified(only?: readonly { store: string; id: string }[]): Promise<number> {
+// a legitimate bark row, so discard that copy instead of blessing a replay that bark could not later delete. `only`
+// are the refs the sheet showed (recordRef): a record that appeared, or changed, after it was drawn has another ref and
+// stays held back with its own sheet. A record that cannot be signed stays held back too, without stopping the rest.
+// Returns how many were signed.
+export async function acceptUnverified(only: readonly string[]): Promise<number> {
   if (!state.enabled || state.key === null || native === null) return 0;
   const db = await openRaw(state.dbName);
   try {
-    // Only what the sheet showed: a record that appeared after it was drawn stays held back and gets its own sheet.
-    const entries = (await unverifiedEntries(db, state.key)).filter((e) => {
-      if (only === undefined) return true;
-      const d = describeRecord(e.store, e.rec);
-      return only.some((o) => o.store === d.store && o.id === d.id);
-    });
+    const want = new Set(only);
+    const entries = (await unverifiedEntries(db, state.key)).filter((e) => want.has(e.ref));
     let accepted = 0;
+    const handled: Entry[] = [];
     for (const e of entries) {
+      if (!e.signable) continue;
       const canonicalKey = hasCanonicalPrimaryKey(e.rec, e.key);
       const rec = { ...e.rec };
       delete rec.mac;
-      const signed = canonicalKey ? { ...rec, mac: recordMac(state.key, state.dbName, e.store, rec) } : null;
+      let signed: Record<string, unknown> | null = null;
+      if (canonicalKey) {
+        try {
+          signed = { ...rec, mac: recordMac(state.key, state.dbName, e.store, rec) };
+        } catch {
+          continue;
+        }
+      }
       const tx = db.transaction(e.store, "readwrite");
-      const done = new Promise<void>((resolve, reject2) => {
-        tx.oncomplete = () => resolve();
+      // The reference is checked again inside this transaction: another connection may have replaced or deleted the record
+      // since the list was read, and then neither the signed copy nor a delete may be written over it.
+      const wrote = await new Promise<boolean>((resolve, reject2) => {
+        let done = false;
+        tx.oncomplete = () => resolve(done);
         tx.onerror = () => reject2(tx.error ?? new Error("bark db write failed"));
         tx.onabort = () => reject2(tx.error ?? new Error("bark db write aborted"));
+        const os = tx.objectStore(e.store);
+        const current = native!.get.call(os, e.key);
+        current.addEventListener("success", () => {
+          // Same normalization as the listing: a stored null is the record {} there.
+          const raw = current.result as Record<string, unknown> | null | undefined;
+          if (raw === undefined || recordRef(state.dbName, e.store, e.key, raw ?? {}) !== e.ref) return;
+          if (signed === null) native!.delete.call(os, e.key);
+          else native!.put.call(os, signed, e.key);
+          done = true;
+        });
       });
-      if (signed === null) native.delete.call(tx.objectStore(e.store), e.key);
-      else native.put.call(tx.objectStore(e.store), signed, e.key);
-      await done;
+      if (!wrote) continue;
+      handled.push(e);
       if (signed !== null) accepted++;
     }
-    state.violations = only === undefined ? [] : state.violations.filter((v) => !only.some((o) => o.store === v.store && o.id === v.id));
+    // By the shown id: a held-back record that shares it is noted again the next time bark reads it.
+    state.violations = state.violations.filter((v) => !handled.some((e) => describeRecord(e.store, e.rec).id === v.id && e.store === v.store));
     return accepted;
   } finally {
     db.close();

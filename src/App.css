@@ -730,6 +730,13 @@ textarea:focus {
   opacity: 0.75;
 }
 
+/* button:disabled (above) restores the offset shadow, which outranks the
+   plain class: without this the link grows an outline while the unlock runs. */
+.forgot-password-link:disabled {
+  box-shadow: none;
+  transform: none;
+}
+
 .forgot-password-link:hover:not(:disabled),
 .forgot-password-link:active:not(:disabled) {
   transform: none;

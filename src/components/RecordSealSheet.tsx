@@ -45,7 +45,7 @@ export function RecordSealSheet() {
     setBusy(true);
     setError(null);
     try {
-      await acceptRecordSeal(vault ? { vault, password } : undefined, records.map((r) => ({ store: r.store, id: r.id })));
+      await acceptRecordSeal(vault ? { vault, password } : undefined, records.map((r) => r.ref));
       setPassword("");
       await checkRecordSeal();
     } catch (e) {
@@ -63,7 +63,7 @@ export function RecordSealSheet() {
         <p className="limit-sub">{t("Záznamy bez podpisu. Synchronizace stojí.")}</p>
         <ul className="seal-list">
           {records.map((r) => (
-            <li key={`${r.store}:${r.id}`} className="seal-row">
+            <li key={r.ref} className="seal-row">
               <span className="seal-kind">{label(r.kind, r.store)}</span>
               <span className="seal-id">{r.id.slice(-12)}</span>
             </li>

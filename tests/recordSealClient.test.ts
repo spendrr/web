@@ -2,7 +2,7 @@
 // list of held-back records only when its refused-read count changes (so a normal session adds no request).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const unverified = [{ store: "bark.v1.14", id: "ln_pay.abc", kind: "LightningSend" }];
+const unverified = [{ store: "bark.v1.14", id: "ln_pay.abc", kind: "LightningSend", ref: "r1" }];
 let status = { enabled: true, unverified, needsPassword: true };
 const getStatus = vi.fn(async () => status);
 let sealListener: ((n: number) => void) | null = null;
@@ -23,6 +23,19 @@ beforeEach(() => {
 });
 
 describe("recordSealClient", () => {
+  it("drops an answer that was asked for before a clear", async () => {
+    let release!: () => void;
+    getStatus.mockImplementationOnce(async () => {
+      await new Promise<void>((r) => (release = r));
+      return { ...status, needsPassword: false };
+    });
+    const pending = client.checkRecordSeal();
+    client.clearRecordSeal();
+    release();
+    await pending;
+    expect(client.sealNeedsPassword()).toBe(true);
+  });
+
   it("keeps the password requirement the worker reports", async () => {
     await client.checkRecordSeal();
     expect(client.sealNeedsPassword()).toBe(true);

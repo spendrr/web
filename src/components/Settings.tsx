@@ -84,7 +84,7 @@ import {
   SEND_WATCHDOG_MS,
   TIMEOUT_MESSAGE,
 } from "../lib/wallet/walletCall";
-import { ErrorCircleIcon, SuccessCircleIcon, WarningIcon } from "./BannerIcons";
+import { ErrorCircleIcon, RefreshIcon, SuccessCircleIcon, WarningIcon } from "./BannerIcons";
 import MnemonicGrid from "./MnemonicGrid";
 import {
   clearNeedsSeedBackup,
@@ -1473,10 +1473,12 @@ function PendingRoundsPanel({
   wallet,
   hideRoundIds,
   known,
+  tipHeight,
 }: {
   wallet: WalletClient;
   hideRoundIds?: ReadonlySet<number>;
   known?: RoundState[];
+  tipHeight?: number | null;
 }) {
   const t = useT();
   const [rounds, setRounds] = useState<RoundState[] | null>(null);
@@ -1567,46 +1569,83 @@ function PendingRoundsPanel({
   // only needs to be visible when it actually has something to say (an
   // active round, or a failure to even ask). A loading card that then
   // vanished made the whole screen jump.
-  // Rounds the refresh engine tracks are shown (and released) in its own card;
-  // a cancel from here can't touch a delegated round anyway.
+  // Rounds the refresh engine tracks are shown (and released) in its own card.
+  // A delegated round (waiting for its block) is shown as a note without a cancel: bark answers a cancel on it with
+  // "not yet possible to cancel pending delegated rounds" (read from bark 0.7.0).
   const shown = rounds?.filter((r) => !hideRoundIds?.has(r.id)) ?? null;
+  const delegated = shown?.filter((r) => r.state === "delegated-pending") ?? [];
+  const cancelable = shown?.filter((r) => r.state !== "delegated-pending") ?? [];
   if (!error && (!shown || shown.length === 0)) return null;
 
   return (
-    <div className="vtxo-card">
-      <div className="info-row">
-        <span>{t("Aktivní kola serveru")}</span>
-        {shown && shown.length > 1 && (
-          <button className="secondary danger small" disabled={cancelingAll} onClick={cancelAll}>
-            {cancelingAll ? t("Ruším…") : t("Zrušit všechna")}
-          </button>
-        )}
-      </div>
-      <div className="settings-body" style={{ padding: "0 16px 16px" }}>
-        {error && (
-          <>
-            <p className="error">{error}</p>
-            <button className="secondary small" onClick={() => setVersion((n) => n + 1)}>
-              {t("Zkusit znovu")}
-            </button>
-          </>
-        )}
-        {shown?.map((r) => (
-          <div key={r.id} className="info-row">
-            <span>
-              {tf(t("Kolo #{id}"), { id: r.id })}
-              {" — "}
-              {roundFlowKindLabel(t, r.state)}
-              {r.state === "delegated-pending" && r.scheduledHeight !== undefined
-                ? ` (${tf(t("blok {height}"), { height: r.scheduledHeight })})`
-                : ""}
-            </span>
-            <button className="secondary danger small" disabled={busyId === r.id} onClick={() => cancel(r.id)}>
-              {busyId === r.id ? t("Ruším…") : t("Zrušit")}
-            </button>
+    <>
+      {delegated.map((r) => (
+        <DelegatedRoundNote key={r.id} round={r} tipHeight={tipHeight ?? null} />
+      ))}
+      {(error || cancelable.length > 0) && (
+        <div className="vtxo-card">
+          <div className="info-row">
+            <span>{t("Aktivní kola serveru")}</span>
+            {cancelable.length > 1 && (
+              <button className="secondary danger small" disabled={cancelingAll} onClick={cancelAll}>
+                {cancelingAll ? t("Ruším…") : t("Zrušit všechna")}
+              </button>
+            )}
           </div>
-        ))}
-      </div>
+          <div className="settings-body" style={{ padding: "0 16px 16px" }}>
+            {error && (
+              <>
+                <p className="error">{error}</p>
+                <button className="secondary small" onClick={() => setVersion((n) => n + 1)}>
+                  {t("Zkusit znovu")}
+                </button>
+              </>
+            )}
+            {cancelable.map((r) => (
+              <div key={r.id} className="info-row">
+                <span>
+                  {tf(t("Kolo #{id}"), { id: r.id })}
+                  {": "}
+                  {roundFlowKindLabel(t, r.state)}
+                </span>
+                <button className="secondary danger small" disabled={busyId === r.id} onClick={() => cancel(r.id)}>
+                  {busyId === r.id ? t("Ruším…") : t("Zrušit")}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// A refresh the server will start at a block height. Time is an estimate (blocks, not clock): worded as one, never ticking.
+function DelegatedRoundNote({ round, tipHeight }: { round: RoundState; tipHeight: number | null }) {
+  const t = useT();
+  const lang = useLang();
+  const at = round.scheduledHeight;
+  const left = at !== undefined && tipHeight !== null ? at - tipHeight : null;
+  const title =
+    left === null
+      ? t("Refresh čeká na start")
+      : left > 0
+        ? tf(t("Refresh začne za {when}"), { when: approxTime(left, t) })
+        : t("Refresh začíná");
+  const sub =
+    at !== undefined && left !== null && left > 0
+      ? tf(t("Blok {height}, čas je odhad."), { height: at.toLocaleString(localeFor(lang)) })
+      : t("Mince se obnoví samy.");
+  return (
+    <div className="settings-warn">
+      <span className="settings-icon">
+        <RefreshIcon />
+      </span>
+      <p>
+        {title}
+        <br />
+        <span style={{ fontWeight: 400, opacity: 0.7 }}>{sub}</span>
+      </p>
     </div>
   );
 }
@@ -1756,7 +1795,12 @@ function VtxoList({
       {/* With the engine live, the overview read carries the rounds: wait for
           it instead of starting a second slow pendingRoundStates(). */}
       {(!engineLive || loaded) && (
-        <PendingRoundsPanel wallet={wallet} hideRoundIds={engineRoundIds} known={overview?.rounds as RoundState[] | undefined} />
+        <PendingRoundsPanel
+          wallet={wallet}
+          hideRoundIds={engineRoundIds}
+          known={overview?.rounds as RoundState[] | undefined}
+          tipHeight={overview?.forecast.tipHeight ?? null}
+        />
       )}
       {/* Rendered before the allVtxos() error below — a round registered via
           "Obnovit všechna VTXO" can be what makes allVtxos() hang, and the

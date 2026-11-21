@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-21: New look
+
+Codename: Daring Dingo
+
+- The header has the new 3D Spendrr logo, for everyone.
+- Sending shows a paper plane and a new payment in the history grows in smoothly.
+
 ## 2026-11-18: Scanner and gifts
 
 Codename: Clever Capybara

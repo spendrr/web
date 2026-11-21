@@ -433,9 +433,8 @@
 
 /* ---- History rows as individual "chunky" cards (mockup: "Duotone karta"),
    instead of one flat divider-list panel. Same DOM/classes as v1
-   (Dashboard.tsx/css) — this only restyles .history-item, so the fly-in
-   entrance animation on .history-icon (Dashboard.css) is untouched and
-   still plays exactly as before. ---- */
+   (Dashboard.tsx/css) — this only restyles .history-item, so the arrival
+   reveal HistoryPanel plays on the row (revealRow) is unaffected. ---- */
 .panel.history-list {
   gap: 10px;
 }
@@ -626,7 +625,7 @@
 /* ---- "G" history icon (beta 2026-09-26, V1 2026-10-05). A round pastel tile with an ink
    arrow, ink outline and a hard shadow, picked from mockups over the tinted
    circle above. The arrows stay diagonal (HistoryReceiveIcon /
-   HistorySendIcon), so the diagonal fly-in still matches. The status
+   HistorySendIcon). The status
    ring is HistoryIconRing's SVG: a capsule that follows tile + shadow at
    the same distance all round (see its comment); only its dashes run. ---- */
 /* Light mode: a pastel tile (#97cf9d / #df988e at +0.065 OKLCH lightness and
@@ -751,17 +750,6 @@
   color: var(--v2-in);
 }
 
-/* Whole-card tint signals "not final yet" (pending) or "went wrong"
-   (failed) without needing to read the tag — confirmed rows stay plain, on
-   the same "only show what needs attention" logic as the tag itself. */
-.history-list .history-item--pending {
-  background: var(--accent-bg);
-}
-
-.history-list .history-item--failed {
-  background: var(--danger-bg);
-}
-
 /* Failed/canceled: what was attempted, struck out, in the muted ink. */
 .history-list .history-item .amount.amount-failed {
   color: var(--muted);
@@ -803,11 +791,16 @@
    ring above for one consistent color per state; pending stays --accent
    (unrelated to this red/green pass). */
 .history-list .onchain-status-tag--confirmed {
-  color: var(--v2-in);
+  color: var(--text);
 }
 
 .history-list .onchain-status-tag--pending {
-  color: var(--accent);
+  color: var(--text);
+}
+
+.history-list .onchain-status-tag--pending svg {
+  width: 13px;
+  height: 13px;
 }
 
 .history-list .onchain-status-tag--failed {

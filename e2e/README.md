@@ -14,13 +14,13 @@ the longest (~2 min, the engine ticks once a minute), so more than 3 slots do no
 
 ## What it needs
 
-Matching the SDK: `@secondts/bark` 0.27.0 is bark 0.8.1, so build the server side from the tag `bark-0.8.1`.
+Matching the SDK: `@secondts/bark` 0.28.0 is bark 0.9.0, so build the server side from the tag `bark-0.9.0`.
 Binaries go in `~/.cache/spendrr-e2e/bin` (override with `E2E_HOME`).
 
 ```bash
 brew install postgresql@16 bitcoin          # bitcoind 31.x, Postgres 16
 
-git clone https://gitlab.com/ark-bitcoin/bark.git && cd bark && git checkout bark-0.8.1
+git clone https://gitlab.com/ark-bitcoin/bark.git && cd bark && git checkout bark-0.9.0
 cp /path/to/btc-wallet/e2e/harness/regtest_env.rs wasm-testing/src/bin/regtest_env.rs
 # add to wasm-testing/Cargo.toml, before the wasm-test-suite bin:
 #   [[bin]]
@@ -39,8 +39,8 @@ mkdir -p ~/.cache/spendrr-e2e/bin    # copy captaind, regtest-env, electrs into 
 
 Bumping the SDK means rebuilding these from the matching bark tag.
 
-bark 0.8.1's test harness targets Bitcoin Core 32 and starts bitcoind with `-rpcmaxconnections=1024`, which
-Core 31 (brew) rejects. Delete that line in `testing/src/daemon/bitcoind/mod.rs` before building `regtest-env`.
+bark 0.9.0 starts bitcoind with `-rpcmaxconnections=<n>` (`RPC_MAX_CONNECTIONS`), which Core 31 (brew) rejects
+at any value. Delete that argument line in `testing/src/daemon/bitcoind/mod.rs` before building `regtest-env`.
 
 ## Notes
 

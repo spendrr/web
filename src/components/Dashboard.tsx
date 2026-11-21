@@ -109,6 +109,8 @@ import {
   TIMEOUT_MESSAGE,
 } from "../lib/wallet/walletCall";
 import { useDesignVersion } from "../lib/ui/designVersion";
+import headerMarkInk from "../assets/header-mark-ink.png";
+import headerMarkCream from "../assets/header-mark-cream.png";
 import { clearSpendLimitsStatus, refreshSpendLimits } from "../lib/wallet/spendLimitsClient";
 import { describeError, onErrorToast, rawErrorMessage, surfaceError } from "../lib/appErrors";
 import { isOffline, netState, reportNetworkTrouble, useNetState } from "../lib/connectivity/connectivity";
@@ -2964,10 +2966,11 @@ export default function Dashboard({
         </BodyPortal>
       )}
       <header className="dashboard-header">
-        <span className="wordmark header-wordmark" ref={wordmarkRef} onClick={handleWordmarkClick}>
-          Spend
-          <span className="accent-r r1">r</span>
-          <span className="accent-r r2">r</span>
+        {/* The 3D mark replaces the wordmark. Two renders, one per theme
+            (dark ink on light, cream on dark); Dashboard.css shows the right one. */}
+        <span className="header-mark" ref={wordmarkRef} onClick={handleWordmarkClick}>
+          <img className="header-mark-img header-mark-ink" src={headerMarkInk} width={47} height={37} alt="Spendrr" draggable={false} />
+          <img className="header-mark-img header-mark-cream" src={headerMarkCream} width={47} height={36} alt="" aria-hidden="true" draggable={false} />
         </span>
         <div className="header-actions">
           <button

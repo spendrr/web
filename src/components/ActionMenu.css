@@ -108,17 +108,14 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: var(--accent-bg);
-  color: var(--accent);
+  width: 28px;
+  height: 28px;
+  color: var(--text-h);
 }
 
 .amenu-item-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 24px;
+  height: 24px;
 }
 
 .amenu-item-text {

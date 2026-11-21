@@ -17,8 +17,11 @@ function publish(next: Unverified): void {
 
 // Asks the worker. A failure keeps what was known: nothing is trusted either way until the worker says so.
 export async function checkRecordSeal(): Promise<void> {
+  const mine = generation;
   try {
     const status = await getRecordSealStatus();
+    // An answer that was asked for before a clear belongs to the wallet that is gone.
+    if (mine !== generation) return;
     needsPassword = status.needsPassword;
     publish(status.unverified);
   } catch {
@@ -26,7 +29,10 @@ export async function checkRecordSeal(): Promise<void> {
   }
 }
 
+let generation = 0;
+
 export function clearRecordSeal(): void {
+  generation++;
   lastSealCount = 0;
   publish([]);
 }

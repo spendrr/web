@@ -131,6 +131,53 @@ describe("fetchTipWithFailover", () => {
     expect(calls).toEqual([P + PATH, A + PATH, B + PATH]);
   });
 
+  it("a body that fails after the answer arrived is a failed source, and the next fallback is asked", async () => {
+    const broken = () => new Response(new ReadableStream({ start: (c) => c.error(new Error("stream")) }), { status: 200 });
+    const res = await run({ [P]: [new Error("net")], [A]: [broken()], [B]: [ok("902")] });
+    expect(await res!.text()).toBe("902");
+    expect(calls).toEqual([P + PATH, A + PATH, B + PATH]);
+    expect(failovers).toEqual([`${P}:null`, `${A}:200`]);
+    // The broken one is paused: a later request does not ask it again.
+    exitAnswerCache.clear();
+    calls.length = 0;
+    await run({ [P]: [new Error("net")], [A]: [ok("903")], [B]: [ok("903")] });
+    expect(calls).toEqual([B + PATH]);
+  });
+
+  it("a primary whose body cannot be read moves on to a fallback, and when none answers the caller gets null", async () => {
+    const broken = () => new Response(new ReadableStream({ start: (c) => c.error(new Error("stream")) }), { status: 200 });
+    const res = await run({ [P]: [broken()], [A]: [ok("901")] });
+    expect(await res!.text()).toBe("901");
+    expect(failovers).toEqual([`${P}:200`]);
+    exitAnswerCache.clear();
+    state.pausedUntil.clear();
+    expect(await run({ [P]: [broken()], [A]: [new Error("net")], [B]: [new Error("net")] })).toBeNull();
+  });
+
+  it("a hash whose height lookup is refused pauses that source as long as a refusal", async () => {
+    const H = "/blocks/tip/hash";
+    const hash = "ab".repeat(32);
+    state.highest = 1000;
+    state.highestAt = t;
+    await run({ [P]: [new Error("net")], [A]: [ok(hash), ok("", 429)], [B]: [ok(hash), ok("1001")] }, H);
+    expect(failovers).toContain(`${A}:429`);
+    exitAnswerCache.clear();
+    t += TIP_PAUSE_MS + 1;
+    calls.length = 0;
+    await run({ [P]: [new Error("net")], [A]: [ok("1001")], [B]: [ok("1001")] });
+    expect(calls).toEqual([P + PATH, B + PATH]); // A is still paused, the primary's short pause is over
+  });
+
+  it("a cached fallback height is dropped once the primary's reference no longer allows it", async () => {
+    await run({ [P]: [new Error("net")], [A]: [ok("902")] });
+    state.highest = 902 - TIP_MAX_LEAD_BLOCKS - 50;
+    state.highestAt = t;
+    calls.length = 0;
+    const res = await run({ [A]: [ok(String(state.highest))] });
+    expect(await res!.text()).toBe(String(state.highest));
+    expect(calls).toEqual([A + PATH]);
+  });
+
   it("a fallback trailing a known height by more than the allowed lag is treated as failed", async () => {
     state.highest = 1000;
     state.highestAt = t;

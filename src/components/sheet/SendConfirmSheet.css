@@ -31,30 +31,170 @@
 .sht-send-trail--b,
 .sht-send-trail--c { opacity: 0.5; }
 
-/* In flight: the plane lifts along its own axis while the trail streams
-   out behind it, looping until the call settles. */
-.sht-send-glyph.is-flying .sht-send-plane {
-  animation: sht-send-fly 1.9s ease-in-out infinite;
+/* In flight the plane rocks side to side like a paper plane in a draught, trail streaming out behind it.
+   One 5.2 s cycle, three nested layers sampled from one curve y = sin(1.5 sin 2πt) / sin 1.5 plus a small second
+   harmonic: roll (±6°), bank (narrows toward the extremes, lagging the roll by 7 %) and drift (slides with the
+   tilt, sags at the extremes). Sampled keyframes with linear timing keep the slow-down at the extremes smooth. */
+.sht-send-glyph.is-flying .sht-send-plane,
+.sht-send-glyph.is-flying .sht-send-roll,
+.sht-send-glyph.is-flying .sht-send-bank {
+  transform-origin: 12px 12px;
+  animation-duration: 5.2s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
+.sht-send-glyph.is-flying .sht-send-plane { animation-name: sht-send-drift; }
+.sht-send-glyph.is-flying .sht-send-roll { animation-name: sht-send-roll; }
+.sht-send-glyph.is-flying .sht-send-bank { animation-name: sht-send-bank; }
 .sht-send-glyph.is-flying .sht-send-trail {
-  stroke-dasharray: 6;
-  animation: sht-send-stream 1s linear infinite;
+  stroke-dasharray: 3 5;
+  animation: sht-send-stream 1.4s linear infinite;
 }
-.sht-send-glyph.is-flying .sht-send-trail--b { animation-delay: -0.35s; }
-.sht-send-glyph.is-flying .sht-send-trail--c { animation-delay: -0.7s; }
+.sht-send-glyph.is-flying .sht-send-trail--b { animation-delay: -0.45s; }
+.sht-send-glyph.is-flying .sht-send-trail--c { animation-delay: -0.9s; }
 
-@keyframes sht-send-fly {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(1.2px, -1.2px); }
+@keyframes sht-send-roll {
+  0% { transform: rotate(0.46deg); }
+  2.5% { transform: rotate(1.84deg); }
+  5% { transform: rotate(3.06deg); }
+  7.5% { transform: rotate(4.05deg); }
+  10% { transform: rotate(4.75deg); }
+  12.5% { transform: rotate(5.17deg); }
+  15% { transform: rotate(5.36deg); }
+  17.5% { transform: rotate(5.36deg); }
+  20% { transform: rotate(5.24deg); }
+  22.5% { transform: rotate(5.09deg); }
+  25% { transform: rotate(4.93deg); }
+  27.5% { transform: rotate(4.81deg); }
+  30% { transform: rotate(4.71deg); }
+  32.5% { transform: rotate(4.63deg); }
+  35% { transform: rotate(4.50deg); }
+  37.5% { transform: rotate(4.27deg); }
+  40% { transform: rotate(3.89deg); }
+  42.5% { transform: rotate(3.31deg); }
+  45% { transform: rotate(2.53deg); }
+  47.5% { transform: rotate(1.56deg); }
+  50% { transform: rotate(0.46deg); }
+  52.5% { transform: rotate(-0.68deg); }
+  55% { transform: rotate(-1.78deg); }
+  57.5% { transform: rotate(-2.77deg); }
+  60% { transform: rotate(-3.60deg); }
+  62.5% { transform: rotate(-4.27deg); }
+  65% { transform: rotate(-4.78deg); }
+  67.5% { transform: rotate(-5.17deg); }
+  70% { transform: rotate(-5.47deg); }
+  72.5% { transform: rotate(-5.69deg); }
+  75% { transform: rotate(-5.86deg); }
+  77.5% { transform: rotate(-5.97deg); }
+  80% { transform: rotate(-6.00deg); }
+  82.5% { transform: rotate(-5.90deg); }
+  85% { transform: rotate(-5.64deg); }
+  87.5% { transform: rotate(-5.17deg); }
+  90% { transform: rotate(-4.46deg); }
+  92.5% { transform: rotate(-3.50deg); }
+  95% { transform: rotate(-2.31deg); }
+  97.5% { transform: rotate(-0.96deg); }
+  100% { transform: rotate(0.46deg); }
+}
+
+@keyframes sht-send-bank {
+  0% { transform: rotate(-45deg) scale(1, 0.952) rotate(45deg); }
+  2.5% { transform: rotate(-45deg) scale(1, 0.981) rotate(45deg); }
+  5% { transform: rotate(-45deg) scale(1, 0.998) rotate(45deg); }
+  7.5% { transform: rotate(-45deg) scale(1, 0.998) rotate(45deg); }
+  10% { transform: rotate(-45deg) scale(1, 0.980) rotate(45deg); }
+  12.5% { transform: rotate(-45deg) scale(1, 0.952) rotate(45deg); }
+  15% { transform: rotate(-45deg) scale(1, 0.921) rotate(45deg); }
+  17.5% { transform: rotate(-45deg) scale(1, 0.895) rotate(45deg); }
+  20% { transform: rotate(-45deg) scale(1, 0.879) rotate(45deg); }
+  22.5% { transform: rotate(-45deg) scale(1, 0.872) rotate(45deg); }
+  25% { transform: rotate(-45deg) scale(1, 0.873) rotate(45deg); }
+  27.5% { transform: rotate(-45deg) scale(1, 0.879) rotate(45deg); }
+  30% { transform: rotate(-45deg) scale(1, 0.886) rotate(45deg); }
+  32.5% { transform: rotate(-45deg) scale(1, 0.893) rotate(45deg); }
+  35% { transform: rotate(-45deg) scale(1, 0.898) rotate(45deg); }
+  37.5% { transform: rotate(-45deg) scale(1, 0.902) rotate(45deg); }
+  40% { transform: rotate(-45deg) scale(1, 0.906) rotate(45deg); }
+  42.5% { transform: rotate(-45deg) scale(1, 0.912) rotate(45deg); }
+  45% { transform: rotate(-45deg) scale(1, 0.921) rotate(45deg); }
+  47.5% { transform: rotate(-45deg) scale(1, 0.936) rotate(45deg); }
+  50% { transform: rotate(-45deg) scale(1, 0.955) rotate(45deg); }
+  52.5% { transform: rotate(-45deg) scale(1, 0.975) rotate(45deg); }
+  55% { transform: rotate(-45deg) scale(1, 0.992) rotate(45deg); }
+  57.5% { transform: rotate(-45deg) scale(1, 1.000) rotate(45deg); }
+  60% { transform: rotate(-45deg) scale(1, 0.996) rotate(45deg); }
+  62.5% { transform: rotate(-45deg) scale(1, 0.982) rotate(45deg); }
+  65% { transform: rotate(-45deg) scale(1, 0.961) rotate(45deg); }
+  67.5% { transform: rotate(-45deg) scale(1, 0.937) rotate(45deg); }
+  70% { transform: rotate(-45deg) scale(1, 0.915) rotate(45deg); }
+  72.5% { transform: rotate(-45deg) scale(1, 0.895) rotate(45deg); }
+  75% { transform: rotate(-45deg) scale(1, 0.878) rotate(45deg); }
+  77.5% { transform: rotate(-45deg) scale(1, 0.865) rotate(45deg); }
+  80% { transform: rotate(-45deg) scale(1, 0.854) rotate(45deg); }
+  82.5% { transform: rotate(-45deg) scale(1, 0.846) rotate(45deg); }
+  85% { transform: rotate(-45deg) scale(1, 0.841) rotate(45deg); }
+  87.5% { transform: rotate(-45deg) scale(1, 0.841) rotate(45deg); }
+  90% { transform: rotate(-45deg) scale(1, 0.847) rotate(45deg); }
+  92.5% { transform: rotate(-45deg) scale(1, 0.862) rotate(45deg); }
+  95% { transform: rotate(-45deg) scale(1, 0.887) rotate(45deg); }
+  97.5% { transform: rotate(-45deg) scale(1, 0.918) rotate(45deg); }
+  100% { transform: rotate(-45deg) scale(1, 0.952) rotate(45deg); }
+}
+
+@keyframes sht-send-drift {
+  0% { transform: translate(0.03px, -0.20px); }
+  2.5% { transform: translate(0.12px, -0.16px); }
+  5% { transform: translate(0.20px, -0.10px); }
+  7.5% { transform: translate(0.27px, -0.02px); }
+  10% { transform: translate(0.32px, 0.05px); }
+  12.5% { transform: translate(0.34px, 0.10px); }
+  15% { transform: translate(0.36px, 0.12px); }
+  17.5% { transform: translate(0.36px, 0.12px); }
+  20% { transform: translate(0.35px, 0.11px); }
+  22.5% { transform: translate(0.34px, 0.09px); }
+  25% { transform: translate(0.33px, 0.07px); }
+  27.5% { transform: translate(0.32px, 0.06px); }
+  30% { transform: translate(0.31px, 0.05px); }
+  32.5% { transform: translate(0.31px, 0.04px); }
+  35% { transform: translate(0.30px, 0.02px); }
+  37.5% { transform: translate(0.28px, 0.00px); }
+  40% { transform: translate(0.26px, -0.03px); }
+  42.5% { transform: translate(0.22px, -0.08px); }
+  45% { transform: translate(0.17px, -0.13px); }
+  47.5% { transform: translate(0.10px, -0.17px); }
+  50% { transform: translate(0.03px, -0.20px); }
+  52.5% { transform: translate(-0.05px, -0.19px); }
+  55% { transform: translate(-0.12px, -0.16px); }
+  57.5% { transform: translate(-0.18px, -0.11px); }
+  60% { transform: translate(-0.24px, -0.06px); }
+  62.5% { transform: translate(-0.28px, 0.00px); }
+  65% { transform: translate(-0.32px, 0.05px); }
+  67.5% { transform: translate(-0.34px, 0.10px); }
+  70% { transform: translate(-0.36px, 0.13px); }
+  72.5% { transform: translate(-0.38px, 0.16px); }
+  75% { transform: translate(-0.39px, 0.18px); }
+  77.5% { transform: translate(-0.40px, 0.20px); }
+  80% { transform: translate(-0.40px, 0.20px); }
+  82.5% { transform: translate(-0.39px, 0.19px); }
+  85% { transform: translate(-0.38px, 0.15px); }
+  87.5% { transform: translate(-0.34px, 0.10px); }
+  90% { transform: translate(-0.30px, 0.02px); }
+  92.5% { transform: translate(-0.23px, -0.06px); }
+  95% { transform: translate(-0.15px, -0.14px); }
+  97.5% { transform: translate(-0.06px, -0.19px); }
+  100% { transform: translate(0.03px, -0.20px); }
 }
 
 @keyframes sht-send-stream {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -12; }
+  0% { opacity: 0; stroke-dashoffset: 0; }
+  25% { opacity: 0.8; }
+  100% { opacity: 0; stroke-dashoffset: 8; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sht-send-glyph.is-flying .sht-send-plane,
+  .sht-send-glyph.is-flying .sht-send-roll,
+  .sht-send-glyph.is-flying .sht-send-bank,
   .sht-send-glyph.is-flying .sht-send-trail {
     animation: none;
   }

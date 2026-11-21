@@ -429,6 +429,7 @@ const DICT: Record<string, string> = {
   "Včera": "Yesterday",
   "{n} transakce": "{n} transactions",
   "Čeká na potvrzení": "Awaiting confirmation",
+  "Nepotvrzeno": "Unconfirmed",
   "Potvrzeno": "Confirmed",
   "Selhalo": "Failed",
   "Ark adresa": "Ark address",
@@ -452,6 +453,11 @@ const DICT: Record<string, string> = {
     "Loading… (if a round is stuck on the server, this can take several minutes)",
   "Zrušit všechna": "Cancel all",
   "blok {height}": "block {height}",
+  "Refresh čeká na start": "Refresh waiting to start",
+  "Refresh začne za {when}": "Refresh starts in {when}",
+  "Refresh začíná": "Refresh starting",
+  "Blok {height}, čas je odhad.": "Block {height}, time is an estimate.",
+  "Mince se obnoví samy.": "Coins refresh on their own.",
   // roundFlowKindLabel (Settings.tsx) — a round's own state, distinct from
   // the emergency-exit state labels above.
   "Čeká na naplánovanou výšku bloku": "Waiting for the scheduled block height",
@@ -1174,6 +1180,8 @@ const DICT: Record<string, string> = {
 
   // Payment requests: the asking side (PaymentRequestModal.tsx)
   "Požadavek k platbě": "Payment request",
+  "Hlavička má nové 3D logo Spendrr, pro všechny.": "The header has the new 3D Spendrr logo, for everyone.",
+  "Odesílání ukazuje papírové letadlo a nová platba v historii plynule naskočí.": "Sending shows a paper plane and a new payment in the history grows in smoothly.",
   "Skener a dárky": "Scanner and gifts",
   "Rychlejší skener": "Faster scanner",
   "Skener a Nastavení se otevřou hned, bez prodlevy.": "The scanner and Settings open at once, with no delay.",

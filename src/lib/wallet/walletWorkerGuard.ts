@@ -349,15 +349,18 @@ async function askTipHeight(
   }
 }
 
-async function fallbackTipHeightOk(
+// null: the same source's height is plausible. Otherwise the status it failed with (null: no answer at all), so a refusal
+// there is paused as long as a refusal anywhere else.
+async function fallbackTipHeightFailure(
   source: string,
   request: Request,
   realFetch: (r: Request) => Promise<Response>,
   state: TipFailoverState,
   nowMs: number,
-): Promise<boolean> {
+): Promise<{ status: number | null } | null> {
   const answer = await askTipHeight(source, request, realFetch);
-  return "height" in answer && fallbackHeightPlausible(answer.height, state, nowMs);
+  if ("height" in answer) return fallbackHeightPlausible(answer.height, state, nowMs) ? null : { status: 200 };
+  return { status: answer.failed };
 }
 
 // Without a primary reference: asks the fallbacks' tip heights one after the other until two agree, and keeps the lower
@@ -390,6 +393,17 @@ async function agreeOnFallbackTip(
   return false;
 }
 
+async function cachedStillPlausible(path: string, cached: Response, state: TipFailoverState, nowMs: number): Promise<boolean> {
+  const ref = tipReference(state);
+  if (ref === null) return true;
+  if (path === "/blocks/tip/height") {
+    const height = await heightOf(cached, path);
+    return typeof height === "number" && fallbackHeightPlausible(height, state, nowMs);
+  }
+  const blockHeight = /^\/block-height\/(\d+)$/.exec(path)?.[1];
+  return blockHeight === undefined || Number(blockHeight) <= highestPlausible(ref, nowMs);
+}
+
 export async function fetchTipWithFailover(
   request: Request,
   path: string,
@@ -402,10 +416,11 @@ export async function fetchTipWithFailover(
   const signal = request.signal;
   const primary = sources[0];
   const fromFallback = (source: string) => source !== primary;
-  // The primary is already known to be down: a recent fallback answer serves this one too.
+  // The primary is already known to be down: a recent fallback answer serves this one too, as long as the reference it
+  // was judged by has not moved on since (the primary may have answered in between).
   if ((state.pausedUntil.get(primary) ?? 0) > now()) {
     const cached = cachedExitAnswer(path, now());
-    if (cached !== null) return cached;
+    if (cached !== null && (await cachedStillPlausible(path, cached, state, now()))) return cached;
   }
   for (const source of sources) {
     // No reference to judge a fallback by: two fallbacks must agree first, or none is used.
@@ -436,36 +451,57 @@ export async function fetchTipWithFailover(
       if (fromFallback(source)) continue;
       return response;
     }
-    const height = await heightOf(response, path);
+    // Reading the body can fail after the answer arrived: that is a failed source like any other, not an error for the caller.
+    let height: number | null | "n/a";
     let bad = false;
-    if (height !== "n/a") {
-      bad = height === null || (fromFallback(source) && !fallbackHeightPlausible(height, state, now()));
-    } else if (fromFallback(source)) {
-      bad = !(await hashAnswerOk(response));
-      const blockHeight = /^\/block-height\/(\d+)$/.exec(path)?.[1];
-      const ref = tipReference(state);
-      if (!bad && blockHeight !== undefined && ref !== null) {
-        // A block above any tip the reference allows by now does not exist.
-        bad = Number(blockHeight) > highestPlausible(ref, now());
+    let readFailed = false;
+    let badStatus = response.status;
+    try {
+      height = await heightOf(response, path);
+      if (height !== "n/a") {
+        bad = height === null || (fromFallback(source) && !fallbackHeightPlausible(height, state, now()));
+      } else if (fromFallback(source)) {
+        bad = !(await hashAnswerOk(response));
+        const blockHeight = /^\/block-height\/(\d+)$/.exec(path)?.[1];
+        const ref = tipReference(state);
+        if (!bad && blockHeight !== undefined && ref !== null) {
+          // A block above any tip the reference allows by now does not exist.
+          bad = Number(blockHeight) > highestPlausible(ref, now());
+        }
+        if (!bad && path === "/blocks/tip/hash") {
+          // The hash of a stale or forked source's tip is as wrong as its height: the same source's height must pass.
+          const failure = await fallbackTipHeightFailure(source, request, realFetch, state, now());
+          if (failure !== null) {
+            bad = true;
+            badStatus = failure.status ?? response.status;
+          }
+        }
       }
-      if (!bad && path === "/blocks/tip/hash") {
-        // The hash of a stale or forked source's tip is as wrong as its height: the same source's height must pass.
-        bad = !(await fallbackTipHeightOk(source, request, realFetch, state, now()));
-      }
+    } catch (e) {
+      if (signal.aborted) throw e;
+      height = null;
+      bad = true;
+      readFailed = true;
     }
-    if (bad || height !== "n/a") {
-      if (bad) {
-        state.pausedUntil.set(source, now() + TIP_PAUSE_MS);
-        onFailover(source, response.status);
-        if (fromFallback(source)) continue;
-        return response; // a primary answer we cannot judge is still the primary's answer
-      }
-      if (!fromFallback(source) && typeof height === "number") {
-        state.highest = Math.max(state.highest, height);
-        state.highestAt = now();
-      }
+    if (bad) {
+      state.pausedUntil.set(source, now() + (badStatus === 429 ? TIP_REFUSAL_PAUSE_MS : TIP_PAUSE_MS));
+      onFailover(source, badStatus);
+      // A primary answer we can read but not judge is still the primary's answer; one we cannot read is no answer at all.
+      if (fromFallback(source) || readFailed) continue;
+      return response;
     }
-    return fromFallback(source) ? rememberExitAnswer(path, response, now()) : response;
+    if (!fromFallback(source) && typeof height === "number") {
+      state.highest = Math.max(state.highest, height);
+      state.highestAt = now();
+    }
+    if (!fromFallback(source)) return response;
+    try {
+      return await rememberExitAnswer(path, response, now());
+    } catch (e) {
+      if (signal.aborted) throw e;
+      state.pausedUntil.set(source, now() + TIP_PAUSE_MS);
+      onFailover(source, null);
+    }
   }
   return null;
 }

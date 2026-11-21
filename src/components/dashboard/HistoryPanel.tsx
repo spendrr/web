@@ -128,10 +128,107 @@ function movementRowTone(m: { subsystemName: string; subsystemKind: string; stat
   return ONCHAIN_STATUS_KINDS.has(movementKind(m)) ? onchainStatusTone(m.status) : null;
 }
 
-function onchainStatusLabel(tone: OnchainStatusTone, t: (cs: string) => string): string {
-  if (tone === "pending") return t("Čeká na potvrzení");
+// `long`: the detail sheet has room for the full wording; the row tag has to stay short.
+function onchainStatusLabel(tone: OnchainStatusTone, t: (cs: string) => string, long = false): string {
+  if (tone === "pending") return long ? t("Čeká na potvrzení") : t("Nepotvrzeno");
   if (tone === "failed") return t("Selhalo");
   return t("Potvrzeno");
+}
+
+// A row that just arrived grows out of nothing (height, padding, border, shadow and opacity from zero) so the rows below glide
+// down instead of jumping by a whole row. Measured, then animated with WAAPI: CSS cannot animate to `height: auto`, and a wrapper
+// element would change the row's siblings for every selector that counts on `.history-item:last-child`.
+const revealedRows = new WeakSet<HTMLElement>();
+const REVEAL_MS = 540;
+// Symmetric, so the last pixels of a grow or shrink do not creep. Shared by the arrival and the exit so their heights always sum to a constant.
+const REVEAL_EASING = "cubic-bezier(0.45, 0, 0.45, 1)";
+function revealRow(el: HTMLElement, done: () => void): void {
+  if (revealedRows.has(el)) return;
+  revealedRows.add(el);
+  if (typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    done();
+    return;
+  }
+  const h = el.getBoundingClientRect().height;
+  const gap = el.parentElement ? parseFloat(getComputedStyle(el.parentElement).rowGap) || 0 : 0;
+  el.style.overflow = "hidden";
+  const anim = el.animate(
+    [
+      {
+        height: "0px",
+        minHeight: "0px",
+        paddingTop: "0px",
+        paddingBottom: "0px",
+        borderTopWidth: "0px",
+        borderBottomWidth: "0px",
+        marginBottom: `${-gap}px`,
+        boxShadow: "none",
+        opacity: 0,
+      },
+      // Opacity trails the height so the row is not at full colour while it is still thin.
+      { opacity: 0.6, offset: 0.55 },
+      { height: `${h}px`, opacity: 1 },
+    ],
+    { duration: REVEAL_MS, easing: REVEAL_EASING },
+  );
+  const end = () => {
+    el.style.overflow = "";
+    done();
+  };
+  anim.onfinish = end;
+  anim.oncancel = end;
+}
+
+// The row pushed off the end of the home list (it shows only the newest few) shrinks away at the same pace the new one grows in,
+// so the list keeps its height and the last row does not just vanish.
+const leftRows = new WeakSet<HTMLElement>();
+function leaveRow(el: HTMLElement, done: () => void): void {
+  if (leftRows.has(el)) return;
+  leftRows.add(el);
+  if (typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    done();
+    return;
+  }
+  const h = el.getBoundingClientRect().height;
+  const gap = el.parentElement ? parseFloat(getComputedStyle(el.parentElement).rowGap) || 0 : 0;
+  // The row above loses its bottom border once this one is gone (it becomes the last row); take that pixel out of the list
+  // gradually, with this row's margin, so the box does not jump by it at the end.
+  const prev = el.previousElementSibling;
+  const prevBorder = prev ? parseFloat(getComputedStyle(prev).borderBottomWidth) || 0 : 0;
+  el.style.overflow = "hidden";
+  el.style.pointerEvents = "none";
+  const anim = el.animate(
+    [
+      { height: `${h}px`, opacity: 1 },
+      { opacity: 0.6, offset: 0.45 },
+      {
+        height: "0px",
+        minHeight: "0px",
+        paddingTop: "0px",
+        paddingBottom: "0px",
+        borderTopWidth: "0px",
+        borderBottomWidth: "0px",
+        marginBottom: `${-gap - prevBorder}px`,
+        boxShadow: "none",
+        opacity: 0,
+      },
+    ],
+    { duration: REVEAL_MS, easing: REVEAL_EASING, fill: "forwards" },
+  );
+  // The divider above it would sit right on the box's own bottom border once this row is thin: fade it out instead of changing
+  // any height (a changed border width made the whole list jump by a pixel).
+  const fade = prev?.animate([{ borderBottomColor: "transparent" }], {
+    duration: REVEAL_MS,
+    easing: REVEAL_EASING,
+    fill: "forwards",
+  });
+  // The fade holds its end colour only while this row is leaving; left running it would hide that divider for good.
+  const end = () => {
+    fade?.cancel();
+    done();
+  };
+  anim.onfinish = end;
+  anim.oncancel = end;
 }
 
 // Memoized so this doesn't redo its work (and its own `selected` detail
@@ -189,12 +286,18 @@ export const HistoryPanel = memo(function HistoryPanel({
   const chatPayments = useChatPayments(history);
   const [flyingIds, setFlyingIds] = useState<Set<number>>(() => new Set());
   const seenIdsRef = useRef<Set<number>>(new Set());
+  const prevHistoryRef = useRef<Movement[]>([]);
+  const [leaving, setLeaving] = useState<Movement[]>([]);
   // history starts as [] before the first fetch resolves, so the first
   // *non-empty* history is still an initial load settling in, not a fresh
   // arrival — stays false until that happens, so nothing flies in on mount.
   const settledRef = useRef(false);
 
-  useEffect(() => {
+  // Layout effect: the arrival has to be known before the browser paints the new row, or it shows at full height for a frame and
+  // then collapses into its reveal (the passive effect ran after the first paint).
+  useLayoutEffect(() => {
+    const prevHistory = prevHistoryRef.current;
+    prevHistoryRef.current = history;
     if (!settledRef.current) {
       seenIdsRef.current = new Set(history.map((m) => m.id));
       if (history.length > 0) settledRef.current = true;
@@ -202,10 +305,13 @@ export const HistoryPanel = memo(function HistoryPanel({
     }
     const freshlyArrived = history.filter((m) => !seenIdsRef.current.has(m.id)).map((m) => m.id);
     seenIdsRef.current = new Set(history.map((m) => m.id));
+    // Home list only: a row pushed off the end by a newer one leaves gradually instead of vanishing.
+    const dropped = groupByDate ? [] : prevHistory.filter((m) => !seenIdsRef.current.has(m.id));
+    if (dropped.length > 0 && freshlyArrived.length > 0) setLeaving((prev) => [...prev, ...dropped]);
     if (freshlyArrived.length > 0) {
       setFlyingIds((prev) => new Set([...prev, ...freshlyArrived]));
     }
-  }, [history]);
+  }, [history, groupByDate]);
 
   // Plays the arrow -> checkmark (holds 2s) -> arrow flourish exactly once,
   // the moment a row's own onchain status flips pending -> confirmed while
@@ -250,7 +356,7 @@ export const HistoryPanel = memo(function HistoryPanel({
     homeListStaggered = true;
     setStaggering(true);
   }, [stagger, motionOn, history.length]);
-  // Dropped once played, so a row that arrives later gets its own fly-in only.
+  // Dropped once played, so a row that arrives later gets its own reveal only.
   useEffect(() => {
     if (!staggering) return;
     const timer = window.setTimeout(() => setStaggering(false), 1200);
@@ -279,6 +385,8 @@ export const HistoryPanel = memo(function HistoryPanel({
     return groups;
   }, [groupByDate, history, t, lang]);
 
+  // The rows are unmounted while the list is empty, so an exit started before that would never finish.
+  if (history.length === 0 && leaving.length > 0) setLeaving([]);
   if (history.length === 0) {
     return (
       <div className="panel history-empty">
@@ -291,7 +399,10 @@ export const HistoryPanel = memo(function HistoryPanel({
   // group — dateInHeader drops the date from the row's own timestamp (the
   // group header already shows it) and just leaves the time.
   let rowIndex = 0;
-  const renderRow = (m: Movement, { dateInHeader }: { dateInHeader: boolean }) => {
+  const renderRow = (
+    m: Movement,
+    { dateInHeader, seconds = true, leavingRow = false }: { dateInHeader: boolean; seconds?: boolean; leavingRow?: boolean },
+  ) => {
     const staggerIndex = rowIndex++;
     const positive = m.effectiveBalanceSats >= 0;
     const flying = flyingIds.has(m.id);
@@ -302,6 +413,8 @@ export const HistoryPanel = memo(function HistoryPanel({
     const statusTone = movementRowTone(m);
     const failed = statusTone === "failed";
     const canceled = m.status === "canceled";
+    // The title already says "Platba selhala" / "Platba zrušena" for these, so the status tag would only repeat it.
+    const titleSaysFailed = failed && !isRefreshMovement(m) && PAYMENT_KINDS.has(movementKind(m));
     // The whole-row tint is for on-chain movements; a failed Ark/Lightning payment
     // is already marked by its cross, struck amount and tag.
     const tinted = statusTone && statusTone !== "confirmed" && ONCHAIN_STATUS_KINDS.has(movementKind(m));
@@ -328,7 +441,7 @@ export const HistoryPanel = memo(function HistoryPanel({
     );
     const createdAt = new Date(m.createdAt);
     const timeLabel = dateInHeader
-      ? createdAt.toLocaleTimeString(localeFor(lang), { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      ? createdAt.toLocaleTimeString(localeFor(lang), seconds ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } : { hour: "2-digit", minute: "2-digit" })
       : createdAt.toLocaleString(localeFor(lang), {
           day: "numeric",
           month: "numeric",
@@ -340,20 +453,32 @@ export const HistoryPanel = memo(function HistoryPanel({
       <button
         key={m.id}
         type="button"
+        {...(leavingRow ? { tabIndex: -1, "aria-hidden": true } : null)}
+        ref={
+          leavingRow
+            ? (el) => {
+                if (el) leaveRow(el, () => setLeaving((prev) => prev.filter((x) => x.id !== m.id)));
+              }
+            : flying
+            ? (el) => {
+                if (el)
+                  revealRow(el, () =>
+                    setFlyingIds((prev) => {
+                      if (!prev.has(m.id)) return prev;
+                      const next = new Set(prev);
+                      next.delete(m.id);
+                      return next;
+                    }),
+                  );
+              }
+            : undefined
+        }
         className={`history-item${tinted ? ` history-item--${statusTone}` : ""}`}
         style={staggering ? ({ "--i": staggerIndex } as CSSProperties) : undefined}
         onClick={() => setSelected(m)}
       >
         <div
-          className={`history-icon ${positive && !failed ? "in" : "out"}${flying ? " fly-in" : ""}${justConfirmed ? " just-confirmed" : ""}`}
-          onAnimationEnd={() =>
-            setFlyingIds((prev) => {
-              if (!prev.has(m.id)) return prev;
-              const next = new Set(prev);
-              next.delete(m.id);
-              return next;
-            })
-          }
+          className={`history-icon ${positive && !failed ? "in" : "out"}${justConfirmed ? " just-confirmed" : ""}`}
         >
           <span className="history-icon-arrow-layer">
             {failed ? <CloseIcon /> : positive ? <HistoryReceiveIcon /> : <HistorySendIcon />}
@@ -372,7 +497,7 @@ export const HistoryPanel = memo(function HistoryPanel({
               />
             </span>
           )}
-          {statusTone && !failed && <HistoryIconRing tone={statusTone} />}
+          {statusTone === "pending" && <HistoryIconRing tone={statusTone} />}
         </div>
         <div className="history-info">
           <div className="history-kind">
@@ -399,7 +524,9 @@ export const HistoryPanel = memo(function HistoryPanel({
             {timeLabel}
           </div>
         </div>
-        {statusTone ? (
+        {statusTone && titleSaysFailed ? (
+          amountEl
+        ) : statusTone ? (
           <div className="history-amount-col">
             {amountEl}
             <span className={`onchain-status-tag onchain-status-tag--${statusTone}`}>
@@ -450,7 +577,10 @@ export const HistoryPanel = memo(function HistoryPanel({
         ))
       ) : mergedCard ? (
         <div className="history-home-bundle">
-          {history.map((m) => renderRow(m, { dateInHeader: true }))}
+          {history.map((m) => renderRow(m, { dateInHeader: true, seconds: false }))}
+          {leaving
+            .filter((m) => !history.some((h) => h.id === m.id))
+            .map((m) => renderRow(m, { dateInHeader: true, seconds: false, leavingRow: true }))}
         </div>
       ) : (
         history.map((m) => renderRow(m, { dateInHeader: false }))
@@ -691,12 +821,12 @@ function TxDetailModal({
   const onchainTone = onchainStatusTone(m.status);
   const statusCell = (() => {
     if (!isOnchainKind) return <code>{movementStatusLabel(m.status, t)}</code>;
-    if (onchainTone !== "confirmed") return <code>{onchainStatusLabel(onchainTone, t)}</code>;
+    if (onchainTone !== "confirmed") return <code>{onchainStatusLabel(onchainTone, t, true)}</code>;
     if (onchainDetail === undefined) return <span className="txd-skeleton" aria-label={t("Načítám…")} />;
     if (onchainDetail === null) {
       return <code>{m.effectiveBalanceSats < 0 ? t("Odesláno") : movementStatusLabel(m.status, t)}</code>;
     }
-    if (!onchainDetail.inBlock) return <code>{onchainStatusLabel("pending", t)}</code>;
+    if (!onchainDetail.inBlock) return <code>{onchainStatusLabel("pending", t, true)}</code>;
     if (onchainDetail.confirmations !== null) {
       return (
         <code>{tf(t("{n} potvrzení"), { n: onchainDetail.confirmations.toLocaleString(localeFor(lang)) })}</code>

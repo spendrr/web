@@ -92,10 +92,10 @@ export function BlockIcon() {
 export function GiftIcon() {
   return (
     <Icon>
-      <rect x="4" y="10" width="16" height="10" rx="2" />
-      <rect x="3" y="7" width="18" height="3" rx="1" />
-      <path d="M12 7v13" />
-      <path d="M12 7c-1-3-5-3-4.5 0M12 7c1-3 5-3 4.5 0" />
+      <rect x="3" y="8.5" width="18" height="4" rx="1.2" />
+      <path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5" />
+      <path d="M12 8.5v12" />
+      <path d="M12 8.5C10 8.5 7.8 8 7.8 6.2 7.8 4.8 8.8 4 10 4c1.6 0 2 2.4 2 4.5Zm0 0c2 0 4.2-.5 4.2-2.3C16.2 4.8 15.2 4 14 4c-1.6 0-2 2.4-2 4.5Z" />
     </Icon>
   );
 }

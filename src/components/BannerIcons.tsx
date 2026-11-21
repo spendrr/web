@@ -47,3 +47,12 @@ export function SuccessCircleIcon() {
     </svg>
   );
 }
+
+// Two arcs turning counter-clockwise, arrowheads turned along the arc. Line icon like the others here (the round card).
+export function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: "scaleX(-1)" }}>
+      <path d="M52.67 39.52A22 22 0 0 1 11.33 39.52M10.03 48.43L11.33 39.52L19.87 42.35M11.33 24.48A22 22 0 0 1 52.67 24.48M53.97 15.57L52.67 24.48L44.13 21.65" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
