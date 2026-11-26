@@ -42,3 +42,20 @@ export function profileNameFrom(content: unknown): string | undefined {
   const o = p as Record<string, unknown>;
   return cleanProfileName(o.display_name) ?? cleanProfileName(o.name);
 }
+
+// Our own kind 0 content, so other Nostr clients show the @name, verify it
+// (NIP-05, resolved by the Worker's nostr.json against the chat key) and can
+// pay the Lightning address. `lud16` only while the owner has the address
+// switched on. `picture` is the address's avatar PNG in the public bucket
+// (avatarKey.ts, written by worker/avatarPublic.ts), left out while the
+// address is not known yet. A released name publishes an empty profile, so a
+// stale nip05 claim does not linger. Key order is fixed: the app compares this
+// string to know whether it has to publish again.
+export function ownProfileContent(name: string | null, lnAddress: boolean, picture?: string, domain = "spendrr.app"): string {
+  if (!name) return "{}";
+  const address = `${name}@${domain}`;
+  const p: Record<string, string> = { name, nip05: address };
+  if (lnAddress) p.lud16 = address;
+  if (picture) p.picture = picture;
+  return JSON.stringify(p);
+}

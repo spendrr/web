@@ -46,6 +46,7 @@ import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { escapeHtml, profileMeta, profileMetaTags } from "./profileMeta";
 import { avatarPng, isAvatarAddress } from "./avatarPng";
+import { ensurePublicAvatar } from "./avatarPublic";
 import {
   ARK_ADDRESS_MAX_CHARS,
   isPlausibleArkAddress,
@@ -421,13 +422,13 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return handleNameLookup(request, url, env);
   }
   if (request.method === "POST" && url.pathname === "/api/names/set") {
-    return handleNameSet(request, env);
+    return handleNameSet(request, env, ctx);
   }
   if (request.method === "POST" && url.pathname === "/api/names/release") {
     return handleNameRelease(request, env);
   }
   if (request.method === "POST" && url.pathname === "/api/names/mine") {
-    return handleNameMine(request, env);
+    return handleNameMine(request, env, ctx);
   }
   if (request.method === "POST" && url.pathname === "/api/names/chat") {
     return handleNameChat(request, env);
@@ -2563,7 +2564,7 @@ const NAME_SET_STATUS: Record<string, number> = {
   banned: 403,
 };
 
-async function handleNameSet(request: Request, env: Env): Promise<Response> {
+async function handleNameSet(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const parsed = await readAuthorizedNameWrite(request, env);
   if (parsed instanceof Response) return parsed;
   const { name, address, mailboxId, mailboxAuthorization } = parsed;
@@ -2599,6 +2600,8 @@ async function handleNameSet(request: Request, env: Env): Promise<Response> {
   await invalidateNameLookup(caches.default, check.handle);
   await invalidateNameSnapshot(caches.default);
   await publishNameSnapshot(env);
+  // The picture in the owner's kind 0 profile points at this file.
+  ctx.waitUntil(ensurePublicAvatar(env, result.address));
   return new Response(JSON.stringify({ name: result.name, address: result.address, action: result.action }), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -2626,7 +2629,7 @@ async function handleNameRelease(request: Request, env: Env): Promise<Response> 
 }
 
 // POST rather than GET: the authorization travels in the body, never a URL.
-async function handleNameMine(request: Request, env: Env): Promise<Response> {
+async function handleNameMine(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const parsed = await readAuthorizedNameWrite(request, env);
   if (parsed instanceof Response) return parsed;
   const { mailboxId, mailboxAuthorization } = parsed;
@@ -2635,6 +2638,9 @@ async function handleNameMine(request: Request, env: Env): Promise<Response> {
 
   const result = await callNameRegistry<{ name: string; address: string } | null>(env, "/mine", { mailboxId });
   if (result === null) return jsonError(404, "No name.");
+  // Names claimed before the picture existed get their file here, on the
+  // app's weekly check; one bucket read when it is already there.
+  ctx.waitUntil(ensurePublicAvatar(env, result.address));
   return new Response(JSON.stringify(result), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "no-store" },

@@ -466,6 +466,22 @@ function publish(event: NostrEvent, targets: readonly string[] = coreUrls, requi
   });
 }
 
+// Kind 0 is replaceable: the newest one wins, so a changed profile just
+// replaces the old. Goes to the indexers too, where other clients look it up.
+async function setProfile(content: string): Promise<unknown> {
+  if (!secretKey) throw new Error("locked");
+  if (content.length > MAX_PROFILE_JSON_CHARS) throw new Error("profile too long");
+  const parsed: unknown = JSON.parse(content);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("bad profile");
+  const event = signEvent(
+    { kind: KIND_PROFILE, created_at: Math.floor(Date.now() / 1000), tags: [], content },
+    secretKey,
+  );
+  const accepted = await publish(event, [...coreUrls, ...CHAT_INDEX_RELAYS], coreUrls);
+  if (accepted === 0) throw new Error("no relay accepted the profile");
+  return { relays: accepted };
+}
+
 function recipientOf(rumor: Rumor): string | null {
   const to = rumor.tags.find((t) => t[0] === "p")?.[1];
   return isPublicKeyHex(to) ? to : null;
@@ -619,6 +635,9 @@ export function handleChatRequest(req: ChatRequest): void {
       return;
     case "profile":
       settle(req.reqId, profileContent(req.pubkey));
+      return;
+    case "setProfile":
+      settle(req.reqId, typeof req.content === "string" ? setProfile(req.content) : Promise.reject(new Error("bad profile")));
       return;
     case "lock":
       secretKey?.fill(0);

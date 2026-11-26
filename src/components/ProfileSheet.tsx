@@ -266,6 +266,8 @@ export default function ProfileSheet({
       address: result.address,
       lnAddress: lnAddressAfterSave(result.action, previousLnAddress),
     });
+    // The avatar (and the kind 0 picture) follows the address.
+    invalidateChatNameBinding();
   };
 
   const toggleLnAddress = async (enabled: boolean) => {
@@ -280,6 +282,8 @@ export default function ProfileSheet({
     }
     setMine({ ...mine, lnAddress: result.lnAddress });
     setLnConfirm(false);
+    // lud16 in the kind 0 profile follows this switch.
+    invalidateChatNameBinding();
   };
 
   const release = async () => {

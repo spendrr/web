@@ -8,7 +8,8 @@ import { useSyncExternalStore } from "react";
 import { deliverChatKey, type WalletClient } from "../wallet/bark";
 import { checkHandle } from "../names/handle";
 import { parseNostrPubkey } from "./npub";
-import { profileNameFrom } from "./profile";
+import { avatarAddressHash, avatarPictureUrl } from "../names/avatarKey";
+import { ownProfileContent, profileNameFrom } from "./profile";
 import { fetchMyName, lookupName, publishChatPubkey } from "../names/names";
 import { buildBackup, mergeBackup, parseBackup } from "./chatBackup";
 import { isReadReceiptsOn } from "./chatEnabled";
@@ -836,7 +837,36 @@ const BINDING_KEY = "spendrr-chat-binding-v1";
 const BOUND_RECHECK_MS = 7 * 24 * 60 * 60 * 1000;
 const UNBOUND_RECHECK_MS = 10 * 60 * 1000;
 
-type Binding = { pubkey: string; name: string | null; checkedAt: number };
+type Binding = { pubkey: string; name: string | null; checkedAt: number; ln?: boolean; address?: string };
+
+// Our own kind 0 profile (profile.ts ownProfileContent): published once the
+// name is bound to the chat key, again when its content changes, and monthly
+// so a relay that dropped it gets it back. Not published for someone with no
+// name, and never before the binding, or the nip05 in it would not verify.
+const PROFILE_KEY = "spendrr-chat-own-profile-v1";
+const PROFILE_REPUBLISH_MS = 30 * 24 * 60 * 60 * 1000;
+type OwnProfile = { pubkey: string; content: string; at: number };
+let ownProfileInFlight = false;
+let addressRefetchTried = false;
+
+async function syncOwnProfile(pubkey: string, name: string | null, ln: boolean, address?: string): Promise<void> {
+  if (ownProfileInFlight) return;
+  ownProfileInFlight = true;
+  try {
+    const picture = address ? avatarPictureUrl(await avatarAddressHash(address)) : undefined;
+    const content = ownProfileContent(name, ln, picture);
+    const last = readJson<OwnProfile | null>(PROFILE_KEY, null);
+    const same = last !== null && last.pubkey === pubkey && last.content === content;
+    if (!name && (last === null || last.pubkey !== pubkey || last.content === content)) return;
+    if (same && Date.now() - last.at >= 0 && Date.now() - last.at < PROFILE_REPUBLISH_MS) return;
+    await call({ type: "setProfile", reqId: nextReqId++, content });
+    writeJson(PROFILE_KEY, { pubkey, content, at: Date.now() } satisfies OwnProfile);
+  } catch (e) {
+    console.error("[chat] publishing profile failed", e);
+  } finally {
+    ownProfileInFlight = false;
+  }
+}
 
 // One check at a time: the first open after an unlock asks from both onReady
 // and the panel, and two concurrent checks would both pay the full cost.
@@ -855,7 +885,15 @@ async function checkNameBinding(wallet: WalletClient, pubkey: string, force: boo
   if (cached && cached.pubkey === pubkey) {
     setState({ myName: cached.name });
     const age = Date.now() - cached.checkedAt;
-    if (!force && age >= 0 && age < (cached.name ? BOUND_RECHECK_MS : UNBOUND_RECHECK_MS)) return;
+    // A binding cached without the address is asked again once per session;
+    // if that fails, the cached name is used as it is until the normal recheck.
+    const needsAddress = cached.name !== null && !cached.address && !addressRefetchTried;
+    if (needsAddress) addressRefetchTried = true;
+    const fresh = age >= 0 && age < (cached.name ? BOUND_RECHECK_MS : UNBOUND_RECHECK_MS) && !needsAddress;
+    if (!force && fresh) {
+      void syncOwnProfile(pubkey, cached.name, cached.ln ?? false, cached.address);
+      return;
+    }
   }
   try {
     const mine = await fetchMyName(wallet);
@@ -870,7 +908,14 @@ async function checkNameBinding(wallet: WalletClient, pubkey: string, force: boo
         return;
       }
     }
-    writeJson(BINDING_KEY, { pubkey, name: mine?.name ?? null, checkedAt: Date.now() } satisfies Binding);
+    writeJson(BINDING_KEY, {
+      pubkey,
+      name: mine?.name ?? null,
+      checkedAt: Date.now(),
+      ln: mine?.lnAddress,
+      address: mine?.address,
+    } satisfies Binding);
+    void syncOwnProfile(pubkey, mine?.name ?? null, mine?.lnAddress ?? false, mine?.address);
   } catch (e) {
     console.error("[chat] name binding failed", e);
   }

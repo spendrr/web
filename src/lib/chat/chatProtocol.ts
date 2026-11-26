@@ -20,6 +20,8 @@ export type ChatRequest =
   | { type: "control"; reqId: number; to: string; content: string }
   // The content of the newest kind 0 profile of `pubkey` (null: none found).
   | { type: "profile"; reqId: number; pubkey: string }
+  // Publishes our own kind 0 profile (profile.ts ownProfileContent).
+  | { type: "setProfile"; reqId: number; content: string }
   | { type: "lock" };
 
 export type ChatEvent =
