@@ -12,3 +12,7 @@ regexes = ['''^btc-wallet-onchain-bloat-fixed-v1$''']
 [[allowlists]]
 description = "Public test key of the record-seal WASM check (BIP39 test mnemonic, local only)"
 regexes = ['''^0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798$''']
+
+[[allowlists]]
+description = "NIP-19 example secret key (public test vector from the spec)"
+regexes = ['''^67dea2ed018072d675f5415ecfaed7d2597555e202d85b3d65ea4e58d2d92ffa$''']
