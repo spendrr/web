@@ -240,9 +240,9 @@
 .dashboard-header .header-actions .icon-btn {
   width: 42.56px;
   height: 42.56px;
-  border: 2px solid var(--border);
+  border: 1.7px solid color-mix(in srgb, var(--border) 30%, transparent);
   border-radius: 13.68px;
-  background: var(--surface);
+  background: transparent;
   box-shadow: none;
   /* button.small (App.css) carries `padding: 7px 14px` at specificity (0,1,1),
      which actually beats .icon-btn's own `padding: 0` at (0,1,0) — a
