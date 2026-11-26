@@ -195,43 +195,6 @@ function devPriceProxyPlugin(apiKey: string | undefined): PluginOption {
 // same as any other unavailable local dependency.
 const WRANGLER_DEV_ORIGIN = 'http://127.0.0.1:8787'
 
-// Relay to `wrangler dev` for the btcmap.org merchant map (worker/btcmap.ts)
-// — no access token to inject here, both routes are public reads. Without
-// this, `npm run dev` alone falls through to the SPA's index.html for these
-// paths (a 200 with HTML, not a clean error) since nothing else matches
-// /api/btcmap/* — still
-// harmless (BtcMapPanel's fetch/img error handling swallows the bad
-// response either way) but means tiles/pins never actually render without
-// `wrangler dev` also running.
-function devBtcMapProxyPlugin(): PluginOption {
-  return {
-    name: 'dev-btcmap-proxy',
-    configureServer(server) {
-      // Connect's mount-path matching strips the matched prefix off
-      // req.url, leaving only what came after it (a query string for the
-      // exact '/api/btcmap/elements' mount, a "13/4424/2775.png"-shaped
-      // remainder for the '/api/btcmap/tile/' prefix mount) — `mountPath`
-      // reconstructs the real upstream path.
-      const relay = (mountPath: string): Connect.NextHandleFunction => {
-        return async (req, res) => {
-          try {
-            const r = await fetch(`${WRANGLER_DEV_ORIGIN}${mountPath}${req.url ?? ''}`)
-            res.statusCode = r.status
-            res.setHeader('content-type', r.headers.get('content-type') ?? 'application/json')
-            res.end(Buffer.from(await r.arrayBuffer()))
-          } catch {
-            res.statusCode = 502
-            res.setHeader('content-type', 'application/json')
-            res.end(JSON.stringify({ error: 'wrangler dev not reachable on :8787' }))
-          }
-        }
-      }
-      server.middlewares.use('/api/btcmap/elements', relay('/api/btcmap/elements'))
-      server.middlewares.use('/api/btcmap/tile/', relay('/api/btcmap/tile/'))
-    },
-  }
-}
-
 // Same relay-to-`wrangler dev` pattern, for /bump-lab.html's pairing backend
 // (worker/bump.ts) — no access token, both routes are unauthenticated (only
 // same-origin + rate-limited). Without this, `npm run dev` alone can serve
@@ -377,7 +340,6 @@ export default defineConfig(({ mode }) => {
       // context either way.
       mkcert(),
       devPriceProxyPlugin(env.VITE_COINGECKO_API_KEY),
-      devBtcMapProxyPlugin(),
       devBumpProxyPlugin(),
       ...(mode === 'chat' ? [devChatNamesProxyPlugin()] : []),
       ...(mode === 'signet' || mode === 'regtest' ? [signetApiStubPlugin()] : []),

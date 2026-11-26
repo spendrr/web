@@ -19,7 +19,7 @@
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
+  Permissions-Policy: geolocation=(), camera=(self), microphone=(), payment=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
 # The wallet worker, also started a second time for gifts (same script).

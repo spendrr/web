@@ -6,7 +6,7 @@
 // This thread sees the password on every unlock, the biometric unwrapping
 // key, a freshly generated or imported mnemonic during onboarding, and the
 // words themselves on a Settings seed reveal. If any bundled dependency
-// (react, react-dom, qrcode.react, jsqr, leaflet) were compromised, this is
+// (react, react-dom, qrcode.react, jsqr) were compromised, this is
 // the thread it would exfiltrate from.
 //
 // Every network call this thread legitimately makes is same-origin (/api/*,

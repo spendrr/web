@@ -455,7 +455,7 @@ export default function Dashboard({
       () => setShowSettings(true),
     );
   }, []);
-  // Utility hub (sats <-> fiat converter, btcmap.org, Point of Sale) —
+  // Utility hub (sats <-> fiat converter, Point of Sale) —
   // entered via a right swipe on the lock-gesture-area (below). Still "a
   // fully separate page, like Settings" in the sense that it has its own
   // shell/back-button and hides the balance card underneath (see
@@ -629,7 +629,6 @@ export default function Dashboard({
   // (worse) the overlay/back-button mount mid-transition, not yet hydrated
   // when the first tap lands, needing a second tap to register. Every swipe
   // after the first works fine because the chunk is then already cached.
-  // Only prefetched under v2 — v1 has no swipe gesture to ever trigger it.
   useEffect(() => {
     // Not idle-gated: right after unlock the first tap on the gear is likely,
     // and the idle callback can fire late under that load.
@@ -637,9 +636,7 @@ export default function Dashboard({
     const prefetch = () => {
       void Settings.preload().catch(() => {});
       void QrScannerModal.preload().catch(() => {});
-      if (designVersion === "v2") {
-        void UtilityHub.preload().catch(() => {});
-      }
+      void UtilityHub.preload().catch(() => {});
     };
     // typeof, not `"requestIdleCallback" in window` — lib.dom.d.ts declares
     // it unconditionally present, which makes TS narrow the `in` check's
@@ -654,18 +651,14 @@ export default function Dashboard({
       // this prefetch exists to prevent. 400ms forces it to run anyway —
       // still off the critical first-paint path, but bounded rather than
       // "whenever the browser feels like it". The chunks are small (a few
-      // KB to ~9KB gzip each after UtilityHub's own Leaflet split), so
+      // KB to ~9KB gzip each), so
       // firing under some background load is cheap.
       const id = window.requestIdleCallback(prefetch, { timeout: 400 });
       return () => window.cancelIdleCallback(id);
     }
     const id = window.setTimeout(prefetch, 1);
     return () => window.clearTimeout(id);
-    // designVersion in deps so toggling v1->v2 in Settings mid-session (no
-    // remount) still schedules the UtilityHub prefetch — re-importing
-    // Settings/QrScanner too on that rare transition is a harmless no-op,
-    // the module is already cached.
-  }, [designVersion]);
+  }, []);
   // Easter egg on the wordmark: a double-click shows the BTC price chart. A
   // triple-click does nothing (it used to open the converter, which now
   // lives in the Utility hub). Native onDoubleClick can't be used here — it
@@ -758,7 +751,7 @@ export default function Dashboard({
       }
       const dx = e.clientX - start.x;
       const dy = e.clientY - start.y;
-      if (designVersion === "v2" && dx > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         openUtility();
         dismissUtilityHint();
         hapticTap();
@@ -767,7 +760,7 @@ export default function Dashboard({
       }
       registerLockTap(taps);
     },
-    [designVersion, registerLockTap, dismissUtilityHint, openUtility],
+    [registerLockTap, dismissUtilityHint, openUtility],
   );
   // Belt-and-suspenders: with touch-action: none (Dashboard.css) the browser
   // shouldn't cancel this gesture for its own native panning any more, but a
@@ -1152,17 +1145,23 @@ export default function Dashboard({
       return {
         key: "lock-gesture",
         ref: lockGestureAreaRef,
-        text: t("Dvojitým klepnutím sem peněženku zamkneš."),
+        // One bubble for both gestures of this area (lock, Utility swipe).
+        text: t("Dvojklik zamkne, přejetí doprava otevře Utility."),
         placement: "top",
       };
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tourVersion is a deliberate recompute trigger, not a real input
   }, [t, rates, tourVersion]);
-  const advanceTour = useCallback((key: HintKey) => {
-    markHintSeen(key);
-    setTourVersion((v) => v + 1);
-  }, []);
+  const advanceTour = useCallback(
+    (key: HintKey) => {
+      markHintSeen(key);
+      // The lock step already introduced the Utility swipe.
+      if (key === "lock-gesture") dismissUtilityHint();
+      setTourVersion((v) => v + 1);
+    },
+    [dismissUtilityHint],
+  );
 
   // The Přijmout/Odeslat hold-menus have no visible label beyond three faint
   // dots, so they get one introduction. Deliberately outside the tour array
@@ -3349,9 +3348,8 @@ export default function Dashboard({
               it: Odeslat where the gift sender is on, otherwise Přijmout (its
               menu is there for everyone). Held back until the balance has
               actually loaded so it doesn't land on a skeleton screen, and
-              behind the Utility hub's own hint where that one can show (v2
-              only: outside it, that hint is never seen and never marked). */}
-          {showHoldHint && balanceLoaded && !chatOpen && !currentTourStep && !(showUtilityHint && designVersion === "v2") && (
+              behind the Utility hub's own hint. */}
+          {showHoldHint && balanceLoaded && !chatOpen && !currentTourStep && !showUtilityHint && (
             <Coachmark
               targetRef={sendMenu.length > 0 ? sendButtonRef : receiveButtonRef}
               text={t("Podrž tlačítko a objeví se víc možností.")}
@@ -3659,17 +3657,20 @@ export default function Dashboard({
           onDismiss={() => advanceTour(currentTourStep.key)}
         />
       )}
-      {/* Gated on !currentTourStep so a brand-new wallet mid-tour never gets
-          two coachmarks pointing at the same lock-gesture-area at once —
-          for a new wallet this one naturally waits until the tour's own
-          lock-gesture step has been dismissed. */}
-      {showUtilityHint && designVersion === "v2" && view === "home" && !showSettings && !chatOpen && !currentTourStep && (
+      {/* For wallets that went through the tour before the swipe existed. A new
+          wallet sees the same text in the tour's lock step, which marks this
+          one as seen; !currentTourStep keeps the two from stacking. */}
+      {showUtilityHint && view === "home" && !showSettings && !chatOpen && !currentTourStep && (
         <Coachmark
           key="utility-swipe"
           targetRef={lockGestureAreaRef}
           placement="top"
-          text={t("Přejetím doprava sem otevřeš Utility.")}
-          onDismiss={dismissUtilityHint}
+          text={t("Dvojklik zamkne, přejetí doprava otevře Utility.")}
+          onDismiss={() => {
+            // Same text as the tour's lock step, so that one is covered too.
+            markHintSeen("lock-gesture");
+            dismissUtilityHint();
+          }}
         />
       )}
       {showUtility && (

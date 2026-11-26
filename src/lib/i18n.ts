@@ -575,7 +575,7 @@ const DICT: Record<string, string> = {
   "Rozumím": "Got it",
   "Dvojklikem na logo zobrazíš aktuální kurz bitcoinu.": "Double-tap the logo to see the current bitcoin price.",
   "Přejetím zůstatek skryješ, klepnutím přepneš měnu.": "Swipe the balance to hide it, tap to switch currency.",
-  "Dvojitým klepnutím sem peněženku zamkneš.": "Double-tap here to lock the wallet.",
+  "Dvojklik zamkne, přejetí doprava otevře Utility.": "Double-tap to lock, swipe right to open Utility.",
   "Klepnutím na QR kód zkopíruješ adresu do schránky.": "Tap the QR code to copy the address to your clipboard.",
 
   // QrScanner.tsx
@@ -1023,13 +1023,12 @@ const DICT: Record<string, string> = {
   "Náš server (ne cizí firma) k tomu čas od času nakoukne do tvé Ark schránky — uvidí jen to, že a kolik ti přišlo, ne obsah zprávy ani tvůj klíč.":
     "Our own server (not a third party) occasionally peeks into your Ark mailbox for this — it only ever sees that a payment arrived and how much, never the message content or your key.",
 
-  // UtilityHub.tsx — the tab switcher (Převodník / Mapa / Pokladna) and its
+  // UtilityHub.tsx — the tab switcher (Převodník / Pokladna) and its
   // own Point-of-Sale panel. This whole section was missing until 2026-09-17
   // — every t() call here fell back to Czech regardless of language, and
   // the Pokladna tab label itself was hardcoded English ("Point of Sale")
   // instead of routed through t() at all.
   "Pokladna": "Point of Sale",
-  "Mapa": "Map",
   "Zaplaceno": "Paid",
   "Čekám na platbu…": "Waiting for payment…",
   "Název položky": "Item name",
@@ -1067,21 +1066,6 @@ const DICT: Record<string, string> = {
   "Účtenka je prázdná. Ťukni na položku nebo zadej částku.": "The receipt is empty. Tap an item or enter an amount.",
   "Částku můžeš psát i na klávesnici, Enter účtuje.": "You can type the amount on your keyboard, Enter charges.",
   "Naskenuj a zaplať přes Lightning": "Scan and pay with Lightning",
-
-  // BtcMapPanel.tsx — the "Mapa" tab (btcmap.org businesses).
-  "Hledám polohu…": "Finding your location…",
-  "Jste tady": "You are here",
-  "Karta": "Card",
-  "Lightning": "Lightning",
-  "Najít podniky poblíž": "Find nearby businesses",
-  "Nepodařilo se načíst podniky. Zkontroluj připojení.": "Couldn't load businesses. Check your connection.",
-  "Poloha není v tomto prohlížeči podporována.": "Location isn't supported in this browser.",
-  "Polohu se nepodařilo zjistit. Zkontroluj oprávnění v prohlížeči.":
-    "Couldn't determine your location. Check the browser's permission.",
-  "Přibližte mapu pro zobrazení podniků.": "Zoom in on the map to see businesses.",
-  "Skrýt podniky": "Hide businesses",
-  "V okolí nejsou v datech žádné podniky.": "There are no businesses in the data nearby.",
-  "Zobrazit na btcmap.org": "View on btcmap.org",
 
   // Left over from the Bitrefill section; its own strings are archived in
   // archive/bitrefill/i18n.snippet.ts.
@@ -1597,10 +1581,6 @@ const DICT: Record<string, string> = {
   "Beta: Utility hub — Point of Sale": "Beta: Utility hub — Point of Sale",
   "Nová Pokladna: zadej cenu, appka vytvoří fakturu a QR kód.":
     "New Point of Sale: enter a price, the app makes an invoice and QR code.",
-  "Beta: Utility hub — mapa bitcoinových podniků (btcmap.org)":
-    "Beta: Utility hub — map of bitcoin businesses (btcmap.org)",
-  "Nová Mapa: bitcoinové podniky poblíž tebe.":
-    "New Map: bitcoin-accepting businesses near you.",
   "Nová adresa: spendrr.app": "New address: spendrr.app",
   "Peněženka má nový název domény: spendrr.app.":
     "The wallet has a new domain name: spendrr.app.",
@@ -2120,7 +2100,6 @@ const DICT: Record<string, string> = {
   "každých {n} měsíců": "every {n} months",
   "Přijmout@@accept": "Accept",
   // Gaps found by tests/i18nCoverage.test.ts.
-  "Přejetím doprava sem otevřeš Utility.": "Swipe right here to open Utility.",
   "Potlačit automatickou obnovu VTXO": "Suppress automatic VTXO refresh",
   "Tenhle odkaz jde zaplatit jen ve Spendrru.": "This link can only be paid in Spendrr.",
   "Platbu přijme a hned pošle dál služba Spendrr. Nemůže ji utratit ani přesměrovat, ale vidí její výši.":

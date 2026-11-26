@@ -44,7 +44,7 @@ import "./PosPanel.css";
 // customer's checkout puts the QR beside the amount rather than under it.
 
 // Module scope, not component state: PosPanel unmounts whenever the merchant
-// switches to Převodník/Mapa or closes the hub, and a half-built receipt
+// switches to Převodník or closes the hub, and a half-built receipt
 // shouldn't vanish with it. The same goes for the sale behind a live
 // invoice: pendingReceive (Dashboard) survives the unmount, but the fiat
 // amount and items it was for did not, so the checkout screen used to show

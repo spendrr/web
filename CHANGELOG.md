@@ -478,10 +478,6 @@ Codename: Bold Badger
 
 - New Point of Sale: enter a price, the app makes an invoice and QR code.
 
-## 2026-09-14: Beta: Utility hub — map of bitcoin businesses (btcmap.org)
-
-- New Map: bitcoin-accepting businesses near you.
-
 ## 2026-09-14: New address: spendrr.app
 
 - The wallet has a new domain name: spendrr.app.

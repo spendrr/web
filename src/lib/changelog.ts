@@ -799,11 +799,6 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     date: "14. 9. 2026",
-    title: "Beta: Utility hub — mapa bitcoinových podniků (btcmap.org)",
-    items: ["Nová Mapa: bitcoinové podniky poblíž tebe."],
-  },
-  {
-    date: "14. 9. 2026",
     title: "Nová adresa: spendrr.app",
     items: [
       "Peněženka má nový název domény: spendrr.app.",

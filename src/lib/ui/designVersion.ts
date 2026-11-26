@@ -4,17 +4,14 @@
 // cluster, boolean switch, and the history list's "chunky card" restyle +
 // palette + heading) has won and ships unconditionally regardless of this
 // flag. The toggle lives on purely as the gate for still-beta features: Zprávy
-// (chat), tap-to-pay and the Utility hub's entire swipe entry point
-// (Dashboard.tsx/UtilityHub.tsx — converter, map, POS). Check
+// (chat) and tap-to-pay. Check
 // getDesignVersion()/useDesignVersion() === "v2" before rendering a
 // beta-gated feature.
 //
 // Stored in localStorage (per-origin, not per-wallet) — a phone reached via
 // a LAN-IP dev origin starts with this off regardless of what's toggled on a
 // desktop session at a different origin (e.g. localhost), even against the
-// same physical wallet vault. That's what made the Utility hub look
-// unreachable on mobile once: the swipe gesture is a silent no-op with this
-// off, not a rendering bug.
+// same physical wallet vault.
 import { useSyncExternalStore } from "react";
 
 export type DesignVersion = "v1" | "v2";

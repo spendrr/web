@@ -52,7 +52,6 @@ import {
   mailboxAuthorizationFreshness,
   mailboxAuthorizationProblem,
 } from "./names";
-import { refreshBtcMapCacheIfStale, handleBtcMapElements, handleBtcMapTile } from "./btcmap";
 import { parseVersion, resolveCommitVersion } from "./backupVersion";
 import { WRITE_TOKEN_RE, checkWriteToken, hashWriteToken } from "./backupAuth";
 import { HEIGHT_TOKEN_RE, hashHeightToken } from "./pushHeight";
@@ -228,16 +227,6 @@ export interface Env {
   // status Worker every 5 minutes (statusReport.ts). Set by
   // scripts/status-keygen.mjs. Unset: no report is sent.
   STATUS_REPORT_KEY?: string;
-  // Utility hub's btcmap.org merchant map (see btcmap.ts). Optional — an
-  // unconfigured/undeployed KV namespace just makes handleBtcMapElements
-  // report 503 rather than throwing, same "missing config degrades
-  // gracefully" posture as the other optional secrets above.
-  BTCMAP_ELEMENTS?: KVNamespace;
-  BTCMAP_ELEMENTS_RATE_LIMITER?: RateLimiter;
-  // MapTiler API key for /api/btcmap/tile/* (see btcmap.ts's own comment on
-  // why tiles are proxied rather than fetched by the client directly).
-  BTCMAP_TILES_API_KEY?: string;
-  BTCMAP_TILE_RATE_LIMITER?: RateLimiter;
   // Tap-to-pay's pairing backend (see bump.ts): a single global Durable
   // Object, not sharded like MAILBOX_WATCHER. No mnemonic and no payment
   // ever reaches it, only the Ark addresses the two phones exchange and the
@@ -403,12 +392,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (url.pathname === "/api/fees/tip") {
     return handleTipBlock(request, env);
-  }
-  if (url.pathname === "/api/btcmap/elements") {
-    return handleBtcMapElements(request, url, env);
-  }
-  if (url.pathname.startsWith("/api/btcmap/tile/")) {
-    return handleBtcMapTile(request, url, env);
   }
   if (request.method === "POST" && url.pathname === "/api/push/subscribe") {
     return handlePushSubscribe(request, env);
@@ -579,10 +562,7 @@ export default {
   // machinery itself is alive, via the dead-man's-switch ping below — it
   // deliberately does NOT try to verify every individual mailbox's health
   // (there's no shared list left to walk, by design), only that Cloudflare
-  // Cron Triggers are still firing at all. Piggybacks the btcmap.org cache
-  // refresh on the same per-minute tick rather than a second cron trigger —
-  // refreshBtcMapCacheIfStale no-ops on its own until 30 minutes have
-  // passed, so this costs nothing on the 29 ticks out of 30 it skips.
+  // Cron Triggers are still firing at all.
   //
   // The status report rides on every STATUS_REPORT_EVERY_MIN-th tick. Not a
   // second cron trigger: one that fires in the same minute as this one is not
@@ -592,7 +572,6 @@ export default {
     const reportDue = new Date(event.scheduledTime).getUTCMinutes() % STATUS_REPORT_EVERY_MIN === 0;
     await Promise.all([
       pingHealthcheck(env),
-      refreshBtcMapCacheIfStale(env),
       refreshSimplePriceIfStale(env),
       refreshHistoryIfStale(env),
       publishPublicHistoryStep(env, event.scheduledTime),
@@ -3284,13 +3263,13 @@ async function handleLnAddrAdmin(request: Request, url: URL, env: Env): Promise<
 
 // Cron sweep: settle/expire pending invoices and watch node health, so
 // nothing depends purely on a wallet actively polling /verify. Runs every
-// minute alongside pingHealthcheck/refreshBtcMapCacheIfStale (see
-// scheduled() above). Never throws — a bad tick just tries again next minute.
+// minute alongside pingHealthcheck (see scheduled()
+// above). Never throws — a bad tick just tries again next minute.
 const LN_IDLE_KEY = new Request("https://ln-sweep.internal/idle");
 const LN_PENDING_SWEEP_AGE_MS = 30_000;
 // Invoices looked at per tick. Each costs one subrequest to the node (plus a
-// DO call when it settles/expires), in the same invocation as pingHealthcheck
-// and the BTC Map refresh; a backlog is worked through over several ticks,
+// DO call when it settles/expires), in the same invocation as pingHealthcheck;
+// a backlog is worked through over several ticks,
 // least recently checked first (LnLedgerCore.listPending).
 const LN_SWEEP_MAX_ITEMS = 20;
 // An unpaid invoice is expired this long after its own BOLT11 expiry, not

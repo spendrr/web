@@ -1,5 +1,5 @@
-/* The hub's own shell. Its three sections bring their own stylesheets
-   (ConverterPanel.css, BtcMapPanel.css, PosPanel.css). */
+/* The hub's own shell. Its two sections bring their own stylesheets
+   (ConverterPanel.css, PosPanel.css). */
 
 .utility-hub-page {
   max-width: 420px;

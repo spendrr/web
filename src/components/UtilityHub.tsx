@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useRef,
   useState,
@@ -11,10 +9,6 @@ import { useT } from "../lib/i18n";
 import type { WalletClient } from "../lib/wallet/bark";
 import type { PendingReceive } from "./Dashboard";
 import type { FiatCurrency } from "../lib/currency";
-// lazy, not a static import — Leaflet (+its CSS) is ~40KB gzip that every
-// other UtilityHub tab (Převodník, POS) would otherwise pay for even though
-// they never touch it. Only fetched once the user actually opens "Mapa".
-const BtcMapPanel = lazy(() => import("./BtcMapPanel"));
 import ConverterPanel from "./ConverterPanel";
 import PosPanel from "./PosPanel";
 import { usePosWideLayout } from "../lib/pos/posLayout";
@@ -29,12 +23,11 @@ import "./UtilityHub.css";
 // visible above a back button — the user's own framing was "this should be
 // a totally separate page, like Settings, not part of the home screen".
 //
-// Three sections, switched via a pill-shaped segmented control: Převodník
-// (sats <-> fiat, ConverterPanel.tsx), btcmap.org ("Mapa", see
-// BtcMapPanel.tsx), and Point of Sale (PosPanel.tsx). The Bitrefill tab
+// Two sections, switched via a pill-shaped segmented control: Převodník
+// (sats <-> fiat, ConverterPanel.tsx) and Point of Sale (PosPanel.tsx). The Bitrefill tab
 // (vouchers + phone top-ups) that used to come first is archived in
 // archive/bitrefill/.
-type UtilityTab = "converter" | "btcmap" | "pos";
+type UtilityTab = "converter" | "pos";
 
 export default function UtilityHub({
   onClose,
@@ -79,11 +72,9 @@ export default function UtilityHub({
   // same direction the panel itself slides away in (Dashboard.css's
   // .utility-hub-overlay isn't --visible => translateX(-100%)), so the
   // motion matches what's on screen. Převodník only, over its whole area
-  // except the amount field (a mouse drag there selects text) — NOT the Mapa
-  // tab, which has its own horizontal drag (Leaflet panning, the
-  // nearby-businesses card row) that a swipe-anywhere gesture would
-  // constantly fight with, and not POS either (its keypad is a dense grid
-  // of tap targets a stray horizontal drag could clip). The tab check
+  // except the amount field (a mouse drag there selects text) — not POS
+  // (its keypad is a dense grid of tap targets a stray horizontal drag
+  // could clip). The tab check
   // happens inside handlePagePointerUp itself (reading current `tab`), not
   // by conditionally attaching the listeners, so switching tabs mid-render
   // never needs to re-wire anything.
@@ -122,6 +113,26 @@ export default function UtilityHub({
     pageSwipeStartRef.current = null;
   }, []);
 
+  // A finger still drifting sideways from the swipe that opened the hub moves
+  // past Chrome's tap slop, and under touch-action: pan-y no pan starts
+  // either, so the tab gets pointerdown and pointerup but no click. A touch
+  // that starts and ends on the same tab switches on pointerup instead
+  // (switching is idempotent, so the click that may follow is harmless).
+  const tabPointerRef = useRef<number | null>(null);
+  const tabTouchProps = (next: UtilityTab) => ({
+    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      tabPointerRef.current = e.pointerType === "mouse" ? null : e.pointerId;
+    },
+    onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      const started = tabPointerRef.current === e.pointerId;
+      tabPointerRef.current = null;
+      if (started && e.currentTarget.contains(document.elementFromPoint(e.clientX, e.clientY))) setTab(next);
+    },
+    onPointerCancel: () => {
+      tabPointerRef.current = null;
+    },
+  });
+
   const tabs = (
     // Same shared .mode-toggle class as the Receive panel's Ark/Lightning/
     // On-chain switch and Settings' Theme/Language/Currency toggles
@@ -135,17 +146,9 @@ export default function UtilityHub({
         aria-selected={tab === "converter"}
         className={tab === "converter" ? "active" : ""}
         onClick={() => setTab("converter")}
+        {...tabTouchProps("converter")}
       >
         {t("Převodník")}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "btcmap"}
-        className={tab === "btcmap" ? "active" : ""}
-        onClick={() => setTab("btcmap")}
-      >
-        {t("Mapa")}
       </button>
       <button
         type="button"
@@ -153,6 +156,7 @@ export default function UtilityHub({
         aria-selected={tab === "pos"}
         className={tab === "pos" ? "active" : ""}
         onClick={() => setTab("pos")}
+        {...tabTouchProps("pos")}
       >
         {t("Pokladna")}
       </button>
@@ -197,11 +201,6 @@ export default function UtilityHub({
       )}
 
       {tab === "converter" && <ConverterPanel rates={rates} currency={currency} />}
-      {tab === "btcmap" && (
-        <Suspense fallback={null}>
-          <BtcMapPanel />
-        </Suspense>
-      )}
       {tab === "pos" && (
         <PosPanel
           wallet={wallet}

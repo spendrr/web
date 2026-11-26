@@ -332,40 +332,6 @@ bucket_name = "spendrr-public-data"
 binding = "APP_RELEASES"
 bucket_name = "spendrr-app-releases"
 
-# Cap on /api/btcmap/elements (see worker/btcmap.ts) — a client only calls
-# this a handful of times per map pan/zoom, not per pin/tile, so this can
-# stay well below PRICE_RATE_LIMITER's budget.
-[[unsafe.bindings]]
-name = "BTCMAP_ELEMENTS_RATE_LIMITER"
-type = "ratelimit"
-namespace_id = "1006"
-simple = { limit = 60, period = 60 }
-
-# Periodic cache of btcmap.org's merchant dataset (see worker/btcmap.ts) —
-# refreshed by the per-minute cron, read by /api/btcmap/elements. One-time
-# manual setup, not run automatically: `npx wrangler kv namespace create
-# BTCMAP_ELEMENTS`, then replace the placeholder id below with the real one
-# it prints. Until that's done, env.BTCMAP_ELEMENTS is undefined and
-# handleBtcMapElements degrades to a 503 rather than throwing.
-[[kv_namespaces]]
-binding = "BTCMAP_ELEMENTS"
-id = "00000000000000000000000000000000"
-
-# Cap on /api/btcmap/tile/* (see worker/btcmap.ts) — far more generous than
-# BTCMAP_ELEMENTS_RATE_LIMITER since a single screenful of map tiles is a few
-# dozen requests, not a handful. Cloudflare's edge cache absorbs most repeat
-# requests before they ever count against this anyway.
-[[unsafe.bindings]]
-name = "BTCMAP_TILE_RATE_LIMITER"
-type = "ratelimit"
-namespace_id = "1007"
-simple = { limit = 600, period = 60 }
-
-# BTCMAP_TILES_API_KEY (a MapTiler key) is a secret, not a binding
-# here — one-time manual setup, not run automatically:
-# `npx wrangler secret put BTCMAP_TILES_API_KEY`. Until that's done,
-# handleBtcMapTile degrades to a 503 rather than throwing.
-
 # No longer drives mailbox checking (each MailboxWatcher Durable Object
 # schedules its own alarm independently) — this trigger now only pings the
 # HEALTHCHECK_PING_URL dead-man's-switch every minute, proving the base

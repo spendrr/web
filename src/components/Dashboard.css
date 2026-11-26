@@ -812,7 +812,7 @@
   transform: translateX(-100%);
   transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-y: auto;
-  /* Mapa is taller than the window and Pokladna exactly fits it, so with
+  /* Pokladna exactly fits the window and Převodník may not, so with
      classic (desktop) scrollbars the whole page shifted sideways when
      switching between them. Always reserve the gutter. */
   scrollbar-gutter: stable;
