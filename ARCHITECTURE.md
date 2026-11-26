@@ -117,6 +117,7 @@ The build must stay reproducible (no timestamps or machine values).
 
 - Verify visual changes in the browser before a mainnet deploy; the desktop pane is not touch verification.
 - Do not trade the design for performance; diagnose with a trace instead.
+- Everything public is English: PR titles and bodies, commit messages, branch names, code comments. Czech belongs only in the app's own UI copy. A Czech UI string may be quoted in a description when it is the thing being named, but never in a title, and the sentence around it stays English.
 - A release plan is one file, `docs/release-<codename>.md`, and only the version on `main` counts: no copies in notes or uncommitted files. Status lives only in its table; the items below hold the spec and a checklist. Edit it only in a docs-only PR, never inside a feature PR, so the plan has one version in flight.
 - Comments explain invariants and non-obvious why, not history. Do not add "used to" narratives; keep incident
   history out of comments.
