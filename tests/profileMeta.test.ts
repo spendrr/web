@@ -19,7 +19,7 @@ describe("profileMeta", () => {
 
   it("uses the address's avatar as the picture when there is one", () => {
     const m = profileMeta("pavel", "https://spendrr.app", { address: "ark1abc", lnAddress: false });
-    expect(m.image).toBe("https://spendrr.app/api/avatar/ark1abc.png");
+    expect(m.image).toBe("https://spendrr.app/api/avatar/ark1abc.png?v=4");
     expect(m.imageSize).toBe(256);
     expect(profileMetaTags(m)).toContain('og:image:width" content="256"');
   });

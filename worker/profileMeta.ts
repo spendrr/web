@@ -38,7 +38,7 @@ export function profileMeta(
       ? `Pošli bitcoin na ${name}@${host} z jakékoli Lightning peněženky. Ve Spendrru stačí @${name}.`
       : `Pošli bitcoin na @${name}. Funguje ve Spendrru i v jiných Ark peněženkách.`,
     url: `${origin}/@${name}`,
-    image: opts.address ? `${origin}/api/avatar/${opts.address}.png` : `${origin}/icon-512.png`,
+    image: opts.address ? `${origin}/api/avatar/${opts.address}.png?v=4` : `${origin}/icon-512.png`,
     imageSize: opts.address ? AVATAR_PNG_SIZE : null,
   };
 }

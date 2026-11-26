@@ -1241,6 +1241,7 @@ const DICT: Record<string, string> = {
   "Dostupnost neověřena": "Availability not checked",
   "Jméno je veřejné. Staré jméno se 30 dní nikomu jinému nepřidělí a platby na něj přestanou fungovat.":
     "The name is public. Your old name won't go to anyone else for 30 days and payments to it will stop working.",
+  "Jméno je veřejné.": "The name is public.",
   "Jméno se nepodařilo načíst. Zkontroluj připojení a zkus to znovu.":
     "Couldn't load your name. Check your connection and try again.",
   "Zatím nemáš jméno": "You don't have a name yet",
@@ -1248,7 +1249,8 @@ const DICT: Record<string, string> = {
     "With a public @name anyone on Spendrr can pay you without needing your address.",
   "Zaregistrovat": "Register",
   "Registruji…": "Registering…",
-  "Vybrat vlastní jméno": "Pick your own name",
+  "Jiný": "Another",
+  "Vlastní jméno": "Custom name",
   "Jméno ukazuje na jinou adresu, než má tahle peněženka. Lidé by ti platili jinam.":
     "The name points to a different address than this wallet has. People would pay you elsewhere.",
   "Opravit adresu": "Fix address",

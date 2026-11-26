@@ -2703,7 +2703,11 @@ async function handleAvatarPng(request: Request, url: URL, env: Env, ctx: Execut
   const address = match ? match[1] : "";
   if (!isAvatarAddress(address)) return new Response("Not found.", { status: 404 });
 
-  const cacheKey = new Request(`${url.origin}/api/avatar/${address}.png`);
+  // ?v=4 is the character engine (avatarFriends.ts) the app shows; the plain URL
+  // keeps the v3 picture it was cached with as immutable. The variant is part of
+  // the cache key.
+  const friends = url.searchParams.get("v") === "4";
+  const cacheKey = new Request(`${url.origin}/api/avatar/${address}.png${friends ? "?v=4" : ""}`);
   const cache = caches.default;
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
@@ -2712,7 +2716,7 @@ async function handleAvatarPng(request: Request, url: URL, env: Env, ctx: Execut
   const { success } = await env.NAME_LOOKUP_RATE_LIMITER.limit({ key: `avatar:${bumpRateLimitKey(ip)}` });
   if (!success) return new Response("Rate limit exceeded.", { status: 429 });
 
-  const png = await avatarPng(address);
+  const png = await avatarPng(address, friends);
   const response = new Response(png, {
     headers: {
       "content-type": "image/png",

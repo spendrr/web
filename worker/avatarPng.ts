@@ -17,6 +17,7 @@
 // handleAvatarPng in index.ts).
 
 import { AVATAR_VIEWBOX, avatarSpec, type AvatarShape } from "../src/lib/names/avatar";
+import { friendSpec } from "../src/lib/names/avatarFriends";
 
 type Rgb = [number, number, number];
 
@@ -359,8 +360,8 @@ function paintShape(c: Canvas, shape: AvatarShape): void {
  * The avatar for `seed`, drawn as the app shows it (a round crop), centred on a
  * square of `outer` with `pad` pixels of margin. Returns packed RGB.
  */
-export function renderAvatarRgb(seed: string, size: number, pad: number, outer: string): Uint8Array {
-  const spec = avatarSpec(seed);
+export function renderAvatarRgb(seed: string, size: number, pad: number, outer: string, friends = false): Uint8Array {
+  const spec = friends ? friendSpec(seed) : avatarSpec(seed);
   const inner = size - 2 * pad;
   const c: Canvas = { size, px: new Float32Array(size * size * 3), scale: inner / AVATAR_VIEWBOX, offset: pad };
 
@@ -474,9 +475,9 @@ export const AVATAR_PNG_SIZE = 256;
 // the same round picture the app shows rather than a square of shapes.
 const AVATAR_PNG_OUTER = "#f2ede4";
 
-export async function avatarPng(address: string): Promise<Uint8Array> {
+export async function avatarPng(address: string, friends = false): Promise<Uint8Array> {
   const size = AVATAR_PNG_SIZE;
-  return encodePng(renderAvatarRgb(address, size, Math.round(size * 0.08), AVATAR_PNG_OUTER), size, size);
+  return encodePng(renderAvatarRgb(address, size, Math.round(size * 0.08), AVATAR_PNG_OUTER, friends), size, size);
 }
 
 // An Ark address as the registry stores it: bech32 charset, "ark1" prefix.

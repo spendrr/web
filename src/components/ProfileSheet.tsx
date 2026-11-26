@@ -4,7 +4,8 @@ import { BooleanSwitch } from "./BooleanSwitch";
 import { Screen, Sheet, useSheetClose } from "./sheet/PaySheet";
 import { ShareLinkResult, useCopyLink } from "./sheet/ShareLink";
 import type { WalletClient } from "../lib/wallet/bark";
-import { NAME_DOMAIN, checkHandle, handleUrl, suggestHandle, type HandleProblem } from "../lib/names/handle";
+import { NAME_DOMAIN, checkHandle, handleUrl, type HandleProblem } from "../lib/names/handle";
+import { FRIEND_BARE_ATTEMPTS, friendHandle } from "../lib/names/friendName";
 import { useT } from "../lib/i18n";
 import { fetchMyName, lookupName, releaseMyName, saveName, setMyLnAddress, type NameError } from "../lib/names/names";
 import { forgetReleasedName, rememberReleasedName, wasReleasedBy } from "../lib/names/releasedNames";
@@ -100,6 +101,10 @@ export default function ProfileSheet({
   onClose: () => void;
 }) {
   const t = useT();
+  // The suggested name reads off the character avatar (friendName.ts).
+  const suggest = friendHandle;
+  // Which of the bare suggestions is on screen; registering starts from it, so the name shown is the one taken.
+  const [suggestN, setSuggestN] = useState(0);
   const { closing, closeThen } = useSheetClose();
   const close = () => closeThen(onClose);
 
@@ -200,7 +205,7 @@ export default function ProfileSheet({
     setBusy(true);
     setMessage(null);
     for (let i = 0; i < SUGGESTION_ATTEMPTS; i++) {
-      const result = await saveName(wallet, suggestHandle(address, i), address);
+      const result = await saveName(wallet, suggest(address, suggestN + i), address);
       if (result.ok) {
         forgetReleasedName(result.name);
         setHasHandle(true);
@@ -381,9 +386,11 @@ export default function ProfileSheet({
                   : null;
     const statusBad =
       currentAvailability === "taken" || currentAvailability === "quarantined";
+    // Someone without a name yet is choosing one, not changing one.
+    const firstName = mine.state !== "registered";
     body = (
       <Screen>
-        <h2 className="sht-title">{t("Změnit jméno")}</h2>
+        <h2 className="sht-title">{firstName ? t("Vlastní jméno") : t("Změnit jméno")}</h2>
         <input
           className="sht-field"
           value={input}
@@ -411,7 +418,9 @@ export default function ProfileSheet({
         )}
         {message && <p className="sht-error">{message}</p>}
         <p className="sht-sub">
-          {t("Jméno je veřejné. Staré jméno se 30 dní nikomu jinému nepřidělí a platby na něj přestanou fungovat.")}
+          {firstName
+            ? t("Jméno je veřejné.")
+            : t("Jméno je veřejné. Staré jméno se 30 dní nikomu jinému nepřidělí a platby na něj přestanou fungovat.")}
         </p>
         <div className="sht-actions">
           <button
@@ -482,37 +491,56 @@ export default function ProfileSheet({
     );
   } else if (mine.state === "none") {
     screenKey = "none";
-    const suggestion = suggestHandle(address);
+    const suggestion = suggest(address, suggestN);
+    const customName = () => {
+      setInput("");
+      setTouched(false);
+      setMessage(null);
+      setAvailability(null);
+      setPhase("edit");
+    };
     body = (
       <Screen>
-        <div className="prf-head">
-          <Avatar seed={avatarSeed} size={88} />
-          <h2 className="sht-title prf-handle">{t("Zatím nemáš jméno")}</h2>
+        <div className="prf-body">
+          <button type="button" className="prf-close" onClick={close} aria-label={t("Zavřít")}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+          <div className="prf-head prf-head-tight">
+            <Avatar seed={avatarSeed} size={96} />
+            <h2 className="sht-title prf-handle">{t("Zatím nemáš jméno")}</h2>
+          </div>
+          <p className="sht-sub">
+            {t("S veřejným @jménem ti kdokoli ve Spendrru pošle platbu, aniž by potřeboval tvoji adresu.")}
+          </p>
+          <div className="prf-suggest">
+            <span className="prf-suggest-name" key={suggestion}>
+              @{suggestion}
+            </span>
+            <button
+              type="button"
+              className="prf-suggest-swap"
+              disabled={busy}
+              aria-label={t("Jiný")}
+              onClick={() => setSuggestN((n) => (n + 1) % FRIEND_BARE_ATTEMPTS)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+                <path d="M3 21v-5h5" />
+                <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+                <path d="M21 3v5h-5" />
+              </svg>
+            </button>
+          </div>
+          {message && <p className="sht-error">{message}</p>}
+          <button type="button" className="primary sht-wide" disabled={busy} onClick={() => void registerSuggestion()}>
+            {busy ? t("Registruji…") : t("Zaregistrovat")}
+          </button>
+          <button type="button" className="sht-link" disabled={busy} onClick={customName}>
+            {t("Vlastní jméno")}
+          </button>
         </div>
-        <p className="sht-sub">
-          {t("S veřejným @jménem ti kdokoli ve Spendrru pošle platbu, aniž by potřeboval tvoji adresu.")}
-        </p>
-        {message && <p className="sht-error">{message}</p>}
-        <button type="button" className="primary sht-wide" disabled={busy} onClick={() => void registerSuggestion()}>
-          {busy ? t("Registruji…") : `${t("Zaregistrovat")} @${suggestion}`}
-        </button>
-        <button
-          type="button"
-          className="secondary sht-wide"
-          disabled={busy}
-          onClick={() => {
-            setInput("");
-            setTouched(false);
-            setMessage(null);
-            setAvailability(null);
-            setPhase("edit");
-          }}
-        >
-          {t("Vybrat vlastní jméno")}
-        </button>
-        <button type="button" className="secondary sht-wide" onClick={close}>
-          {t("Zavřít")}
-        </button>
       </Screen>
     );
   } else {

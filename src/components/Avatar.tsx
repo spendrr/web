@@ -1,5 +1,6 @@
 import { useId, useMemo } from "react";
-import { AVATAR_VIEWBOX, avatarSpec, type AvatarShape } from "../lib/names/avatar";
+import { AVATAR_VIEWBOX, type AvatarShape } from "../lib/names/avatar";
+import { friendSpec } from "../lib/names/avatarFriends";
 
 // Abstract avatar drawn from a seed (see lib/avatar.ts). Purely decorative, so
 // it is hidden from assistive tech: whatever it sits next to (a @handle, an
@@ -65,7 +66,9 @@ export default function Avatar({
   size?: number;
   className?: string;
 }) {
-  const spec = useMemo(() => avatarSpec(seed), [seed]);
+  // The character engine (avatarFriends.ts). The abstract v3 engine stays only
+  // behind the Worker's plain PNG URL, which is cached as immutable.
+  const spec = useMemo(() => friendSpec(seed), [seed]);
   // useId() returns something like ":r3:"; colons are legal in an id but awkward
   // inside url(#...), so they are dropped.
   const gradientId = `av${useId().replace(/:/g, "")}`;

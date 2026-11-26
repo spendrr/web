@@ -16,6 +16,78 @@
   font-size: clamp(17px, 5.6vw, 22px);
 }
 
+/* The suggested name sits under the explanation as a field-like row: the name is what you take, the link swaps it. */
+.prf-suggest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 6px 6px 16px;
+  border-radius: 12px;
+  /* A touch of the theme colour in the sheet surface: follows the theme without the heavy tint of --accent-bg. */
+  background: color-mix(in srgb, var(--accent) var(--prf-tint, 26%), var(--surface));
+}
+
+/* Title and explanation read as one block; the suggestion stands apart below. */
+.prf-head-tight {
+  margin-bottom: -8px;
+}
+
+.prf-suggest {
+  margin-top: 8px;
+}
+
+/* The same tint reads stronger on a dark surface, so dark gets a lower share. */
+:root[data-theme="dark"] .prf-suggest {
+  --prf-tint: 20%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .prf-suggest {
+    --prf-tint: 20%;
+  }
+}
+
+.prf-suggest-name {
+  min-width: 0;
+  font-size: clamp(18px, 5.8vw, 22px);
+  font-weight: 700;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+  animation: sht-rise 0.25s var(--sht-ease) both;
+}
+
+.prf-suggest-swap {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+/* The global button:hover shadow and lift do not belong on a bare icon button. */
+.prf-suggest-swap:hover:not(:disabled),
+.prf-suggest-swap:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.prf-suggest-swap:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.prf-suggest-swap:disabled {
+  opacity: 0.5;
+}
+
 .prf-preview {
   margin: 0;
   padding: 8px 12px;
