@@ -79,6 +79,7 @@ import { fetchBtcRates, formatFiat, satsToFiat } from "../lib/price";
 import { getFiatCurrency, type FiatCurrency } from "../lib/currency";
 import { notifyPayment, PUSH_SUBSCRIPTION_EVENT, refreshPushAuthorization, reportExpiryIfMoved } from "../lib/notifications";
 import { hapticNotify, hapticTap } from "../lib/ui/haptics";
+import { isTillSale } from "../lib/pos/tillSale";
 import { useMotionOn, withViewTransition } from "../lib/ui/motion";
 import { isShakeEnabled, startShakeDetection } from "../lib/ui/shakeToHide";
 import {
@@ -1892,13 +1893,26 @@ export default function Dashboard({
         const paid: PendingReceive = { ...current, status: "paid" };
         pendingReceiveRef.current = paid;
         setPendingReceive(paid);
-        showToast(
-          tf(t("Faktura zaplacena: +{amount} sats"), {
-            amount: current.invoice.amountSats.toLocaleString(localeFor(lang)),
-          }),
-          "success",
-          { title: t("Faktura zaplacena"), amountSats: current.invoice.amountSats, direction: "in" },
-        );
+        // The invoice's payment is announced now, so the Ark watch that starts
+        // when this watch ends must not announce it a second time as "Platba
+        // přijata": move the stored high-water mark past it, but only when it
+        // is the newest unseen incoming movement (older unseen ones stay).
+        const persistedSeen = getPersistedLastSeenMovementId();
+        if (persistedSeen !== null && newestUnseenIncoming(result.history, persistedSeen)?.id === match.id) {
+          setPersistedLastSeenMovementId(match.id);
+        }
+        // The till's own paid screen already says it: no island on top of it.
+        if (isTillSale(current.invoice.paymentHash)) {
+          hapticNotify();
+        } else {
+          showToast(
+            tf(t("Faktura zaplacena: +{amount} sats"), {
+              amount: current.invoice.amountSats.toLocaleString(localeFor(lang)),
+            }),
+            "success",
+            { title: t("Faktura zaplacena"), amountSats: current.invoice.amountSats, direction: "in" },
+          );
+        }
         requestBalanceBump(headlineSats(result.balance));
         return;
       }
@@ -3725,6 +3739,7 @@ export default function Dashboard({
               pendingReceive={pendingReceive}
               onInvoiceCreated={startLightningWatch}
               onCancelLightningWatch={cancelLightningWatch}
+              onInvoiceCopied={() => showToast(t("Faktura zkopírována"), "neutral")}
             />
           </Suspense>
         </div>

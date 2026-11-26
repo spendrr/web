@@ -45,6 +45,7 @@ import {
 } from "../vault/vaultCrypto";
 import { bip39Seed, deriveBackupKeysFromSeed, type BackupKeys } from "../backup/backupCrypto";
 import { deriveChatKeyFromSeed } from "../chat/chatKey";
+import { encodeNsecBytes } from "../chat/nostrBech32";
 import {
   BIO_DECRYPT_FAILED,
   HARD_LIMIT_EXCEEDED,
@@ -168,6 +169,9 @@ export type Request =
   // Money chat (beta): posts the session's chat key into `port`. See
   // sessionChatKey below for what that does and does not protect.
   | { id: number; type: "chatKey"; port: MessagePort }
+  // The chat key as an nsec, for the user to keep or take to another Nostr app. Needs the password (SpendAuth), checked
+  // here as for a send; the main thread only ever gets the finished string. Answered outside the queue like chatKey.
+  | { id: number; type: "chatNsec"; auth?: SpendAuth }
   // The user-set spend limits (beta). Answered outside the queue like chatKey: it touches no WASM. A change that
   // loosens a limit carries a SpendAuth, checked here exactly as for a send.
   | { id: number; type: "limits"; op: { kind: "get" } | { kind: "change"; change: LimitChange; auth?: SpendAuth } }
@@ -978,6 +982,18 @@ function sendChatKey(port: MessagePort): true {
   return true;
 }
 
+// The nsec of the open session's chat key. It cannot move money, but whoever has it writes as this user and reads
+// this user's messages, so it is never handed out without the password, and the bytes stay here (only the string leaves).
+async function exportChatNsec(auth: SpendAuth | undefined): Promise<string> {
+  if (currentWallet === null || sessionChatKey === null) throw new Error(WALLET_NOT_OPEN);
+  await requireSpendAuth(auth);
+  // The session may have closed while the password was being checked.
+  if (currentWallet === null || sessionChatKey === null) throw new Error(WALLET_NOT_OPEN);
+  const nsec = encodeNsecBytes(sessionChatKey);
+  if (nsec === null) throw new Error("bad chat key");
+  return nsec;
+}
+
 export function handleMessage(msg: Request) {
   // The chat key is answered at once, not behind the queue: it touches no
   // wallet and no WASM, only the session's key (set and dropped by queued
@@ -991,6 +1007,14 @@ export function handleMessage(msg: Request) {
     } catch (err) {
       self.postMessage({ id: msg.id, ok: false, error: err instanceof Error ? err.message : String(err) } satisfies Response);
     }
+    return;
+  }
+  if (msg.type === "chatNsec") {
+    self.postMessage({ id: msg.id, started: true } satisfies StartedNotice);
+    exportChatNsec(msg.auth).then(
+      (result) => self.postMessage({ id: msg.id, ok: true, result } satisfies Response),
+      (err) => self.postMessage({ id: msg.id, ok: false, error: err instanceof Error ? err.message : String(err) } satisfies Response),
+    );
     return;
   }
   if (msg.type === "limits") {

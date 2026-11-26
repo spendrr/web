@@ -9,7 +9,7 @@ import { deliverChatKey, type WalletClient } from "../wallet/bark";
 import { checkHandle } from "../names/handle";
 import { parseNostrPubkey } from "./npub";
 import { avatarAddressHash, avatarPictureUrl } from "../names/avatarKey";
-import { ownProfileContent, profileNameFrom } from "./profile";
+import { cleanProfileName, ownProfileContent, profileNameFrom } from "./profile";
 import { fetchMyName, lookupName, publishChatPubkey } from "../names/names";
 import { buildBackup, mergeBackup, parseBackup } from "./chatBackup";
 import { isReadReceiptsOn } from "./chatEnabled";
@@ -76,6 +76,9 @@ export interface Contact {
   // it was last asked for, so a person without one is not asked again at once.
   profileName?: string;
   profileAt?: number;
+  // The user's own name for this person (setContactNickname). Wins over every
+  // other name on screen; synced through the relay backup like the other choices.
+  nickname?: string;
   // When the user's choice about this contact last changed; the backup on the
   // relays merges per contact by it (chatBackup.ts).
   updatedAt?: number;
@@ -273,7 +276,7 @@ function saveMessage(m: StoredMessage): void {
 }
 
 function sameContact(a: Contact, b: Contact): boolean {
-  return a.name === b.name && a.accepted === b.accepted && !!a.blocked === !!b.blocked && !!a.verified === !!b.verified;
+  return a.name === b.name && a.nickname === b.nickname && a.accepted === b.accepted && !!a.blocked === !!b.blocked && !!a.verified === !!b.verified;
 }
 
 // `stamp` marks the contacts whose name or choice changed as edited now; a
@@ -1146,6 +1149,16 @@ export function setContactVerified(peer: string, verified: boolean): void {
   if (!c) return;
   const next: Contact = { ...c, verified };
   if (!verified) delete next.verified;
+  saveContacts({ ...state.contacts, [peer]: next });
+}
+
+export function setContactNickname(peer: string, raw: string): void {
+  const c = state.contacts[peer];
+  if (!c) return;
+  const nickname = cleanProfileName(raw);
+  const next: Contact = { ...c };
+  if (nickname) next.nickname = nickname;
+  else delete next.nickname;
   saveContacts({ ...state.contacts, [peer]: next });
 }
 

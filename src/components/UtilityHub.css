@@ -2,6 +2,11 @@
    (ConverterPanel.css, PosPanel.css). */
 
 .utility-hub-page {
+  /* The app's own scale (1.5px outline, 14px controls), with 16px cards for
+     tiles, rows and forms and 20px for the wide receipt. Round shapes only
+     for icons, keys and badges. */
+  --r-card: 16px;
+  --r-big: 20px;
   max-width: 420px;
   margin: 0 auto;
   padding: 24px 20px 64px;
@@ -28,6 +33,10 @@
    .lock-gesture-area documents for its own gesture). */
 .utility-hub-page--swipeable {
   touch-action: pan-y;
+  /* The swipe is caught by the page itself, so it has to cover the screen,
+     not just the content: below the rows nothing answered it. */
+  min-height: 100dvh;
+  box-sizing: border-box;
 }
 
 .utility-hub-panel {
@@ -47,8 +56,8 @@
   padding: 16px;
   background: var(--surface);
   border: var(--border-w) solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--pop-sm);
+  border-radius: var(--r-card);
+  box-shadow: none;
 }
 
 .utility-hub-card-title {
@@ -60,9 +69,9 @@
 .utility-hub-input {
   width: 100%;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: var(--border-w) solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text-h);
   font: inherit;
   font-size: 14px;
@@ -75,4 +84,41 @@
 
 .utility-hub-submit {
   width: 100%;
+}
+
+
+/* Tabs keep their size from tab to tab: the right slot is always as wide as
+   the pencil, even when it is empty. */
+.utility-hub-header--compact > .utility-hub-header-slot {
+  width: 48px;
+  height: 48px;
+}
+
+.utility-hub-header {
+  transition: opacity 0.2s ease, max-height 0.24s var(--ease-out), margin 0.24s var(--ease-out);
+  max-height: 64px;
+}
+
+/* The customer's checkout: the hub's own chrome fades away and folds up
+   (inert, so nothing in it can be focused behind the QR). */
+.utility-hub-header.utility-hub-header--away {
+  opacity: 0;
+  max-height: 0;
+  margin-top: -20px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Keyboard focus on the tab switch matches the rest of the hub. */
+:root .utility-hub-page .utility-hub-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Fields focus like every other field in the app: the accent offset shadow
+   (App.css input:focus), no extra ring. */
+:root .utility-hub-page .utility-hub-input:focus,
+:root .utility-hub-page .utility-hub-input:focus-visible {
+  outline: none;
+  box-shadow: var(--pop-accent);
 }

@@ -10,6 +10,7 @@ import {
 } from "../lib/wallet/bark";
 import { BooleanSwitch } from "./BooleanSwitch";
 import { SpendLimitsSettings } from "./SpendLimitsSettings";
+import NsecReveal from "./NsecReveal";
 import { CopyRow } from "./dashboard/CopyRow";
 import {
   decryptMnemonic,
@@ -113,6 +114,7 @@ import {
   GiftIcon,
   LockIcon,
   LogIcon,
+  NostrIdentityIcon,
   SeedEyeIcon,
   ShakeIcon,
   ShieldIcon,
@@ -134,6 +136,7 @@ type Section =
   | "onchain-txs"
   | "call-log"
   | "seed"
+  | "nsec"
   | "password"
   | "biometric"
   | "gifts"
@@ -150,6 +153,7 @@ const PARENT: Record<Exclude<Section, "menu">, SectionPage> = {
   password: "security",
   biometric: "security",
   seed: "security",
+  nsec: "security",
   limits: "security",
   vtxos: "wallet",
   "onchain-txs": "wallet",
@@ -272,6 +276,7 @@ export default function Settings({
       {section === "call-log" && <CallLogPage />}
       {section === "gifts" && <SentGiftsList wallet={wallet} encryptionKey={giftEncryptionKey ?? null} />}
       {section === "seed" && <SeedReveal />}
+      {section === "nsec" && <NsecReveal />}
       {section === "password" && <ChangePassword onDone={() => setSection(parentOf("password"))} />}
       {section === "biometric" && <BiometricUnlock />}
       {section === "chat-settings" && <ChatSettingsPage />}
@@ -799,6 +804,7 @@ function NavRow({
 
 function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const t = useT();
+  const chatOn = useChatEnabled();
   const isBeta = useDesignVersion() === "v2";
   // A wallet without a password has nothing to change: the row sets one instead (the same sheet as everywhere else).
   const [passwordless, setPasswordless] = useState(() => loadVault() === null && hasDeviceVault());
@@ -883,6 +889,18 @@ function SecuritySection({ onNavigate }: { onNavigate: (s: Section) => void }) {
           </span>
           <span className="chevron">›</span>
         </button>
+        {chatOn && (
+          <button className="settings-item settings-item--stacked" onClick={() => onNavigate("nsec")}>
+            <span className="settings-lead">
+              <NostrIdentityIcon />
+              <span className="settings-item-text">
+                <span>{t("Nostr klíč (nsec)")}</span>
+                <span className="settings-item-sub">{t("Tajný klíč zpráv")}</span>
+              </span>
+            </span>
+            <span className="chevron">›</span>
+          </button>
+        )}
       </div>
     </div>
   );

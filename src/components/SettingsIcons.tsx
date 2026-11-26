@@ -69,6 +69,16 @@ export function SeedEyeIcon() {
   );
 }
 
+// The person from the Zprávy identity sheet: the nsec is the secret half of that identity.
+export function NostrIdentityIcon() {
+  return (
+    <Icon>
+      <circle cx="12" cy="8.5" r="3.6" />
+      <path d="M5 20c.8-3.8 3.6-5.8 7-5.8s6.2 2 7 5.8" />
+    </Icon>
+  );
+}
+
 export function CoinsIcon() {
   return (
     <Icon>

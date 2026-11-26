@@ -2,6 +2,13 @@
 
 User-visible changes, newest first. "(beta)" marks what is behind the beta switch in Settings.
 
+## 2026-11-26: Messages for everyone
+
+Codename: Eager Egret
+
+- Messages and the new avatars are yours now, no beta needed.
+- Swipe right below your history to open the Converter and the new Till.
+
 ## 2026-11-21: New look
 
 Codename: Daring Dingo

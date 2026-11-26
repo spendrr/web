@@ -57,6 +57,16 @@
   color: var(--text-h);
 }
 
+.cht-title-list {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cht-title-list svg {
+  flex: none;
+  color: color-mix(in srgb, var(--text-h) 35%, var(--text-dim));
+}
+
 .cht-title.is-small {
   font-size: 18px;
   overflow: hidden;
@@ -106,16 +116,6 @@ button.cht-icon-btn {
    with the button. */
 button.cht-icon-btn svg {
   scale: 1.17;
-}
-
-/* A picture drawn from a bare Nostr key: dashed edge, so it never passes for a
-   verified contact's. */
-.cht-avatar-key {
-  display: inline-block;
-  flex: none;
-  border-radius: 50%;
-  outline: 1.5px dashed var(--text-dim);
-  outline-offset: 2px;
 }
 
 .cht-avatar-blank {
@@ -2080,4 +2080,51 @@ button:is(.cht-btc, .cht-send):active:not(:disabled) {
   width: 72px;
   height: 72px;
   stroke-width: 1.8;
+}
+
+/* Own name for a contact: pencil next to the title, then a one-line field. Flat, no hard shadow. */
+/* The pencil sits on the avatar's corner, so a long name never pushes it out of the sheet. */
+.cht-avatar-edit {
+  position: relative;
+  display: inline-block;
+}
+:root .cht-avatar-edit .cht-nick-btn,
+:root .cht-avatar-edit .cht-nick-btn:hover:not(:disabled) {
+  position: absolute;
+  right: -10px;
+  bottom: -4px;
+  width: 30px;
+  height: 30px;
+  background: var(--surface);
+  color: var(--text-h);
+}
+.cht-nick-title {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+:root .cht-nick-btn,
+:root .cht-nick-btn:hover:not(:disabled),
+:root .cht-nick-btn:active:not(:disabled) {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  box-shadow: none;
+  transform: none;
+}
+:root .cht-nick-btn:active:not(:disabled) {
+  opacity: 0.6;
+}
+
+.sht-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }

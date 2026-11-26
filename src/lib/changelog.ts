@@ -77,6 +77,15 @@ export function isBetaChangelogItem(item: ChangelogItem): boolean {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "26. 11. 2026",
+    title: "Zprávy pro všechny",
+    codename: "Eager Egret",
+    items: [
+      "Zprávy a nové avatary máš teď i bez zapnuté bety.",
+      "Přejetím doprava pod historií otevřeš Převodník a novou Pokladnu.",
+    ],
+  },
+  {
     date: "21. 11. 2026",
     title: "Nový vzhled",
     codename: "Daring Dingo",

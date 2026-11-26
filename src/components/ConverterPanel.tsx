@@ -124,8 +124,8 @@ export default function ConverterPanel({
       </div>
       {rates ? (
         <div className="cvt-rows">
-          {rows.map((r, i) => (
-            <div className="cvt-row" key={r.label} style={{ ["--d" as string]: `${0.08 + i * 0.04}s` }}>
+          {rows.map((r) => (
+            <div className="cvt-row" key={r.label}>
               <span className="cvt-row-label">{r.label}</span>
               <span className="cvt-row-value">{r.value}</span>
             </div>

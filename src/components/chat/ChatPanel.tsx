@@ -41,6 +41,7 @@ import {
 import { noteMovements } from "../../lib/chat/arrived";
 import { looksLikeNostrKey } from "../../lib/chat/npub";
 import NostrIdentitySheet, { IdentityGlyph } from "./NostrIdentitySheet";
+import { ChatGlyph } from "./ChatGlyph";
 import { unannouncedSends, type LocalSend } from "../../lib/chat/chatHistory";
 import { chatLastRead, markChatRead } from "../../lib/chat/chatRead";
 import { useReadReceiptsOn } from "../../lib/chat/chatEnabled";
@@ -487,7 +488,10 @@ export default function ChatPanel({
     content = (
       <>
         <header className="cht-head">
-          <h2 className="cht-title">{t("Zprávy")}</h2>
+          <h2 className="cht-title cht-title-list">
+            <ChatGlyph />
+            {t("Zprávy")}
+          </h2>
           {chat.pubkey && (
             <button type="button" className="cht-icon-btn" onClick={() => setIdentityOpen(true)} aria-label={t("Nostr klíč")}>
               <IdentityGlyph />
@@ -499,7 +503,6 @@ export default function ChatPanel({
         </header>
         {identityOpen && chat.pubkey && <NostrIdentitySheet pubkey={chat.pubkey} name={chat.myName} onClose={() => setIdentityOpen(false)} />}
         {chat.status === "error" && <p className="cht-note is-error">{t("Zprávy teď nejdou načíst.")}</p>}
-        {offline && <p className="cht-note">{t("Offline")}</p>}
         {chat.status === "ready" && !chat.myName && (
           <div className="cht-callout">
             <span>{t("Bez @jména ti nikdo nenapíše.")}</span>
@@ -1906,14 +1909,7 @@ export function ChatButton({ onOpen, label }: { onOpen: () => void; label: strin
   ).length;
   return (
     <button className="secondary small icon-btn icon-btn-chat" onClick={onOpen} aria-label={label}>
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <ChatGlyph />
       {unread > 0 && <span className="cht-badge">{unread > 9 ? "9+" : unread}</span>}
     </button>
   );

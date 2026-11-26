@@ -12,6 +12,7 @@ import type { FiatCurrency } from "../lib/currency";
 import ConverterPanel from "./ConverterPanel";
 import PosPanel from "./PosPanel";
 import { usePosWideLayout } from "../lib/pos/posLayout";
+import { swapStage } from "../lib/pos/posSwap";
 import "./UtilityHub.css";
 
 // Entered from the home screen via a right swipe on the lock-gesture-area
@@ -37,6 +38,7 @@ export default function UtilityHub({
   pendingReceive,
   onInvoiceCreated,
   onCancelLightningWatch,
+  onInvoiceCopied,
 }: {
   onClose: () => void;
   wallet: WalletClient;
@@ -49,6 +51,8 @@ export default function UtilityHub({
   pendingReceive: PendingReceive | null;
   onInvoiceCreated: (invoice: LightningInvoice) => void;
   onCancelLightningWatch: () => void;
+  // The till copied the invoice (tap on its QR): the island confirms it.
+  onInvoiceCopied: () => void;
 }) {
   const t = useT();
   const [tab, setTab] = useState<UtilityTab>("converter");
@@ -95,7 +99,8 @@ export default function UtilityHub({
   // since the drag stays within this container.
   const pageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const handlePagePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const inField = e.target instanceof Element && e.target.closest("input") !== null;
+    // Only a mouse drag in the field selects text; a finger there is a swipe.
+    const inField = e.pointerType === "mouse" && e.target instanceof Element && e.target.closest("input") !== null;
     pageSwipeStartRef.current = inField ? null : { x: e.clientX, y: e.clientY };
   }, []);
   const handlePagePointerUp = useCallback(
@@ -162,10 +167,10 @@ export default function UtilityHub({
       </button>
     </div>
   );
-  // A wide Pokladna puts the tabs into the header row between its two
-  // buttons: three stacked rows of navigation cost the till a fifth of the
-  // screen.
-  const tabsInHeader = tab === "pos" && posWide;
+  // One header row everywhere (back, tabs, a right slot), so switching tabs
+  // never moves the tabs. Only a wide Pokladna has its own grid for it.
+  const wideHeader = tab === "pos" && posWide;
+  const compactHeader = !wideHeader;
 
   return (
     <div
@@ -174,31 +179,35 @@ export default function UtilityHub({
       onPointerUp={handlePagePointerUp}
       onPointerCancel={handlePagePointerCancel}
     >
-      {!chromeHidden && (
-        <>
-          <header className={`utility-hub-header${tabsInHeader ? " utility-hub-header--tabs" : ""}`}>
-            <button className="secondary small" onClick={onClose}>
-              {t("Zpět do peněženky")}
+      {/* Stays mounted while the customer's checkout is up and fades away
+          (inert, collapsed) instead of vanishing, so it also fades back. */}
+          <header
+            className={`utility-hub-header utility-hub-header--tabs${compactHeader ? " utility-hub-header--compact" : ""}${chromeHidden ? " utility-hub-header--away" : ""}`}
+            inert={chromeHidden}
+          >
+            <button
+              className="secondary small utility-hub-back-icon"
+              onClick={onClose}
+              aria-label={t("Zpět do peněženky")}
+            >
+              <BackIcon />
             </button>
-            {tabsInHeader && tabs}
+            {tabs}
             {tab === "pos" && !posManaging ? (
               <button
                 type="button"
                 className="secondary small pos-edit-btn"
-                onClick={() => setPosManaging(true)}
+                onClick={() => swapStage(() => setPosManaging(true), "manage")}
                 aria-label={t("Upravit ceník")}
                 title={t("Upravit ceník")}
               >
                 <PencilIcon />
               </button>
             ) : (
-              // Keeps the tabs centred while the editor hides the pencil.
-              tabsInHeader && <span />
+              // Same width as the pencil, so the tabs keep their size from tab to tab.
+              <span className="utility-hub-header-slot" />
             )}
           </header>
-          {!tabsInHeader && tabs}
-        </>
-      )}
 
       {tab === "converter" && <ConverterPanel rates={rates} currency={currency} />}
       {tab === "pos" && (
@@ -209,6 +218,7 @@ export default function UtilityHub({
           pendingReceive={pendingReceive}
           onInvoiceCreated={onInvoiceCreated}
           onCancelLightningWatch={onCancelLightningWatch}
+          onInvoiceCopied={onInvoiceCopied}
           managing={posManaging}
           onManagingChange={setPosManaging}
           onCheckoutChange={setPosCheckout}
@@ -216,6 +226,14 @@ export default function UtilityHub({
         />
       )}
     </div>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

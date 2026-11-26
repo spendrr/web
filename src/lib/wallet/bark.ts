@@ -1099,6 +1099,11 @@ export async function deliverChatKey(port: MessagePort): Promise<void> {
   await request({ type: "chatKey", port }, undefined, [port]);
 }
 
+// The chat key as an nsec string. The worker checks the password in `auth` itself; the main thread gets only the string.
+export async function exportChatNsec(auth: SpendAuth): Promise<string> {
+  return (await request({ type: "chatNsec", auth })) as string;
+}
+
 // The user-set spend limits (beta). Both are answered by the worker; the main thread only displays and asks.
 // A change that loosens a limit needs the password (SpendAuth), checked in the worker.
 export async function getSpendLimits(): Promise<SpendLimitsStatus> {

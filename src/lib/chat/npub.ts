@@ -1,7 +1,8 @@
 // A Nostr public key typed or pasted in the new-conversation field: an `npub1…`
 // (NIP-19, plain bech32), optionally behind `nostr:`, or the 64-hex key itself.
 // Main thread only: it shares the bech32 decoder with the send flow.
-import { BECH32_CHARSET, bech32HrpExpand, bech32Polymod, convertBits } from "../send/bitcoinAddress";
+import { convertBits } from "../send/bitcoinAddress";
+import { encodeNpubBytes } from "./nostrBech32";
 import { bech32Decode } from "../send/destinationCheck";
 import { BECH32_CONST } from "../send/bitcoinAddress";
 import { isPublicKeyHex } from "./nostr";
@@ -30,13 +31,8 @@ export function looksLikeNostrKey(raw: string): boolean {
 }
 
 // The `npub1…` form of a 64-hex public key (NIP-19, plain bech32), or null for
-// anything that is not one. The checksum is bech32, not bech32m.
+// anything that is not one.
 export function encodeNpub(hex: string): string | null {
   if (!/^[0-9a-f]{64}$/i.test(hex)) return null;
-  const bytes = hex.match(/../g)!.map((h) => parseInt(h, 16));
-  const words = convertBits(bytes, 8, 5, true);
-  if (!words) return null;
-  const mod = bech32Polymod([...bech32HrpExpand("npub"), ...words, 0, 0, 0, 0, 0, 0]) ^ BECH32_CONST;
-  const checksum = Array.from({ length: 6 }, (_, i) => (mod >>> (5 * (5 - i))) & 31);
-  return "npub1" + [...words, ...checksum].map((w) => BECH32_CHARSET[w]).join("");
+  return encodeNpubBytes(hex.match(/../g)!.map((h) => parseInt(h, 16)));
 }

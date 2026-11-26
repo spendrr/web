@@ -6,12 +6,13 @@ import {
   acceptContact,
   blockContact,
   removeSchedule,
+  setContactNickname,
   setContactVerified,
   type Contact,
   type Schedule,
   type StoredMessage,
 } from "../../lib/chat/chatClient";
-import { displayName } from "../../lib/chat/contactName";
+import { displayName, originalName } from "../../lib/chat/contactName";
 import { safetyCode } from "../../lib/chat/safety";
 import { contactPayments } from "../../lib/chat/chatHistory";
 import { describeIntervalT } from "../../lib/chat/messages";
@@ -22,16 +23,10 @@ import { Screen, Sheet, useSheetClose } from "../sheet/PaySheet";
 const RECENT_PAYMENTS = 4;
 
 // The same picture the @name shows everywhere else (its address is the seed).
-// A contact known only by key gets one drawn from the key, with a dashed edge:
-// the picture is not proof of anything, and nobody can make one that looks
-// like a verified contact's.
+// A contact known only by key gets one drawn from the key; the seed differs
+// from any address, so nobody can make one that looks like a verified contact's.
 export function ContactAvatar({ contact, pubkey, size }: { contact: Contact | undefined; pubkey: string; size: number }) {
-  if (contact?.address) return <Avatar seed={contact.address} size={size} />;
-  return (
-    <span className="cht-avatar-key" style={{ width: size, height: size }} aria-hidden="true">
-      <Avatar seed={`nostr:${pubkey}`} size={size} />
-    </span>
-  );
+  return <Avatar seed={contact?.address ?? `nostr:${pubkey}`} size={size} />;
 }
 
 export function VerifiedMark({ label }: { label: string }) {
@@ -77,6 +72,13 @@ export default function ContactSheet({
   const num = (n: number) => n.toLocaleString(locale);
   const day = (unix: number) => new Date(unix * 1000).toLocaleDateString(locale, { day: "numeric", month: "numeric" });
   const name = displayName(contact, peer);
+  const original = originalName(contact, peer);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const saveNickname = () => {
+    setContactNickname(peer, draft);
+    setEditing(false);
+  };
   const [showCode, setShowCode] = useState(false);
   const [code, setCode] = useState<string[] | null>(null);
   useEffect(() => {
@@ -90,15 +92,69 @@ export default function ContactSheet({
     };
   }, [showCode, me, peer]);
 
+  if (editing) {
+    return (
+      <Sheet closing={closing} onBackdrop={close} screenKey="nickname">
+        <Screen>
+          <h2 className="sht-title">{t("Přejmenovat")}</h2>
+          <form
+            className="sht-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveNickname();
+            }}
+          >
+            <input
+              className="sht-field"
+              value={draft}
+              maxLength={32}
+              autoFocus
+              placeholder={original ?? displayName({ ...contact, nickname: undefined } as Contact, peer)}
+              aria-label={t("Jméno")}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <div className="sht-actions">
+              <button type="button" className="secondary" onClick={() => setEditing(false)}>
+                {t("Zrušit")}
+              </button>
+              <button type="submit" className="primary">
+                {t("Uložit")}
+              </button>
+            </div>
+          </form>
+        </Screen>
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet closing={closing} onBackdrop={close} screenKey="contact">
       <Screen>
         <div className="cht-profile-head">
-          <ContactAvatar contact={contact} pubkey={peer} size={72} />
-          <h2 className="sht-title">
+          <span className="cht-avatar-edit">
+            <ContactAvatar contact={contact} pubkey={peer} size={72} />
+            {contact && (
+              <button
+                type="button"
+                className="cht-nick-btn"
+                aria-label={t("Změnit jméno")}
+                onClick={() => {
+                  setDraft(contact.nickname ?? "");
+                  setEditing(true);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z" />
+                  <path d="M14.5 7.5l3 3" />
+                </svg>
+              </button>
+            )}
+          </span>
+          <h2 className="sht-title cht-nick-title">
             {name}
             {contact?.verified && <VerifiedMark label={t("Ověřeno")} />}
           </h2>
+          {original && <p className="sht-sub">{original}</p>}
           {(pay.sent > 0 || pay.received > 0) && (
             <p className="sht-sub cht-num">
               {tf(t("Poslal jsi {sent} · Dostal jsi {received} sats"), { sent: num(pay.sent), received: num(pay.received) })}

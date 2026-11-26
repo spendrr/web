@@ -331,6 +331,20 @@ describe("chat backup", () => {
     expect(merged.contacts[pk("a")].verified).toBe(true);
   });
 
+  it("carries the user's own name for a contact through a backup, cleaned", () => {
+    const built = buildBackup([{ pubkey: pk("a"), accepted: true, nickname: "Mamka", updatedAt: 4 }], [], 0);
+    const parsed = parseBackup(JSON.stringify(built));
+    expect(parsed?.contacts[0].nickname).toBe("Mamka");
+    expect(mergeBackup({}, [], 0, parsed as ChatBackup).contacts[pk("a")].nickname).toBe("Mamka");
+    const dirty = parseBackup(JSON.stringify({ ...built, contacts: [{ ...built.contacts[0], nickname: "@~ Táta\u202e" }] }));
+    expect(dirty?.contacts[0].nickname).toBe("Táta");
+    const cleared = mergeBackup({ [pk("a")]: { pubkey: pk("a"), accepted: true, nickname: "Mamka", updatedAt: 1 } }, [], 0, {
+      ...base,
+      contacts: [{ pubkey: pk("a"), accepted: true, updatedAt: 5 }],
+    });
+    expect(cleared.contacts[pk("a")].nickname).toBeUndefined();
+  });
+
   it("takes the newer schedule list as a whole", () => {
     const s = { id: "s", peer: pk("a"), kind: "send" as const, sats: 1, every: { unit: "day" as const, n: 1 }, nextDue: 1 };
     expect(mergeBackup({}, [], 0, { ...base, schedules: [s], schedulesAt: 3 }).schedules).toEqual([s]);

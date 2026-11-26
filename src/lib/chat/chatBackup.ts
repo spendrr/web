@@ -9,6 +9,7 @@
 // verifyClaimedName).
 import { checkHandle } from "../names/handle";
 import { isInterval, type Interval } from "./messages";
+import { cleanProfileName } from "./profile";
 
 // Shape only: the backup is signed by our own key, and the worker checks a
 // recipient key properly before anything is sent to it.
@@ -22,6 +23,7 @@ export interface BackupContact {
   accepted: boolean;
   blocked?: boolean;
   verified?: boolean;
+  nickname?: string;
   updatedAt: number;
 }
 
@@ -58,6 +60,7 @@ function parseContact(raw: unknown): BackupContact | null {
   const r = raw as Record<string, unknown>;
   if (!isPublicKeyHex(r.pubkey) || typeof r.accepted !== "boolean" || !isTime(r.updatedAt)) return null;
   const name = typeof r.name === "string" && checkHandle(r.name).ok ? r.name : undefined;
+  const nickname = typeof r.nickname === "string" ? cleanProfileName(r.nickname) : undefined;
   return {
     pubkey: r.pubkey,
     accepted: r.accepted,
@@ -65,6 +68,7 @@ function parseContact(raw: unknown): BackupContact | null {
     ...(name ? { name } : {}),
     ...(r.blocked === true ? { blocked: true } : {}),
     ...(r.verified === true ? { verified: true } : {}),
+    ...(nickname ? { nickname } : {}),
   };
 }
 
@@ -108,6 +112,7 @@ export function buildBackup(
     ...(c.name ? { name: c.name } : {}),
     ...(c.blocked ? { blocked: true } : {}),
     ...(c.verified ? { verified: true } : {}),
+    ...(c.nickname ? { nickname: c.nickname } : {}),
   });
   const accepted = contacts.filter((c) => c.accepted && !c.blocked).map(keep);
   let blocked = contacts
@@ -163,11 +168,13 @@ export function mergeBackup(
       name: r.name,
       blocked: r.blocked,
       verified: r.verified,
+      nickname: r.nickname,
       address: sameName ? l?.address : undefined,
     };
     if (!next.name) delete next.name;
     if (!next.blocked) delete next.blocked;
     if (!next.verified) delete next.verified;
+    if (!next.nickname) delete next.nickname;
     if (!next.address) delete next.address;
     contacts[r.pubkey] = next;
     if (next.name && !next.address && next.accepted) needsAddress.push({ pubkey: r.pubkey, name: next.name });

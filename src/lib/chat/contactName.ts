@@ -1,9 +1,24 @@
 import type { Contact } from "./chatClient";
+import { encodeNpub } from "./npub";
 
-// A verified @name, else the name from their Nostr profile behind a "~" (it is
-// theirs to write, so it is never shown like a Spendrr name), else the key.
+// What other Nostr apps show for a bare key: the start and end of its npub.
+export function shortNpub(pubkey: string): string {
+  const npub = encodeNpub(pubkey);
+  return npub === null ? `${pubkey.slice(0, 8)}\u2026` : `${npub.slice(0, 10)}\u2026${npub.slice(-4)}`;
+}
+
+// The user's own name for them, else the verified @name, else the name from
+// their Nostr profile (theirs to write, so it never carries an @), else the short npub.
 export function displayName(c: Contact | undefined, pubkey: string): string {
+  if (c?.nickname) return c.nickname;
   if (c?.name) return `@${c.name}`;
-  if (c?.profileName) return `~${c.profileName}`;
-  return `${pubkey.slice(0, 8)}\u2026`;
+  if (c?.profileName) return c.profileName;
+  return shortNpub(pubkey);
+}
+
+// What sits under a nickname in the profile: who they are otherwise.
+export function originalName(c: Contact | undefined, pubkey: string): string | undefined {
+  if (!c?.nickname) return undefined;
+  if (c.name) return `@${c.name}`;
+  return c.profileName ?? shortNpub(pubkey);
 }

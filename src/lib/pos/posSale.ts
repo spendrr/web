@@ -33,6 +33,25 @@ export const EMPTY_DRAFT: PosDraft = { cart: {}, custom: [], entry: "" };
 // large is a fat finger, not a sale.
 const ENTRY_MAX_INT_DIGITS = 7;
 
+// Ceilings for the rest of the sale: a price in the list, how many of one
+// item, and the whole total in the till's currency.
+export const MAX_PRICE = 9_999_999;
+export const MAX_QTY = 999;
+export const MAX_SALE_TOTAL = 99_999_999;
+
+// A price typed in the price list editor, in `currency`: digits with one
+// "." or "," and no more decimals than the currency has (CZK none, so the
+// receipt never shows a rounded number that differs from what is charged).
+// Spaces are ignored. null for anything else ("1e3", "0x10", "-5", "0").
+export function parsePrice(text: string, currency: FiatCurrency): number | null {
+  const digits = fractionDigits(currency);
+  const clean = text.replace(/\s/g, "");
+  const pattern = digits === 0 ? /^\d{1,7}$/ : new RegExp(`^\\d{1,7}([.,]\\d{1,${digits}})?$`);
+  if (!pattern.test(clean)) return null;
+  const value = Number(clean.replace(",", "."));
+  return value > 0 && value <= MAX_PRICE ? value : null;
+}
+
 export function fractionDigits(currency: FiatCurrency): number {
   return currency === "czk" ? 0 : 2;
 }
@@ -40,9 +59,8 @@ export function fractionDigits(currency: FiatCurrency): number {
 // Keypad input. `entry` is a plain "1250" / "12.5" string, "." as the
 // separator whatever the display locale. CZK takes no decimals at all
 // (formatFiat rounds it to whole crowns, so a typed "12.50" would have been
-// shown as "13 Kč" on the receipt); its keypad puts "C" (clear the whole
-// sale, PosPanel) in the comma's place. "00" is still understood here: a
-// CZK keypad used to have it there.
+// shown as "13 Kč" on the receipt); its keypad puts "C" (clear the typed
+// amount, PosPanel) in the comma's place. "00" is still understood here.
 export function applyKey(entry: string, key: string, currency: FiatCurrency): string {
   if (key === "back") return entry.slice(0, -1);
   const dot = entry.indexOf(".");
@@ -144,21 +162,34 @@ export function totalSats(total: number | null, currency: FiatCurrency, rates: R
 }
 
 // Shown to the payer by their wallet as the invoice description, so they
-// can see what they are paying for. Kept short: it lives in the bolt11
+// can see what they are paying for. Price list items only: typed amounts say
+// nothing the total does not, and a list of bare numbers reads as noise.
+// Empty when the sale has no items. Kept short: it lives in the bolt11
 // string, and a longer one makes a denser QR.
 export const DESCRIPTION_MAX = 80;
 
-export function saleDescription(lines: ReceiptLine[], formatAmount: (amount: number, currency: FiatCurrency) => string): string {
-  const parts = lines.map((line) =>
-    line.customId ? formatAmount(line.amount, line.currency) : line.qty > 1 ? `${line.label} ×${line.qty}` : line.label,
-  );
+// At most `maxUnits` UTF-16 units (what DESCRIPTION_MAX counts), cut on a code
+// point so an emoji is never split into a lone surrogate.
+function cutByCodePoint(text: string, maxUnits: number): string {
+  let out = "";
+  for (const ch of text) {
+    if (out.length + ch.length > maxUnits) break;
+    out += ch;
+  }
+  return out;
+}
+
+export function saleDescription(lines: ReceiptLine[]): string {
+  const parts = lines
+    .filter((line) => !line.customId)
+    .map((line) => (line.qty > 1 ? `${line.label} ×${line.qty}` : line.label));
   let out = "";
   for (let i = 0; i < parts.length; i++) {
     const next = out ? `${out}, ${parts[i]}` : parts[i];
     if (next.length > DESCRIPTION_MAX) {
       const rest = parts.length - i;
       const suffix = ` +${rest}`;
-      return out ? out + suffix : parts[i].slice(0, DESCRIPTION_MAX - 1) + "…";
+      return out ? out + suffix : cutByCodePoint(parts[i], DESCRIPTION_MAX - 1) + "…";
     }
     out = next;
   }

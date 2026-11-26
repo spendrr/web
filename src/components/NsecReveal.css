@@ -1,0 +1,57 @@
+/* Same calm look as the limits page: flat card with a hairline edge, no hard shadow, ink for text. */
+.nsec-card {
+  --nsec-edge: color-mix(in srgb, var(--border) 66%, var(--surface));
+  overflow: hidden;
+  border: 1px solid var(--nsec-edge);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.nsec-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.nsec-note svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--accent);
+}
+/* The error uses the same flat note on its own. */
+.nsec-note.is-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--surface));
+  border-radius: 16px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.nsec-note.is-error svg {
+  color: var(--danger);
+}
+.nsec-key {
+  margin: 0;
+  padding: 16px;
+  border-top: 1px solid var(--nsec-edge);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-h);
+  word-break: break-all;
+  user-select: all;
+}
+/* Flat like the limits page: the global button hover/active adds a hard offset shadow and a shift. */
+:root .nsec-copy,
+:root .nsec-copy:not(.icon-btn):hover:not(:disabled),
+:root .nsec-copy:not(.icon-btn):active:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+:root .nsec-copy:not(.icon-btn):active:not(:disabled) {
+  opacity: 0.75;
+}

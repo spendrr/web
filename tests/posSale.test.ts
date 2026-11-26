@@ -10,10 +10,12 @@ import {
   saleTotal,
   totalSats,
   DESCRIPTION_MAX,
+  MAX_PRICE,
+  parsePrice,
   type PosDraft,
 } from "../src/lib/pos/posSale";
 import { loadPosItems, type PosItem } from "../src/lib/pos/posItems";
-import { fiatToSats, formatFiat } from "../src/lib/price";
+import { fiatToSats } from "../src/lib/price";
 
 const rates = { czk: 2_400_000, eur: 95_000, usd: 110_000 };
 const items: PosItem[] = [
@@ -124,10 +126,22 @@ describe("formatEntry", () => {
 });
 
 describe("saleDescription", () => {
-  it("lists items with quantities and custom amounts", () => {
+  it("lists items with quantities and leaves typed amounts out", () => {
     const draft: PosDraft = { cart: { a: 2, b: 1 }, custom: [{ id: "x", amount: 26, currency: "czk" }], entry: "" };
-    const text = saleDescription(receiptLines(draft, items, "czk", rates, "Částka"), formatFiat);
-    expect(text).toBe(`Espresso ×2, Cappuccino, ${formatFiat(26, "czk")}`);
+    const text = saleDescription(receiptLines(draft, items, "czk", rates, "Částka"));
+    expect(text).toBe("Espresso ×2, Cappuccino");
+  });
+
+  it("is empty for typed amounts only", () => {
+    const draft: PosDraft = { cart: {}, custom: [{ id: "x", amount: 26, currency: "czk" }, { id: "y", amount: 40, currency: "czk" }], entry: "" };
+    expect(saleDescription(receiptLines(draft, items, "czk", rates, "Částka"))).toBe("");
+  });
+
+  it("cuts a long first name by code point, never inside an emoji", () => {
+    const long = [{ id: "e", name: "\u{1F600}".repeat(90), price: 1, currency: "czk" as const }];
+    const text = saleDescription(receiptLines({ cart: { e: 1 }, custom: [], entry: "" }, long, "czk", rates, "Částka"));
+    expect(Array.from(text).every((ch) => ch === "\u{1F600}" || ch === "\u2026")).toBe(true);
+    expect(text.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
   });
 
   it("never exceeds the cap", () => {
@@ -135,10 +149,29 @@ describe("saleDescription", () => {
       fc.property(fc.array(fc.string({ minLength: 1, maxLength: 60 }), { minLength: 1, maxLength: 12 }), (names) => {
         const many = names.map((name, i) => ({ id: String(i), name, price: 1, currency: "czk" as const }));
         const cart = Object.fromEntries(many.map((it) => [it.id, 1]));
-        const text = saleDescription(receiptLines({ cart, custom: [], entry: "" }, many, "czk", rates, "Částka"), formatFiat);
+        const text = saleDescription(receiptLines({ cart, custom: [], entry: "" }, many, "czk", rates, "Částka"));
         expect(text.length).toBeLessThanOrEqual(DESCRIPTION_MAX + 4);
       }),
     );
+  });
+});
+
+describe("parsePrice", () => {
+  it("accepts plain prices in the currency's precision", () => {
+    expect(parsePrice("55", "czk")).toBe(55);
+    expect(parsePrice(" 1 250 ", "czk")).toBe(1250);
+    expect(parsePrice("12,5", "eur")).toBe(12.5);
+    expect(parsePrice("0.99", "usd")).toBe(0.99);
+  });
+
+  it("rejects exponents, hex, signs, zero, too many decimals and huge values", () => {
+    for (const bad of ["1e3", "0x10", "-5", "+5", "0", "0,00", "", "abc", "1.2.3", "1,5,5", "Infinity", "12345678"]) {
+      expect(parsePrice(bad, "eur")).toBeNull();
+    }
+    expect(parsePrice("12,5", "czk")).toBeNull();
+    expect(parsePrice("1,234", "eur")).toBeNull();
+    expect(parsePrice(String(MAX_PRICE), "czk")).toBe(MAX_PRICE);
+    expect(parsePrice(String(MAX_PRICE + 1), "czk")).toBeNull();
   });
 });
 

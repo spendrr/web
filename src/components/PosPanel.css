@@ -37,12 +37,12 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 22px 0 18px;
+  padding: 24px 0 14px;
   text-align: center;
 }
 
 .pos-total-amount {
-  font-size: 48px;
+  font-size: 56px;
   font-weight: 800;
   line-height: 1.1;
   color: var(--text-h);
@@ -52,55 +52,103 @@
 
 .pos-total-sats {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
-/* A quiet text link under the total, not another bordered bar: the total
-   is the only thing on this screen that should shout. */
-.pos-receipt-toggle {
-  margin-top: 2px;
-  padding: 4px 10px;
+/* The till's secondary grey: a step darker than the app's --text-dim, which
+   is too faint for figures the customer reads (sats, tip amounts) and made
+   the live C key look disabled. Disabled controls keep --text-dim. */
+:root {
+  --pos-dim: color-mix(in srgb, var(--text-dim) 80%, var(--text-h));
+}
+
+/* View switch: separate light chips, not a second pill switch under the
+   page tabs. Every chip keeps its width whether picked or not (same border,
+   same weight), and Účtenka is last, so its count never moves another chip. */
+.pos-chips {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.pos-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  gap: 6px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   background: transparent;
-  color: var(--text-dim);
-  border: none;
-  border-radius: 8px;
+  color: var(--text);
+  border: var(--border-w) solid color-mix(in srgb, var(--border) 35%, transparent);
+  border-radius: 999px;
   box-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.pos-receipt-toggle:hover:not(:disabled),
-.pos-receipt-toggle:active:not(:disabled) {
+.pos-chip svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.pos-chip:hover:not(:disabled),
+.pos-chip:active:not(:disabled) {
   transform: none;
   box-shadow: none;
 }
 
-.pos-receipt-toggle-action {
-  color: var(--accent);
-  font-weight: 700;
+.pos-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Smaller than the page-level tab switch above it (same .mode-toggle, so
-   the same sliding thumb): a view switch inside the till, not navigation.
-   Padding and gap stay at .mode-toggle's 4px, which the thumb's width and
-   offset maths (design-v2.css) assume. Doubled class to beat Dashboard.css's
-   width: 100%. */
-.mode-toggle.pos-mode {
-  width: 196px;
-  align-self: center;
-  margin-bottom: 0;
-  border-radius: 12px;
-  border-width: 2px;
+:root .pos-chip.pos-chip--on {
+  background: var(--text-h);
+  border-color: var(--text-h);
+  color: var(--bg);
 }
 
-.mode-toggle.pos-mode button {
-  padding: 5px 8px;
-  font-size: 12.5px;
-  border-radius: 8px;
+/* Where icons, labels and the count do not all fit (a narrower phone, a
+   longer language, a two-digit count), the icons go and the labels stay
+   whole. PosPanel measures it: CSS cannot tell when a label is cut. */
+.pos-chips--compact {
+  gap: 6px;
 }
 
-.mode-toggle.pos-mode::before {
-  border-radius: 8px;
+.pos-chips--compact .pos-chip {
+  padding: 0 11px;
+}
+
+.pos-chips--compact .pos-chip svg {
+  display: none;
+}
+
+.pos-chip-count {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-chip--on .pos-chip-count {
+  background: var(--bg);
+  color: var(--text-h);
 }
 
 /* Square icon button in UtilityHub's header, same height as the "Zpět do
@@ -152,65 +200,82 @@
 .pos-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  /* The quantity badge sits at top:-8px/right:-8px, outside its tile, and
-     the tiles keep the app's generic button hover lift / press shift, so
-     the scroll box needs room on those sides or it clips them. */
-  padding: 10px 10px 4px 2px;
+  gap: 10px;
+  padding: 2px 0 4px;
 }
 
-/* Deliberately no :hover/:active override: the tiles keep App.css's
-   generic button lift on hover and press-in on tap, which is the feedback
-   the till has always had when ringing something up. */
+/* Deliberately no :hover/:active lift: a till tile is tapped dozens of
+   times a shift and the lift sticks on touch screens. Press feedback is a
+   small scale instead. */
 .pos-tile {
   position: relative;
-  padding: 12px;
+  min-height: 88px;
+  padding: 16px 16px 14px;
   background: var(--surface);
   color: var(--text-h);
-  border: 2.5px solid var(--border);
-  border-radius: 14px;
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-card);
   box-shadow: none;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   align-items: flex-start;
-  gap: 2px;
+  gap: 14px;
   text-align: left;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.pos-tile:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.pos-tile:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
 }
 
 .pos-tile--active {
+  background: var(--accent-bg);
   border-color: var(--accent);
 }
 
 .pos-tile-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.2;
   color: var(--text-h);
   overflow-wrap: anywhere;
 }
 
 .pos-tile-price {
-  font-size: 13px;
-  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Display only: taking a piece off happens on the receipt, with a real
-   button (this used to be a tap target nested inside the tile's button). */
+.pos-tile--active .pos-tile-price {
+  color: var(--text-h);
+}
+
+/* Display only: taking a piece off happens on the receipt. Inside the tile,
+   so nothing sticks out and gets clipped by the scroll box. */
 .pos-tile-qty {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  bottom: 10px;
+  right: 10px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 12px;
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--border);
 }
 
 .pos-entry {
@@ -233,7 +298,7 @@
 
 .pos-entry-currency {
   font-size: 18px;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
 .pos-entry-add {
@@ -250,21 +315,23 @@
   grid-template-rows: repeat(4, minmax(40px, 68px));
   align-content: end;
   gap: 8px;
+  /* The last row must not read as one more row of the Účtovat button. */
+  margin-bottom: 12px;
 }
 
 .pos-key {
   padding: 0;
-  font-size: 22px;
-  font-weight: 700;
-  background: var(--surface);
+  font-size: 34px;
+  font-weight: 600;
+  background: transparent;
   color: var(--text-h);
-  border: var(--border-w) solid var(--border);
+  border: var(--border-w) solid transparent;
   border-radius: 14px;
   box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.08s ease;
+  transition: transform 0.08s ease, background 0.1s ease, border-color 0.1s ease;
 }
 
 /* The generic button:hover lift sticks on touch screens after a tap, which
@@ -275,7 +342,8 @@
 }
 
 .pos-key:active:not(:disabled) {
-  transform: scale(0.95);
+  background: var(--surface-2);
+  transform: scale(0.96);
   box-shadow: none;
 }
 
@@ -283,8 +351,14 @@
   box-shadow: none;
 }
 
+.pos-entry {
+  justify-content: center;
+}
+
 .pos-key-fn {
-  color: var(--accent);
+  background: transparent;
+  border-color: transparent;
+  color: var(--pos-dim);
 }
 
 .pos-key svg {
@@ -292,10 +366,27 @@
   height: 27px;
 }
 
+/* Clear (text) and delete (icon) share one size and one disabled look. */
+.pos-key-fn {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+:root .pos-key.pos-key-fn:disabled {
+  opacity: 0.35;
+}
+
 .pos-receipt {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.pos-receipt-empty {
+  margin: 0;
+  padding: 48px 12px;
+  text-align: center;
+  color: var(--pos-dim);
 }
 
 .pos-receipt-list {
@@ -311,10 +402,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 10px 10px 14px;
+  padding: 10px 10px 10px 16px;
   background: var(--surface);
   border: var(--border-w) solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
 }
 
 .pos-line-text {
@@ -332,7 +423,7 @@
 
 .pos-line-amount {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
 .pos-stepper {
@@ -340,6 +431,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.pos-stepper button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .pos-stepper span {
@@ -352,12 +448,14 @@
 
 .pos-stepper button,
 .pos-line-remove {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
   padding: 0;
   flex: none;
-  border-radius: 12px;
-  background: var(--surface-2);
+  border-radius: 999px;
+  background: transparent;
+  border: var(--border-w) solid var(--border);
   color: var(--text-h);
   font-size: 20px;
   line-height: 1;
@@ -380,9 +478,10 @@
 .pos-charge {
   width: 100%;
   flex: none;
-  padding: 16px 20px;
+  border-radius: 14px;
+  padding: 13px 20px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Small phones (iPhone SE class, 667px): the keypad needs every pixel the
@@ -430,7 +529,7 @@
 }
 
 .pos-checkout-amount {
-  font-size: 44px;
+  font-size: 56px;
   font-weight: 800;
   line-height: 1.1;
   color: var(--text-h);
@@ -440,44 +539,205 @@
 .pos-checkout-sats {
   font-size: 17px;
   font-weight: 700;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
 .pos-checkout-summary {
   max-width: 100%;
-  font-size: 13px;
-  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
 .pos-qr-btn {
-  margin: 8px 0 4px;
-  padding: 12px;
-  width: min(304px, 82vw);
-  background: #fff;
-  border: var(--border-w) solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--pop-sm);
+  margin: 12px 0 4px;
+  padding: 6px;
+  width: min(320px, 84vw);
+  /* The Receive screen's QR card (.qr-wrap in Dashboard.css). */
+  border: 2.5px solid transparent;
+  border-radius: 16px;
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, #e4e4e4, #8a8a8a) border-box;
+  box-shadow: 2px 2px 0 #8a8a8a;
   line-height: 0;
 }
 
 .pos-qr-btn:hover:not(:disabled) {
   transform: none;
-  box-shadow: var(--pop-sm);
 }
 
 .pos-qr-btn svg {
+  display: block;
   width: 100%;
   height: auto;
 }
 
-.pos-waiting {
-  min-height: 26px;
+/* Tip step (TipStep): the checkout's column, with the choices as big tiles
+   the customer can hit without aiming. */
+.pos-tip-choices {
+  width: min(420px, 100%);
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Wide: read from across the counter, like the wide checkout. */
+.pos-tip--wide .pos-tip-choices {
+  width: min(600px, 100%);
+  gap: 14px;
+}
+
+.pos-tip--wide .pos-checkout-lead {
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+
+.pos-tip--wide .pos-checkout-amount {
+  font-size: clamp(64px, 7vw, 96px);
+}
+
+.pos-tip--wide .pos-tip-option {
+  min-height: 120px;
+}
+
+.pos-tip--wide .pos-tip-option.pos-tip-none {
+  min-height: 64px;
+}
+
+.pos-tip--wide .pos-tip-option--other {
+  font-size: 20px;
+}
+
+.pos-tip--wide .pos-tip-pct {
+  font-size: 32px;
+}
+
+.pos-tip--wide .pos-tip-add {
+  font-size: 17px;
+}
+
+/* Four tiles of one kind: the three percentages and "Jiná částka". Two by
+   two on a phone, one row where there is room. "Bez dýška" is the same flat
+   tile, full width under them: an equal choice, not a link to hunt for. */
+.pos-tip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pos-tip--wide .pos-tip-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pos-tip-option {
+  min-height: 88px;
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  color: var(--text-dim);
+  justify-content: center;
+  gap: 6px;
+  background: var(--surface);
+  color: var(--text-h);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: none;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+:root .pos-tip-option:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+:root .pos-tip-option:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+.pos-tip-option.sending {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.pos-tip-pct {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-tip-add {
   font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-tip-option--other {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.pos-tip-option.pos-tip-none {
+  min-height: 56px;
+  width: 100%;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+
+.pos-tip-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pos-tip-custom .utility-hub-input {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.pos-tip-custom .pos-charge {
+  margin-top: 0;
+}
+
+.pos-checkout-tip {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editor: the item form, and under it the tip switch (one line and a hint). */
+.pos-manage-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.utility-hub-card.pos-manage-tips {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pos-manage-tips-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.pos-manage-tips-hint {
+  font-size: 13px;
+  color: var(--pos-dim);
 }
 
 .pos-checkout > button.small {
@@ -523,39 +783,8 @@
   }
 }
 
-.pos-clock {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  color: var(--accent);
-}
-
-/* Two independent speeds, slower than a real clock's, so the face reads as
-   idle waiting rather than a busy spinner. Rotates around the face's exact
-   center; transform-box is pinned because the default for an SVG child
-   varies by browser and would spin the hand around its own box. */
-.pos-clock-hand {
-  transform-box: view-box;
-  transform-origin: 12px 13px;
-  animation: pos-clock-spin linear infinite;
-}
-
-.pos-clock-hand--minute {
-  animation-duration: 6s;
-}
-
-.pos-clock-hand--hour {
-  animation-duration: 13s;
-}
-
-@keyframes pos-clock-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .pos-clock-hand,
   .pos-paid-mark {
     animation: none;
   }
@@ -568,7 +797,8 @@
   min-height: 0;
   overflow-y: auto;
   /* Room for the buttons' offset shadows, which the scroll box would clip. */
-  padding: 0 3px 3px 0;
+  padding: 0;
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -614,7 +844,7 @@
   padding: 6px 8px 6px 6px;
   background: var(--surface);
   border: var(--border-w) solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
 }
 
 .pos-manage-row--editing {
@@ -650,18 +880,20 @@
 }
 
 .pos-manage-price {
-  color: var(--text-dim);
+  color: var(--pos-dim);
   font-size: 13px;
   font-weight: 500;
 }
 
 .pos-manage-delete {
+  position: relative;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border-radius: 999px;
-  background: var(--surface-2);
+  background: transparent;
+  border: var(--border-w) solid var(--border);
   color: var(--text-h);
   font-size: 20px;
   line-height: 1;
@@ -673,6 +905,19 @@
 
 .pos-manage-delete:hover:not(:disabled) {
   transform: none;
+  box-shadow: none;
+}
+
+/* Second tap confirms: same height as the cross, a flat red outline pill
+   (no fill, no offset shadow), so the row does not change look or height. */
+:root .pos-manage-delete.pos-manage-delete--confirm {
+  width: auto;
+  padding: 0 14px;
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 700;
   box-shadow: none;
 }
 
@@ -734,13 +979,18 @@
   gap: 16px;
 }
 
-.pos--wide .mode-toggle.pos-mode {
-  width: 240px;
+.pos--wide .pos-chips {
   align-self: auto;
+  flex: none;
+}
+
+.pos--wide .pos-main-head {
+  justify-content: flex-start;
+  gap: 20px;
 }
 
 .pos--wide .pos-grid {
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   align-content: start;
   gap: 12px;
 }
@@ -749,7 +999,6 @@
   min-height: 100px;
   padding: 16px;
   justify-content: space-between;
-  border-radius: 16px;
 }
 
 .pos--wide .pos-tile-name {
@@ -793,21 +1042,6 @@
   font-size: 26px;
 }
 
-/* Only where there is a real keyboard to type on. */
-.pos-kbd-hint {
-  display: none;
-  margin: 0;
-  text-align: right;
-  font-size: 12.5px;
-  color: var(--text-dim);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pos-kbd-hint {
-    display: block;
-  }
-}
-
 .pos-side {
   flex: none;
   width: clamp(340px, 36%, 420px);
@@ -818,8 +1052,7 @@
   padding: 18px 20px 20px;
   background: var(--surface);
   border: var(--border-w) solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--pop-sm);
+  border-radius: var(--r-big);
 }
 
 .pos-side-head {
@@ -844,8 +1077,8 @@
   height: 24px;
   padding: 0 7px;
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--text-h);
+  color: var(--bg);
   font-size: 13px;
   font-weight: 800;
   display: flex;
@@ -867,13 +1100,14 @@
   margin: auto 0;
   padding: 0 12px;
   text-align: center;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
 /* Receipt lines, not cards: dashed rules between them on the panel's own
    surface. */
 .pos-side .pos-receipt-list {
   gap: 0;
+  --pos-line-gap: 0px;
 }
 
 .pos-side .pos-line {
@@ -901,6 +1135,7 @@
 .pos-side .pos-line-remove {
   width: 34px;
   height: 34px;
+  min-height: 0;
 }
 
 .pos-side .pos-stepper span {
@@ -944,7 +1179,7 @@
 .pos-total-label {
   font-size: 16px;
   font-weight: 700;
-  color: var(--text-dim);
+  color: var(--pos-dim);
 }
 
 .pos-total--side .pos-total-amount {
@@ -959,22 +1194,10 @@
 }
 
 .pos-checkout-info {
-  max-width: 440px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
   text-align: left;
-}
-
-.pos-checkout-lead {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.pos-checkout--wide .pos-checkout-amount {
-  font-size: 64px;
 }
 
 .pos-checkout--wide .pos-checkout-sats {
@@ -985,16 +1208,11 @@
   font-size: 15px;
 }
 
-.pos-checkout--wide .pos-waiting {
-  margin-top: 16px;
-  font-size: 16px;
-}
-
 .pos-checkout--wide .pos-qr-btn {
   flex: none;
   width: min(460px, 64vh);
   margin: 0;
-  padding: 18px;
+  padding: 12px;
 }
 
 .pos-checkout--paid.pos-checkout--wide {
@@ -1035,7 +1253,7 @@
   grid-column: 1 / -1;
 }
 
-.pos-manage--wide .pos-manage-form {
+.pos-manage--wide > .pos-manage-side {
   grid-column: 1;
   grid-row: 2;
   position: sticky;
@@ -1052,4 +1270,911 @@
 .pos-manage--wide .pos-manage-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.pos-tile--active .pos-tile-name {
+  padding-right: 26px;
+}
+
+/* ---- Keypad hero: the typed amount is the one number on screen ---- */
+
+.pos-hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.pos-hero-amount {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.pos-hero-currency {
+  font-size: 32px;
+  color: var(--pos-dim);
+}
+
+.pos-hero-sub {
+  min-height: 20px;
+  line-height: 20px;
+  font-size: 14px;
+  color: var(--pos-dim);
+}
+
+.pos-hero-add {
+  margin-top: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--text-h);
+  border: var(--border-w) solid var(--border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.pos--wide .pos-hero {
+  flex: none;
+  padding: 0 0 20px;
+}
+
+/* ---- One header row on a phone: back, page tabs, price list ---- */
+
+.utility-hub-header.utility-hub-header--compact {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.utility-hub-header--compact > .mode-toggle {
+  width: 100%;
+}
+
+.utility-hub-header--compact > .mode-toggle button {
+  padding-inline: 4px;
+  font-size: 13px;
+}
+
+.utility-hub-back-icon.utility-hub-back-icon {
+  align-self: stretch;
+  aspect-ratio: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.utility-hub-back-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Icon buttons in the header: the home screen's look (rounded square, the
+   tab switch's outline, no offset shadow), as tall as the tab switch beside them. */
+:root .utility-hub-header > button.small.pos-edit-btn.pos-edit-btn:not(.icon-btn),
+:root .utility-hub-header > button.small.utility-hub-back-icon.utility-hub-back-icon:not(.icon-btn) {
+  align-self: center;
+  width: 48px;
+  height: 48px;
+  aspect-ratio: auto;
+  border-radius: 14px;
+  border: var(--border-w) solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  box-shadow: none;
+}
+
+:root .utility-hub-header > .pos-edit-btn.pos-edit-btn:hover:not(:disabled),
+:root .utility-hub-header > .pos-edit-btn.pos-edit-btn:active:not(:disabled),
+:root .utility-hub-header > .utility-hub-back-icon.utility-hub-back-icon:hover:not(:disabled),
+:root .utility-hub-header > .utility-hub-back-icon.utility-hub-back-icon:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---- Small buttons: the app's own look, only a little shorter ---- */
+
+:root .pos .secondary.small:not(.pos-edit-btn),
+:root .pos-checkout button.secondary.small,
+:root .pos-checkout button.danger.small,
+:root .pos-manage-header .secondary.small {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 14px;
+}
+
+:root .pos-checkout button.danger.small {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ---- Transitions: only under the app's motion switch ---- */
+
+@keyframes pos-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pos-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Panel swaps (checkout in/out, price list) run as a View
+   Transition (posSwap.ts): the stage element is named only while it runs,
+   the old one fades up and out and is gone before the new one rises in
+   (their layouts differ, so any overlap shows the old UI under the new). */
+:root[data-motion="on"][data-pos-vt] :is(.pos, .pos-checkout, .pos-manage) {
+  view-transition-name: pos-stage;
+}
+
+/* The checkout takes the hub's header along: it fades as its own layer (no
+   layout transition while the swap runs), so the stage never follows a
+   moving header. The editor keeps the header: only the pencil slot fades,
+   back and tabs stand still. */
+:root[data-motion="on"][data-pos-vt="checkout"] .utility-hub-header,
+:root[data-motion="on"][data-pos-vt="manage"] .utility-hub-header > :is(.pos-edit-btn, .utility-hub-header-slot) {
+  view-transition-name: pos-header;
+  transition: none;
+}
+
+/* Groups stay at the old stage's box until it has faded (100ms), then jump
+   to the new one's, so the old UI is never moved or stretched on its way out.
+   Snapshots keep their own proportions: a group that changes size (the
+   header folding away, the till becoming the checkout) must not stretch them. */
+:root[data-pos-vt]::view-transition-old(pos-stage),
+:root[data-pos-vt]::view-transition-new(pos-stage),
+:root[data-pos-vt]::view-transition-old(pos-header),
+:root[data-pos-vt]::view-transition-new(pos-header) {
+  width: 100%;
+  height: auto;
+}
+
+:root[data-pos-vt]::view-transition-group(pos-header) {
+  animation-duration: 1ms;
+  animation-delay: 100ms;
+  animation-fill-mode: both;
+}
+
+:root[data-pos-vt]::view-transition-old(pos-header) {
+  animation: 100ms ease-out both pos-fade-out;
+}
+
+:root[data-pos-vt]::view-transition-new(pos-header) {
+  animation: 200ms ease-out 100ms both pos-fade-in;
+}
+
+@keyframes pos-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pos-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+:root[data-pos-vt]::view-transition-group(pos-stage) {
+  animation-duration: 1ms;
+  animation-delay: 100ms;
+  animation-fill-mode: both;
+}
+
+/* Only the stage moves. The rest of the page (header, chips) must not
+   crossfade with it: the app-wide 360ms root fade would ghost them. */
+:root[data-pos-vt]::view-transition-old(root),
+:root[data-pos-vt]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root[data-pos-vt]::view-transition-old(root) {
+  display: none;
+}
+
+:root[data-pos-vt]::view-transition-old(pos-stage) {
+  animation: 100ms ease-out both pos-stage-out;
+}
+
+:root[data-pos-vt]::view-transition-new(pos-stage) {
+  animation: 260ms var(--ease-out) 100ms both pos-view-in;
+}
+
+@keyframes pos-stage-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pos-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Opening the Pokladna tab (or any other fresh mount outside a stage swap,
+   such as a browser without View Transitions) rises the whole panel in at
+   once, like the converter's rows: the chips alone rising over a price list
+   that just appeared read as a glitch. */
+:root[data-motion="on"] :is(.pos, .pos-checkout, .pos-manage) {
+  animation: pos-view-in 240ms var(--ease-out) backwards;
+}
+
+/* A view chip rises the new body in (keyed, so it remounts) as a plain
+   animation: the chips stay tappable while it runs. */
+:root[data-motion="on"] .pos-body {
+  animation: pos-view-in 240ms var(--ease-out) backwards;
+}
+
+/* Things that appear inside a stage: backwards fill, so nothing keeps an
+   animated transform once it has finished. */
+:root[data-motion="on"] .pos-line {
+  animation: pos-line-in 200ms var(--ease-out) backwards;
+}
+
+:root[data-motion="on"] .pos-edit-btn {
+  animation: pos-view-in 200ms var(--ease-out) backwards;
+}
+
+:root[data-motion="on"] .pos-tile-qty,
+:root[data-motion="on"] .pos-chip-count {
+  animation: pos-pop 220ms var(--ease-spring) backwards;
+}
+
+.pos-hero-add {
+  transition: opacity 0.15s ease;
+}
+
+:root .pos-hero-add:disabled,
+:root .pos-hero-add.pos-hero-add--idle {
+  box-shadow: none;
+  transform: none;
+}
+
+:root .pos-hero-add.pos-hero-add--idle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- Charge button states: enabled is the primary fill, disabled an empty outline ---- */
+
+:root .pos-charge:disabled {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border-soft);
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* ---- Keyboard focus: the app's ring on every control in the till ---- */
+
+:root :is(
+    .pos-tile,
+    .pos-key,
+    .pos-charge,
+    .pos-qr-btn,
+    .pos-stepper button,
+    .pos-line-remove,
+    .pos-hero-add,
+    .pos-manage-row-text,
+    .pos-manage-delete,
+    .pos .secondary.small,
+    .pos-checkout button.small
+  ):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Inside a pill the ring sits just inside it, or the pill would clip it. */
+:root :is(.pos-chip, .utility-hub-header .mode-toggle button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+/* No offset shadow or lift on hover/press for anything in the till except
+   the primary action: the app-wide button:hover rule would put it back. */
+:root :is(
+    .pos-hero-add,
+    .pos-chip,
+    .pos-key,
+    .pos-tile,
+    .pos-qr-btn,
+    .pos-stepper button,
+    .pos-line-remove,
+    .pos-manage-row-text,
+    .pos-manage-delete
+  ):is(:hover, :active):not(:disabled) {
+  box-shadow: none;
+}
+
+:root :is(
+    .pos-hero-add,
+    .pos-chip,
+    .pos-key,
+    .pos-qr-btn,
+    .pos-stepper button,
+    .pos-line-remove,
+    .pos-manage-row-text,
+    .pos-manage-delete
+  ):hover:not(:disabled) {
+  transform: none;
+}
+
+.pos-line-remove svg,
+.pos-manage-delete svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Status block: the cancel link. Centred on a phone, at the foot of the text
+   column on a wide checkout. */
+.pos-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.pos-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Wide: a two-column grid whose text column is as tall as the QR card. */
+.pos-checkout--wide .pos-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: clamp(40px, 7vw, 112px);
+  width: min(1120px, 100%);
+}
+
+.pos-checkout--wide .pos-checkout-info {
+  max-width: none;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+/* The amount is what the customer checks first, so the instruction stays a
+   step below it. */
+.pos-checkout--wide .pos-checkout-lead {
+  margin: 0;
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.pos-checkout--wide .pos-figures {
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pos-checkout--wide .pos-checkout-amount {
+  font-size: clamp(64px, 7vw, 96px);
+}
+
+/* The quiet link's own padding would indent its text past the column's edge. */
+:root .pos-checkout--wide .pos-status button.small {
+  margin-left: -12px;
+}
+
+.pos-checkout--wide .pos-status {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+/* Cancel payment: a quiet text link, not a button. It is the merchant's
+   action on the customer's screen, so it must not compete with the amount
+   and the QR. Two taps still, the second one red. */
+:root .pos-checkout .pos-status button.small {
+  height: auto;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:root .pos-checkout .pos-status button.danger.small {
+  color: var(--danger);
+  border: none;
+}
+
+/* Removed line: fades and slides out, then folds its height away so the
+   lines below glide up instead of jumping (PosPanel.tsx drops it after
+   LINE_LEAVE_MS, the length of this animation). */
+@keyframes pos-line-out {
+  0% {
+    opacity: 1;
+    transform: none;
+    min-height: var(--pos-line-h, 56px);
+    max-height: var(--pos-line-h, 96px);
+  }
+  /* The row holds its measured height while it fades, then folds (min and
+     max height together, so neither the lines' 56px floor nor a guessed
+     ceiling holds it back), easing out: an ease-in-out over this short leg
+     crowds the whole height change into a frame or two. */
+  45% {
+    opacity: 0;
+    transform: translateX(10px);
+    min-height: var(--pos-line-h, 56px);
+    max-height: var(--pos-line-h, 96px);
+    animation-timing-function: var(--ease-out);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(10px);
+    min-height: 0;
+    max-height: 0;
+    margin-bottom: calc(var(--pos-line-gap, 8px) * -1);
+    padding-block: 0;
+    border-width: 0;
+  }
+}
+
+:root[data-motion="on"] .pos-line--leaving {
+  overflow: hidden;
+  animation: pos-line-out 260ms var(--ease-in-out, ease-in-out) both;
+  pointer-events: none;
+}
+
+/* Paid: the disc pops, then the check draws itself, then the figures rise. */
+:root[data-motion="on"] .pos-paid-check {
+  stroke-dasharray: 1;
+  animation: pos-paid-draw 280ms var(--ease-out) 220ms backwards;
+}
+
+@keyframes pos-paid-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+:root[data-motion="on"] .pos-checkout--paid :is(.pos-paid-title, .pos-checkout-amount, .pos-checkout-sats, .pos-charge) {
+  animation: pos-view-in 260ms var(--ease-out) 260ms backwards;
+}
+
+/* ---- Consistency pass ---- */
+
+/* Unclassed buttons get design-v2's global 48px height and 14px radius at a
+   higher specificity than the plain class rules above, so the round steppers
+   restate their size at :root specificity. */
+:root .pos-stepper button,
+:root .pos-line-remove {
+  min-height: 0;
+  height: 44px;
+  border-radius: 999px;
+}
+
+:root .pos-side .pos-stepper button,
+:root .pos-side .pos-line-remove {
+  height: 34px;
+}
+
+/* "Vymazat účtenku" is a quiet action like "Zrušit platbu", not a third
+   outlined pill competing with the view switch. */
+:root .pos .secondary.small.pos-clear {
+  min-height: 44px;
+  height: auto;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+
+/* The scroll boxes clip focus rings (2px outline at 3px offset) on the first
+   row and the left edge. Padding inside, the same amount of negative margin
+   outside, so nothing moves. */
+.pos-body--catalog,
+.pos-body--receipt,
+.pos-body--keypad,
+.pos-manage {
+  padding: 6px;
+  margin: -6px;
+}
+
+/* ---- Paid: the button where "Účtovat" was ---- */
+
+.pos-paid-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pos-checkout--paid:not(.pos-checkout--wide) {
+  justify-content: flex-end;
+}
+
+.pos-checkout--paid:not(.pos-checkout--wide) > .pos-paid-body {
+  flex: 1;
+  justify-content: center;
+}
+
+.pos-checkout--paid:not(.pos-checkout--wide) > .pos-charge {
+  margin-top: 0;
+}
+
+/* ---- Landscape phone (about 390px tall) ----
+   Too short for the stacked layout (the keypad and "Účtovat" ended up below
+   the fold) and too short for the wide one, so: the work area on the left
+   (price list, keypad or receipt, scrolling on its own), the view switch,
+   the typed amount and "Účtovat" in a column on the right. The keypad view
+   dissolves its wrapper so the amount can sit in that column. */
+@media (orientation: landscape) and (max-height: 480px) and (max-width: 1100px) {
+  .utility-hub-page.utility-hub-page--pos {
+    height: 100dvh;
+    min-height: 0;
+    max-width: 920px;
+    padding: 10px max(20px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px))
+      max(20px, env(safe-area-inset-left, 0px));
+    gap: 8px;
+  }
+
+  .pos {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 16px;
+    row-gap: 8px;
+  }
+
+  /* Tighter chips without icons: three labels and a count must fit in the
+     280px column without an ellipsis. */
+  .pos > .pos-chips {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .pos-chip {
+    padding: 0 10px;
+    gap: 5px;
+  }
+
+  .pos-chip svg {
+    display: none;
+  }
+
+  .pos > .pos-body {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+
+  .pos > .pos-charge {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  /* The tabs stay phone-sized, centred on the wider page. */
+  :root .utility-hub-header.utility-hub-header--compact {
+    grid-template-columns: 1fr 280px 1fr;
+  }
+
+  .utility-hub-header--compact > .utility-hub-back-icon {
+    justify-self: start;
+  }
+
+  .utility-hub-header--compact > :last-child {
+    justify-self: end;
+  }
+
+  .pos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .pos-tile {
+    min-height: 76px;
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .pos > .pos-body--keypad {
+    display: contents;
+  }
+
+  /* A box-less wrapper has nothing to animate: the keypad and the amount
+     rise in instead. */
+  :root[data-motion="on"] :where(.pos > .pos-body--keypad) > :is(.pos-keypad, .pos-hero) {
+    animation: pos-view-in 240ms var(--ease-out) backwards;
+  }
+
+  .pos > .pos-body--keypad > .pos-hero {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 0;
+  }
+
+  .pos > .pos-body--keypad > .pos-keypad {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    margin-bottom: 0;
+    grid-template-rows: repeat(4, minmax(40px, 1fr));
+    align-content: stretch;
+    gap: 4px;
+  }
+
+  .pos-hero-amount {
+    font-size: 44px;
+  }
+
+  .pos-hero-currency {
+    font-size: 26px;
+  }
+
+  .pos-checkout--paid:not(.pos-checkout--wide) .pos-paid-mark {
+    width: 72px;
+    height: 72px;
+  }
+
+  /* Too short to pin the button to the bottom: centred, as wide as the
+     "Účtovat" column. */
+  .pos-checkout--paid:not(.pos-checkout--wide) {
+    justify-content: center;
+  }
+
+  .pos-checkout--paid:not(.pos-checkout--wide) > .pos-paid-body {
+    flex: none;
+  }
+
+  .pos-checkout--paid:not(.pos-checkout--wide) > .pos-charge {
+    max-width: 280px;
+    margin-top: 6px;
+  }
+
+  /* Price list editor: the form stays put on the left, the list scrolls. */
+  .pos-manage:not(.pos-manage--wide) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 16px;
+    row-gap: 8px;
+  }
+
+  .pos-manage:not(.pos-manage--wide) > .pos-manage-header {
+    grid-column: 1 / -1;
+  }
+
+  /* Not sticky: the form and the tip switch together are taller than a
+     landscape phone, and a pinned column would never show the switch. */
+  .pos-manage:not(.pos-manage--wide) > .pos-manage-side {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .pos-manage:not(.pos-manage--wide) > .pos-manage-list {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  /* Checkout: amount and links left, the QR as tall as the screen allows. */
+  .pos-checkout:not(.pos-checkout--wide):not(.pos-checkout--paid) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 1fr auto 1fr;
+    align-items: center;
+    column-gap: 24px;
+    justify-items: center;
+    min-height: 0;
+  }
+
+  .pos-checkout:not(.pos-checkout--wide):not(.pos-checkout--paid) > .pos-checkout-lead {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .pos-checkout:not(.pos-checkout--wide):not(.pos-checkout--paid) > .pos-figures {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .pos-checkout:not(.pos-checkout--wide):not(.pos-checkout--paid) > .pos-qr-btn {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    margin: 0;
+    width: min(320px, calc(100dvh - 40px));
+  }
+
+  .pos-checkout:not(.pos-checkout--wide):not(.pos-checkout--paid) > .pos-status {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: start;
+  }
+
+  /* Tip step: the choices take the QR's place on the right. */
+  .pos-checkout.pos-tip > .pos-tip-choices {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    width: min(440px, 56vw);
+    margin: 0;
+    gap: 8px;
+  }
+
+  .pos-tip-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pos-tip-option {
+    min-height: 68px;
+  }
+
+  .pos-tip-option.pos-tip-none {
+    min-height: 48px;
+  }
+
+  .pos-tip-option--other {
+    font-size: 14px;
+  }
+}
+
+/* The cross is a small circle; the tap area stays 44px. */
+.pos-manage-delete::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+/* Quiet links keep no lift or shadow on hover and press. */
+:root .pos .secondary.small.pos-clear:hover:not(:disabled),
+:root .pos .secondary.small.pos-clear:active:not(:disabled),
+:root .pos-checkout .pos-status button.small:hover:not(:disabled),
+:root .pos-checkout .pos-status button.small:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Narrow phones: the tab labels ("Point of Sale") stay on one line. */
+@media (max-width: 380px) {
+  .utility-hub-page .utility-hub-header .mode-toggle button {
+    padding-inline: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  :root .utility-hub-header.utility-hub-header--compact {
+    gap: 6px;
+  }
+}
+
+/* ---- Row controls: one shape, size and inset ----
+   The steppers, the receipt's remove cross and the editor's delete cross are
+   the same 34px rounded square (the home screen's icon buttons are rounded
+   squares too), 44px to hit, and sit 12px from the row's right edge. */
+:root .pos-stepper button,
+:root .pos-line-remove,
+:root .pos-manage-delete {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  border-radius: 11px;
+}
+
+:root .pos-manage-delete.pos-manage-delete--confirm {
+  width: auto;
+}
+
+:root .pos-stepper button::after,
+:root .pos-line-remove::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.pos-line {
+  min-height: 56px;
+  padding: 10px 12px 10px 16px;
+}
+
+.pos-manage-row {
+  min-height: 56px;
+  padding-right: 12px;
+}
+
+/* Same row height as a receipt line. */
+.pos-manage-row-text {
+  padding-block: 2.5px;
+}
+
+:root .pos-side .pos-line {
+  min-height: 0;
+  padding: 10px 0;
+}
+
+/* Secondary buttons in the till are outline only (Hotovo, Přidat položky,
+   the editor's Zrušit): the offset shadow reads as a second, heavier outline
+   next to the flat tiles, rows and header controls. The primary action of a
+   screen keeps its shadow. */
+:root :is(.pos, .pos-manage) button.secondary,
+:root :is(.pos, .pos-manage) button.secondary:hover:not(:disabled),
+:root :is(.pos, .pos-manage) button.secondary:active:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+
+/* Mount animations of the till's own parts (panel, pencil, receipt lines,
+   badges) would replay on top of a stage swap, and the lines and badges on top
+   of the panel rising in when the tab opens (.pos--fresh): they ran twice and
+   out of step with it. A zero duration (not "none"): removing the override
+   afterwards must not start them again. */
+:root[data-pos-vt] :is(.pos, .pos-checkout, .pos-manage, .pos-body, .pos-keypad, .pos-hero, .pos-edit-btn, .pos-line, .pos-tile-qty, .pos-chip-count),
+:root .pos--fresh :is(.pos-body, .pos-keypad, .pos-hero, .pos-line, .pos-tile-qty, .pos-chip-count, .pos-side-count) {
+  animation-duration: 0s;
+  animation-delay: 0s;
+}
+
+/* Busy: not the greyed-out disabled look. Same as the send sheet's button
+   while it works: the primary fill and ink, with the sheen running. */
+:root .pos-charge.sending:disabled {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+  opacity: 1;
+}
+
+/* ---- Checkout: the instruction ---- */
+
+.pos-checkout-lead {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* The second tap of "Vymazat účtenku" is red, like "Opravdu zrušit platbu?". */
+:root .pos .secondary.small.pos-clear.pos-clear--confirm {
+  color: var(--danger);
 }
