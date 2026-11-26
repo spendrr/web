@@ -3,8 +3,8 @@
 // every v2 refinement (borders/shadows, toggle animations, header button
 // cluster, boolean switch, and the history list's "chunky card" restyle +
 // palette + heading) has won and ships unconditionally regardless of this
-// flag. The toggle lives on purely as the gate for still-beta features: Zprávy
-// (chat) and tap-to-pay. Check
+// flag. The toggle lives on purely as the gate for still-beta features:
+// tap-to-pay. Zprávy (chat) is on for everyone (chatEnabled.ts). Check
 // getDesignVersion()/useDesignVersion() === "v2" before rendering a
 // beta-gated feature.
 //

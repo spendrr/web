@@ -1,4 +1,4 @@
-// Zprávy (beta): conversations with @names, payments and requests as bubbles,
+// Zprávy: conversations with @names, payments and requests as bubbles,
 // one field for text and money. The chat itself (keys, relays, storage) lives
 // in src/lib/chat/; this is only the UI over chatClient's state.
 import {

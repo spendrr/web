@@ -413,9 +413,8 @@ export default function Dashboard({
     void checkRecordSeal();
     return clearRecordSeal;
   }, [wallet]);
-  // Money chat (beta): its own opt-in on top of V2, off by default.
-  const chatEnabled = useChatEnabled();
-  const chatOn = designVersion === "v2" && chatEnabled;
+  // Money chat: on for everyone, the user can switch it off in Settings.
+  const chatOn = useChatEnabled();
   // Motion design (beta, own switch in Settings): see src/lib/ui/motion.ts.
   const motionOn = useMotionOn();
   // Once a week, while this wallet has a @handle, tell the registry the name is
@@ -427,7 +426,7 @@ export default function Dashboard({
     return () => window.clearTimeout(timer);
   }, [wallet]);
 
-  // Money chat (beta): runs for as long as this unlocked session does, so
+  // Money chat: runs for as long as this unlocked session does, so
   // messages arrive while the panel is closed, but only for someone who can be
   // written to (has a @name) or has used Zprávy; everyone else connects on
   // first open. Unmount (lock) stops it and zeroes the key in the chat worker.
@@ -849,7 +848,7 @@ export default function Dashboard({
   // The due payment a tapped reminder notification asked for: Zprávy opens
   // with its pay sheet already up.
   const [chatScheduleId, setChatScheduleId] = useState<string | null>(null);
-  // Payment reminders by push (beta, V2): registers the soonest due one.
+  // Payment reminders by push: registers the soonest due one.
   useEffect(() => {
     if (!chatOn) return;
     return startReminderSync(wallet);

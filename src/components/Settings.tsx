@@ -1015,13 +1015,11 @@ function AppearanceSection({ wallet, onNavigate }: { wallet: WalletClient; onNav
             <BumpPayToggle />
           </div>
         )}
-        {isBeta && (
-          <div className="settings-row settings-row--inline">
-            <div className="settings-row-label">{t("Zprávy (beta)")}</div>
-            <ChatToggle />
-          </div>
-        )}
-        {isBeta && chatOn && (
+        <div className="settings-row settings-row--inline">
+          <div className="settings-row-label">{t("Zprávy")}</div>
+          <ChatToggle />
+        </div>
+        {chatOn && (
           <button className="settings-item" onClick={() => onNavigate("chat-settings")}>
             <span>{t("Nastavení zpráv")}</span>
             <span className="chevron">›</span>
@@ -1369,7 +1367,7 @@ function ChatPushSettings() {
 function ChatToggle() {
   const t = useT();
   const enabled = useChatEnabled();
-  return <BooleanSwitch checked={enabled} onChange={setChatEnabled} label={t("Zprávy (beta)")} />;
+  return <BooleanSwitch checked={enabled} onChange={setChatEnabled} label={t("Zprávy")} />;
 }
 
 // Manual override for App.tsx's 5-minute inactivity auto-lock — see

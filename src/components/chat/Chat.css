@@ -1,4 +1,4 @@
-/* Zprávy (beta). Prefix cht-. Amounts use the app's sans with tabular figures,
+/* Zprávy. Prefix cht-. Amounts use the app's sans with tabular figures,
    never --mono: Space Mono draws a dotted zero. */
 
 .cht-panel {
@@ -92,14 +92,20 @@ button.cht-icon-btn {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   border-radius: 50%;
   border: 1.5px solid var(--border-soft);
   background: transparent;
   color: var(--text-h);
   box-shadow: none;
+}
+
+/* The glyphs keep their own sizes relative to each other; this scales them
+   with the button. */
+button.cht-icon-btn svg {
+  scale: 1.17;
 }
 
 /* A picture drawn from a bare Nostr key: dashed edge, so it never passes for a
@@ -1891,55 +1897,55 @@ button:is(.cht-btc, .cht-send):active:not(:disabled) {
   }
 }
 
-/* ---- Element polish (beta, V2 only): the lighter outline of design-v2.css carried into Zprávy.
+/* ---- Element polish (was beta, V2 only; now for everyone): the lighter outline of design-v2.css carried into Zprávy.
    1.5px on purpose: a fractional width snaps to 1px at 1x density, on phones it renders as written.
    Incoming bubbles rest on the soft border, our own and money cards keep a stronger edge. */
-[data-design-version="v2"] .cht-bubble {
+.cht-panel .cht-bubble {
   border-width: 1.5px;
 }
 
-[data-design-version="v2"] .cht-bubble.is-in {
+.cht-panel .cht-bubble.is-in {
   border-color: var(--border-soft);
 }
 
-[data-design-version="v2"] .cht-bubble.is-out {
+.cht-panel .cht-bubble.is-out {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border-soft));
 }
 
-[data-design-version="v2"] .cht-bubble.is-failed {
+.cht-panel .cht-bubble.is-failed {
   border-color: var(--danger);
 }
 
-[data-design-version="v2"] .cht-money {
+.cht-panel .cht-money {
   box-shadow: 1.5px 1.5px 0 var(--border-soft);
 }
 
-[data-design-version="v2"] .cht-bubble.is-out.cht-money {
+.cht-panel .cht-bubble.is-out.cht-money {
   border-color: var(--accent);
   box-shadow: 1.5px 1.5px 0 var(--border-soft);
 }
 
-[data-design-version="v2"] :is(.cht-field, .cht-input-row, .cht-callout, .cht-menu) {
+.cht-panel :is(.cht-field, .cht-input-row, .cht-callout, .cht-menu) {
   border-width: 1.5px;
 }
 
-[data-design-version="v2"] :is(.cht-field, .cht-input-row) {
+.cht-panel :is(.cht-field, .cht-input-row) {
   border-color: var(--border-soft);
 }
 
 /* Quiet at rest, full outline once focused; the accent offset shadow is dropped. */
-[data-design-version="v2"] :is(.cht-field, .cht-input-row):focus-within {
+.cht-panel :is(.cht-field, .cht-input-row):focus-within {
   border-color: var(--border);
   box-shadow: none;
 }
 
-[data-design-version="v2"] :is(button.cht-btc, button.cht-jump) {
+.cht-panel :is(button.cht-btc, button.cht-jump) {
   border-width: 1.5px;
 }
 
-/* List (beta, V2 only): Žádosti is its own bordered row, not a heading that reads as the label of
+/* List (was beta, V2 only; now for everyone): Žádosti is its own bordered row, not a heading that reads as the label of
    the conversations under it; rows get a press tint and the unread time and count line up. */
-[data-design-version="v2"] button.cht-section {
+.cht-panel button.cht-section {
   margin: 4px 0 8px;
   padding: 11px 14px;
   border: 1.5px solid var(--border-soft);
@@ -1948,87 +1954,87 @@ button:is(.cht-btc, .cht-send):active:not(:disabled) {
   font-weight: 600;
 }
 
-[data-design-version="v2"] button.cht-section:is(:hover, :active):not(:disabled) {
+.cht-panel button.cht-section:is(:hover, :active):not(:disabled) {
   transform: none;
   box-shadow: none;
   background: var(--surface-2);
 }
 
-[data-design-version="v2"] button.cht-section + button.cht-row .cht-row-main::before {
+.cht-panel button.cht-section + button.cht-row .cht-row-main::before {
   display: none;
 }
 
-[data-design-version="v2"] button.cht-row:is(:hover, :active):not(:disabled) {
+.cht-panel button.cht-row:is(:hover, :active):not(:disabled) {
   transform: none;
   box-shadow: none;
   background: var(--surface-2);
 }
 
 /* The last open request leaves a gap before the conversations, with no hairline across it. */
-[data-design-version="v2"] button.cht-row.is-request:not(:has(+ .is-request)) {
+.cht-panel button.cht-row.is-request:not(:has(+ .is-request)) {
   margin-bottom: 10px;
 }
 
-[data-design-version="v2"] button.cht-row.is-request + button.cht-row:not(.is-request) .cht-row-main::before {
+.cht-panel button.cht-row.is-request + button.cht-row:not(.is-request) .cht-row-main::before {
   display: none;
 }
 
-/* Conversation header (beta, V2 only): the banners under it are quiet strips with a gap to the
+/* Conversation header (was beta, V2 only; now for everyone): the banners under it are quiet strips with a gap to the
    header, not offset-shadow cards; their buttons keep the lighter small-button edge. */
-[data-design-version="v2"] .cht-callout {
+.cht-panel .cht-callout {
   margin-top: 4px;
   border-color: var(--border-soft);
   box-shadow: none;
 }
 
-[data-design-version="v2"] .cht-callout button.small {
+.cht-panel .cht-callout button.small {
   min-height: 0;
   border-width: 1.5px;
   box-shadow: 1.5px 1.5px 0 var(--border-soft);
 }
 
-[data-design-version="v2"] .cht-warning {
+.cht-panel .cht-warning {
   margin-top: 4px;
   border-width: 1.5px;
 }
 
-[data-design-version="v2"] .cht-head + .cht-schedules {
+.cht-panel .cht-head + .cht-schedules {
   margin-top: 4px;
 }
 
-/* Pay sheet (beta, V2 only), scoped to Zprávy so the wallet's own sheets keep theirs: the same
+/* Pay sheet (was beta, V2 only; now for everyone), scoped to Zprávy so the wallet's own sheets keep theirs: the same
    1.5px edge as the rest, and the two actions match (the bare secondary one already had the
    lighter edge, the primary one did not). */
-[data-design-version="v2"] .cht-panel .sht-sheet {
+.cht-panel .sht-sheet {
   border-width: 1.5px;
 }
 
-[data-design-version="v2"] .cht-pay-options {
+.cht-panel .cht-pay-options {
   border-width: 1.5px;
   border-color: var(--border-soft);
 }
 
-[data-design-version="v2"] .cht-pay-note + .cht-repeat {
+.cht-panel .cht-pay-note + .cht-repeat {
   border-top-width: 1.5px;
 }
 
-[data-design-version="v2"] .cht-panel .sht-actions button {
+.cht-panel .sht-actions button {
   min-height: 48px;
   border-width: 1.5px;
   box-shadow: 1.5px 1.5px 0 var(--border-soft);
 }
 
-[data-design-version="v2"] .cht-panel .sht-actions button:active:not(:disabled) {
+.cht-panel .sht-actions button:active:not(:disabled) {
   transform: translate(1.5px, 1.5px);
   box-shadow: none;
 }
 
 /* The info dot stays 18px but its touch target is 44px (the .cht-e2e line has room around it). */
-[data-design-version="v2"] button.cht-e2e-info {
+.cht-panel button.cht-e2e-info {
   position: relative;
 }
 
-[data-design-version="v2"] button.cht-e2e-info::after {
+.cht-panel button.cht-e2e-info::after {
   content: "";
   position: absolute;
   inset: -13px;
@@ -2036,41 +2042,41 @@ button:is(.cht-btc, .cht-send):active:not(:disabled) {
 
 /* Retry and the pay button on a request card are the actions people miss with a thumb:
    the retry line gets a taller touch area, the card button a 40px minimum. */
-[data-design-version="v2"] button.cht-retry {
+.cht-panel button.cht-retry {
   position: relative;
 }
 
-[data-design-version="v2"] button.cht-retry::after {
+.cht-panel button.cht-retry::after {
   content: "";
   position: absolute;
   inset: -12px -8px;
 }
 
-[data-design-version="v2"] .cht-money button.cht-money-btn {
+.cht-panel .cht-money button.cht-money-btn {
   min-height: 40px;
   padding-inline: 18px;
 }
 
-/* Encryption sheet (beta, V2 only): the claim reads at full strength, the honest limit under it
+/* Encryption sheet (was beta, V2 only; now for everyone): the claim reads at full strength, the honest limit under it
    stays quiet, and the safety code is one tap away for a contact not yet verified. */
-[data-design-version="v2"] .cht-e2e-lead {
+.cht-panel .cht-e2e-lead {
   color: var(--text-h);
   font-weight: 500;
 }
 
-[data-design-version="v2"] .cht-e2e-limit {
+.cht-panel .cht-e2e-limit {
   color: var(--text);
   font-size: 13.5px;
 }
 
 /* The lock in the encryption sheet stands alone and large, no circle behind it. */
-[data-design-version="v2"] .cht-e2e-mark {
+.cht-panel .cht-e2e-mark {
   width: auto;
   height: auto;
   background: none;
 }
 
-[data-design-version="v2"] .cht-e2e-mark svg {
+.cht-panel .cht-e2e-mark svg {
   width: 72px;
   height: 72px;
   stroke-width: 1.8;

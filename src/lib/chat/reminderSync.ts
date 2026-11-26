@@ -1,10 +1,10 @@
-// Registers the soonest due payment reminder with the push shard (beta, V2),
+// Registers the soonest due payment reminder with the push shard,
 // so a notification "pay @pavel 5 000 sats" arrives while the app is closed
 // (worker/reminder.ts). The text is sealed here and never leaves the device in
 // the clear. One request per change of the soonest reminder, not per schedule
 // and not per app open.
 //
-// Off unless the chat is on (V2), notifications are enabled and this browser has
+// Off unless the chat is on, notifications are enabled and this browser has
 // a push subscription: the shard only has a record to put it on then.
 import type { WalletClient } from "../wallet/bark";
 import { getPushHeightToken, isNotifyEnabled, isPushSupported, NOTIFY_ENABLED_EVENT, PUSH_SUBSCRIPTION_EVENT } from "../notifications";

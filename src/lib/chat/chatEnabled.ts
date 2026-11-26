@@ -1,6 +1,7 @@
-// The money chat's own opt-in, on top of the V2 beta toggle (Settings →
-// "Zprávy (beta)"). Off by default: nothing connects to any relay, no key is
-// requested and no button shows until the user turns it on.
+// The money chat's switch (Settings → Zprávy). On by default for everyone, no
+// beta gate; "0" is the one stored value, written when the user turns it off.
+// Being on does not connect anything by itself: a relay is only contacted for
+// someone who has a @name or has opened Zprávy (Dashboard.tsx).
 import { useSyncExternalStore } from "react";
 
 const KEY = "spendrr-chat-enabled-v1";
@@ -8,16 +9,16 @@ const CHANGE_EVENT = "spendrr-chat-enabled-change";
 
 export function isChatEnabled(): boolean {
   try {
-    return localStorage.getItem(KEY) === "1";
+    return localStorage.getItem(KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
 export function setChatEnabled(enabled: boolean): void {
   try {
-    if (enabled) localStorage.setItem(KEY, "1");
-    else localStorage.removeItem(KEY);
+    if (enabled) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, "0");
   } catch {
     // storage blocked: the switch just does not stick across reloads
   }
@@ -31,24 +32,24 @@ export function useChatEnabled(): boolean {
   }, isChatEnabled);
 }
 
-// Read receipts, also off by default and both ways (as in most messengers):
-// off means this device tells nobody it read their message and shows nobody's
-// "Přečteno" either.
+// Read receipts, on by default and both ways (as in most messengers): off
+// means this device tells nobody it read their message and shows nobody's
+// "Přečteno" either. "0" is the one stored value, written when turned off.
 const RECEIPTS_KEY = "spendrr-chat-read-receipts-v1";
 const RECEIPTS_EVENT = "spendrr-chat-read-receipts-change";
 
 export function isReadReceiptsOn(): boolean {
   try {
-    return localStorage.getItem(RECEIPTS_KEY) === "1";
+    return localStorage.getItem(RECEIPTS_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
 export function setReadReceiptsOn(on: boolean): void {
   try {
-    if (on) localStorage.setItem(RECEIPTS_KEY, "1");
-    else localStorage.removeItem(RECEIPTS_KEY);
+    if (on) localStorage.removeItem(RECEIPTS_KEY);
+    else localStorage.setItem(RECEIPTS_KEY, "0");
   } catch {
     // storage blocked: the switch just does not stick across reloads
   }
