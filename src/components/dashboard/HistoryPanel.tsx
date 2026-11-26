@@ -39,7 +39,7 @@ import {
   HistoryIconRing,
   ConfirmCheckIcon,
 } from "../dashboard/icons";
-import { CopyRow } from "../dashboard/CopyRow";
+import { SheetCopyRow } from "../dashboard/CopyRow";
 
 /* ---------- History ---------- */
 
@@ -929,14 +929,14 @@ function TxDetailModal({
         </div>
       )}
       {sentTo.map((addr, i) => (
-        <CopyRow key={`s${i}`} label={t("Adresa")} value={formatAddressValue(addr)} />
+        <SheetCopyRow key={`s${i}`} label={t("Adresa")} value={formatAddressValue(addr)} />
       ))}
       {receivedOn.map((addr, i) => (
-        <CopyRow key={`r${i}`} label={t("Přijato na")} value={formatAddressValue(addr)} />
+        <SheetCopyRow key={`r${i}`} label={t("Přijato na")} value={formatAddressValue(addr)} />
       ))}
-      {m.paymentHash && <CopyRow label="Payment hash" value={m.paymentHash} />}
-      {m.lightningInvoice && <CopyRow label={t("Faktura")} value={m.lightningInvoice} />}
-      {onchainTxid && <CopyRow label="Txid" value={onchainTxid} />}
+      {m.paymentHash && <SheetCopyRow label="Payment hash" value={m.paymentHash} />}
+      {m.lightningInvoice && <SheetCopyRow label={t("Faktura")} value={m.lightningInvoice} />}
+      {onchainTxid && <SheetCopyRow label="Txid" value={onchainTxid} />}
     </div>
   );
   return (

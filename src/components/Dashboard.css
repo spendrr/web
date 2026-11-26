@@ -3161,3 +3161,35 @@ button.qr-torch-a11y {
     transition: none;
   }
 }
+
+
+/* Copy row in the payment detail: send confirm's row button, but keeping the
+   detail card's own row padding and divider (the shared reset zeroes borders). */
+.sht-sheet .info-row.txd-copy {
+  /* Height of the copied state, so the row does not grow on tap. */
+  min-height: 42.5px;
+  padding: 10px 16px;
+  font-size: 13px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-soft);
+}
+
+.sht-sheet .info-row.txd-copy:last-child {
+  border-bottom: none;
+}
+
+.sht-sheet .info-row.txd-copy code {
+  max-width: none;
+  word-break: normal;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* .confirm-summary .info-row code ties with the send sheet's copied rule on
+   specificity and comes later, so the copied word needs its own win. */
+.sht-sheet .info-row.txd-copy.is-copied code {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--success);
+}

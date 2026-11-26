@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../../lib/i18n";
+import { CopyGlyph } from "../sheet/SendConfirmSheet";
 
 // Long values (invoices, payment hashes, addresses) render as a middle-truncated
 // monospace snippet with a copy button, instead of the raw string breaking across
@@ -31,6 +32,41 @@ export function CopyRow({ label, value }: { label: string; value: string }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// Copy row of the payment detail: the same tap-to-copy row as the address in the
+// send confirm sheet (whole row is the button, glyph at the end, a word in
+// place of the value, and a rejected clipboard write never reads as copied).
+export function SheetCopyRow({ label, value }: { label: string; value: string }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const copied = state === "copied";
+  return (
+    <button
+      type="button"
+      className={`info-row txd-copy sht-send-copy${copied ? " is-copied" : ""}`}
+      aria-label={`${t("Kopírovat")}: ${value}`}
+      onClick={() => {
+        const settle = (next: "copied" | "failed") => {
+          setState(next);
+          window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setState("idle"), 1200);
+        };
+        navigator.clipboard.writeText(value).then(
+          () => settle("copied"),
+          () => settle("failed"),
+        );
+      }}
+    >
+      <span>{label}</span>
+      <span className="sht-send-addr">
+        <code>{state === "idle" ? truncateMiddle(value) : copied ? t("Zkopírováno") : t("Nelze zkopírovat")}</code>
+        <CopyGlyph done={copied} />
+      </span>
+    </button>
   );
 }
 

@@ -471,7 +471,7 @@ function LightningAddress({ value }: { value: string }) {
   );
 }
 
-function CopyGlyph({ done }: { done: boolean }) {
+export function CopyGlyph({ done }: { done: boolean }) {
   return (
     <svg className="sht-send-copyglyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {done ? (
