@@ -1,0 +1,56 @@
+.nid-body .nid-head {
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.nid-sub {
+  margin: 0;
+}
+/* The key as quiet text with a small copy mark: no chip, no border. */
+button.nid-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-dim);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+button.nid-key:hover:not(:disabled),
+button.nid-key:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-h);
+}
+.nid-key-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nid-key-icon {
+  display: flex;
+  flex: none;
+}
+.nid-key-icon svg {
+  width: 15px;
+  height: 15px;
+}
+button.nid-key.is-copied {
+  color: var(--text-h);
+}
+.nid-note {
+  margin: 0;
+  text-align: center;
+}
+.nid-body .nid-done {
+  width: 100%;
+}

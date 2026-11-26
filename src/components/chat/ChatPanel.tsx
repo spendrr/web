@@ -40,6 +40,7 @@ import {
 } from "../../lib/chat/chatClient";
 import { noteMovements } from "../../lib/chat/arrived";
 import { looksLikeNostrKey } from "../../lib/chat/npub";
+import NostrIdentitySheet, { IdentityGlyph } from "./NostrIdentitySheet";
 import { unannouncedSends, type LocalSend } from "../../lib/chat/chatHistory";
 import { chatLastRead, markChatRead } from "../../lib/chat/chatRead";
 import { useReadReceiptsOn } from "../../lib/chat/chatEnabled";
@@ -297,6 +298,7 @@ export default function ChatPanel({
   const chat = useChat();
   const [openMovement, setOpenMovement] = useState<Movement | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const [leaving, setLeaving] = useState<{ url: string; host: string } | null>(null);
 
   const onLink: OnLink = (seg) => {
@@ -486,10 +488,16 @@ export default function ChatPanel({
       <>
         <header className="cht-head">
           <h2 className="cht-title">{t("Zprávy")}</h2>
+          {chat.pubkey && (
+            <button type="button" className="cht-icon-btn" onClick={() => setIdentityOpen(true)} aria-label={t("Nostr klíč")}>
+              <IdentityGlyph />
+            </button>
+          )}
           <button type="button" className="cht-icon-btn" onClick={onClose} aria-label={t("Zavřít")}>
             <CloseGlyph />
           </button>
         </header>
+        {identityOpen && chat.pubkey && <NostrIdentitySheet pubkey={chat.pubkey} name={chat.myName} onClose={() => setIdentityOpen(false)} />}
         {chat.status === "error" && <p className="cht-note is-error">{t("Zprávy teď nejdou načíst.")}</p>}
         {offline && <p className="cht-note">{t("Offline")}</p>}
         {chat.status === "ready" && !chat.myName && (

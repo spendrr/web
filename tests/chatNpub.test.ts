@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { looksLikeNostrKey, parseNostrPubkey } from "../src/lib/chat/npub";
+import { looksLikeNostrKey, parseNostrPubkey, encodeNpub } from "../src/lib/chat/npub";
 
 // NIP-19 test vector (npub of the key in the spec's example).
 const HEX = "7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e";
@@ -27,5 +27,14 @@ describe("looksLikeNostrKey", () => {
     expect(looksLikeNostrKey(HEX)).toBe(true);
     expect(looksLikeNostrKey("petr")).toBe(false);
     expect(looksLikeNostrKey("npubfan")).toBe(false);
+  });
+});
+
+describe("encodeNpub", () => {
+  it("matches the NIP-19 vector", () => expect(encodeNpub(HEX)).toBe(NPUB));
+  it("round-trips through the parser", () => expect(parseNostrPubkey(encodeNpub(HEX) as string)).toBe(HEX));
+  it("refuses anything that is not 64 hex", () => {
+    expect(encodeNpub("abc")).toBeNull();
+    expect(encodeNpub(NPUB)).toBeNull();
   });
 });
