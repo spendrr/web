@@ -2,6 +2,8 @@
 // and then end to end: real key derivation and AES-GCM, real gzip, a fake
 // in-memory server behind the real upload/verify/commit/fetch code in backup.ts.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// The single-request upload (put) is the beta (V2) path; the V1 flow is in tests/backupCompress.v1.test.ts.
+vi.mock("../src/lib/ui/designVersion", () => ({ getDesignVersion: () => "v2" }));
 import { compressBackup, decompressBackup, isGzip } from "../src/lib/backup/backupCompress";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -39,6 +41,8 @@ describe("compressBackup / decompressBackup", () => {
       const bytes = new Uint8Array(len);
       const mode = n % 3; // random, repetitive, ascii
       for (let i = 0; i < len; i++) bytes[i] = mode === 0 ? Math.random() * 256 : mode === 1 ? i % 7 : 97 + (i % 26);
+      // A real plaintext is JSON and never starts with the gzip magic; random bytes that do are ambiguous by design.
+      if (len > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b) bytes[0] = 0;
       // a payload that starts with the gzip magic but is not gzip must not be
       // passed to compress as "already compressed": compress always re-wraps
       const packed = await compressBackup(bytes);
@@ -101,20 +105,15 @@ function realisticDb(name: string, rows: number) {
 // In-memory stand-in for the Worker's backup endpoints; keeps what a real R2
 // would keep, so tests can look at the stored bytes.
 function fakeServer() {
-  const state = { tmp: null as null | { iv: string; ciphertext: string; sha256: string }, committed: null as null | { iv: string; ciphertext: string; sha256: string; version: number } };
+  const state = { committed: null as null | { iv: string; ciphertext: string; sha256: string; version: number } };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as Record<string, string | number>;
-      if (path === "/api/backup/meta") return Response.json({ version: state.committed?.version ?? 0, sha256: state.committed?.sha256 ?? null });
-      if (path === "/api/backup/upload-tmp") {
-        state.tmp = { iv: body.iv as string, ciphertext: body.ciphertext as string, sha256: body.sha256 as string };
-        return new Response(null, { status: 204 });
-      }
-      if (path === "/api/backup/fetch-tmp") return state.tmp ? Response.json({ iv: state.tmp.iv, ciphertext: state.tmp.ciphertext }) : new Response(null, { status: 404 });
-      if (path === "/api/backup/commit") {
-        if (!state.tmp || state.tmp.sha256 !== body.sha256) return new Response(null, { status: 409 });
-        state.committed = { ...state.tmp, version: ((state.committed?.version ?? 0) as number) + 1 };
+      if (path === "/api/backup/put") {
+        const current = state.committed?.version ?? 0;
+        if (current !== 0 && body.baseVersion !== current) return Response.json({ version: current, sha256: state.committed?.sha256 ?? null }, { status: 409 });
+        state.committed = { iv: body.iv as string, ciphertext: body.ciphertext as string, sha256: body.sha256 as string, version: current + 1 };
         return Response.json({ version: state.committed.version });
       }
       if (path === "/api/backup/fetch")
@@ -126,9 +125,7 @@ function fakeServer() {
 }
 
 async function uploadAndWait(keys: Awaited<ReturnType<typeof deriveBackupKeys>>) {
-  uploadBackupNow(keys);
-  await vi.waitFor(() => expect(localStorage.getItem("btc-wallet-backup-last-success-at") ?? localStorage.getItem("btc-wallet-backup-last-attempt-at")).not.toBeNull());
-  await new Promise((r) => setTimeout(r, 150));
+  await uploadBackupNow(keys);
 }
 
 describe("compressed backup, end to end", () => {

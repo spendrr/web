@@ -2,6 +2,8 @@
 // (src/lib/backup/backupFingerprint.ts, performUpload in backup.ts).
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// The single-request upload (put) is the beta (V2) path; the V1 flow is in tests/backupFingerprint.v1.test.ts.
+vi.mock("../src/lib/ui/designVersion", () => ({ getDesignVersion: () => "v2" }));
 
 vi.mock("../src/lib/wallet/bark", () => ({ maintenanceWithDeadline: vi.fn() }));
 vi.mock("../src/lib/maintenance/maintenanceSuppress", () => ({ isMaintenanceSuppressed: () => false }));
@@ -62,9 +64,8 @@ function server() {
     vi.fn(async (path: string, init: RequestInit) => {
       paths.push(path);
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-      if (path === "/api/backup/meta") return Response.json({ version, sha256: null });
-      if (path === "/api/backup/fetch-tmp") return Response.json({ iv: "00", ciphertext: "AA==" });
-      if (path === "/api/backup/commit") {
+      if (path === "/api/backup/put") {
+        if (version !== 0 && body.baseVersion !== version) return Response.json({ version, sha256: null }, { status: 409 });
         version = (body.baseVersion as number) + 1;
         return Response.json({ version });
       }
@@ -74,12 +75,19 @@ function server() {
   return paths;
 }
 
+// A cycle is over when it recorded a success or an error, not when it started
+// (the attempt is recorded first), so a fixed pause after the start raced a slow runner.
+const finished = () => {
+  localStorage.removeItem("btc-wallet-backup-last-success-at");
+  localStorage.removeItem("btc-wallet-backup-last-error");
+};
+const finishedAt = () => localStorage.getItem("btc-wallet-backup-last-success-at") ?? localStorage.getItem("btc-wallet-backup-last-error");
+
 async function upload(): Promise<string[]> {
   const paths = server();
-  localStorage.removeItem("btc-wallet-backup-last-attempt-at");
+  finished();
   uploadBackupNow(keys);
-  await vi.waitFor(() => expect(localStorage.getItem("btc-wallet-backup-last-attempt-at")).not.toBeNull());
-  await new Promise((r) => setTimeout(r, 20));
+  await vi.waitFor(() => expect(finishedAt()).not.toBeNull());
   return paths;
 }
 
@@ -123,7 +131,7 @@ describe("dumpWithoutChainCheckpoints", () => {
 
 describe("performUpload and block checkpoints", () => {
   it("uploads the first time, then skips when only the checkpoints moved", async () => {
-    expect(await upload()).toContain("/api/backup/commit");
+    expect(await upload()).toContain("/api/backup/put");
     onchain = dbOf([{ key: "", value: changeset({ "101": "bb", "102": "cc" }) }]);
     expect(await upload()).toEqual([]);
   });
@@ -131,9 +139,9 @@ describe("performUpload and block checkpoints", () => {
   it("uploads when an address was revealed, a transaction arrived, or the Ark database moved", async () => {
     await upload();
     onchain = dbOf([{ key: "", value: changeset({ "100": "aa" }, { indexer: { last_revealed: { a: 1 } } }) }]);
-    expect(await upload()).toContain("/api/backup/commit");
+    expect(await upload()).toContain("/api/backup/put");
     ark = dbOf([{ key: 1, value: "vtxo" }, { key: 2, value: "vtxo2" }]);
-    expect(await upload()).toContain("/api/backup/commit");
+    expect(await upload()).toContain("/api/backup/put");
   });
 
   it("uploads anyway once the last commit is a day old", async () => {
@@ -142,7 +150,7 @@ describe("performUpload and block checkpoints", () => {
     const last = JSON.parse(localStorage.getItem(key) ?? "{}") as { fp: string; at: number };
     localStorage.setItem(key, JSON.stringify({ fp: last.fp, at: Date.now() - 25 * 3600_000 }));
     onchain = dbOf([{ key: "", value: changeset({ "105": "dd" }) }]);
-    expect(await upload()).toContain("/api/backup/commit");
+    expect(await upload()).toContain("/api/backup/put");
   });
 
   it("uploadBackupNow says it worked", async () => {
@@ -157,10 +165,9 @@ describe("performUpload and block checkpoints", () => {
 
   it("a failed upload records no fingerprint", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
-    localStorage.removeItem("btc-wallet-backup-last-attempt-at");
+    finished();
     uploadBackupNow(keys);
-    await vi.waitFor(() => expect(localStorage.getItem("btc-wallet-backup-last-attempt-at")).not.toBeNull());
-    await new Promise((r) => setTimeout(r, 20));
+    await vi.waitFor(() => expect(finishedAt()).not.toBeNull());
     expect(localStorage.getItem(`btc-wallet-backup-last-fingerprint:${LOOKUP}`)).toBeNull();
   });
 });

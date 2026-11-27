@@ -97,12 +97,19 @@ export async function prepareDump(): Promise<PrepareResult> {
   return { kind: "ready", prepared: { plaintext, expectedHash, fingerprint } };
 }
 
-// Compressed before encryption (backupCompress.ts); the hash stays on the uncompressed JSON.
-export async function encryptPrepared(key: CryptoKey, plaintext: Uint8Array): Promise<EncryptedBackupBlob> {
-  return encryptBackupBlob(key, await compressBackup(plaintext));
+export interface PreparedUpload extends EncryptedBackupBlob {
+  // sha256 of cipherB64 exactly as sent (its ASCII bytes). The server hands it to R2, which refuses a write whose
+  // body does not hash to it, so bytes changed between this realm and storage never replace the last good backup.
+  cipherSha256: string;
 }
 
-// The hash of what the server actually stored, decrypted and inflated.
+// Compressed before encryption (backupCompress.ts); the hash stays on the uncompressed JSON.
+export async function encryptPrepared(key: CryptoKey, plaintext: Uint8Array): Promise<PreparedUpload> {
+  const blob = await encryptBackupBlob(key, await compressBackup(plaintext));
+  return { ...blob, cipherSha256: await sha256Hex(new TextEncoder().encode(blob.cipherB64)) };
+}
+
+// The plaintext hash of a blob, decrypted and inflated: proves before sending that it restores to the dump.
 export async function hashReadBack(key: CryptoKey, ivHex: string, cipherB64: string): Promise<string> {
   return sha256Hex(await decompressBackup(await decryptBackupBlob(key, ivHex, cipherB64)));
 }

@@ -88,8 +88,9 @@ The build must stay reproducible (no timestamps or machine values).
   (`src/lib/refreshEngine/`). Locks, submit and completion semantics are in the full notes.
 - Exit: one model (`exitModel.ts`), locks via `exitLocks.ts`, coins in pending rounds stay out of a new exit,
   claim needs the destination tag. An exit that is still partly off-chain at VTXO expiry loses the coin.
-- Cloud backup: two-phase upload, sha256 of the UNCOMPRESSED JSON, version CAS, write token, serialized
-  uploads. A failed restore latches uploads off; `liftConflictLatchIfCovered` lifts it (also for failed
+- Cloud backup: V1 two-phase upload (tmp, read-back verify, commit); beta (V2) one `/api/backup/put` (local
+  decrypt-verify, R2 checksum, etag CAS). Both share one object and version CAS. sha256 of the UNCOMPRESSED JSON,
+  write token, serialized uploads. A failed restore latches uploads off; `liftConflictLatchIfCovered` lifts it (also for failed
   restores) only when nothing on the server is missing locally. Test with realistic data volume.
 - Headline balance is `headlineSats` (`spendableSats + pendingInRoundSats`, one balance read, so a refresh round does not make it drop). Sending uses `spendableSats` alone. bark 0.8 fields are disjoint (0.7 overlapped, never sum on 0.7). `needsRefreshSats` is a note, not in the headline; expired coins stay exitable (ExitSheet gets spendable + needsRefresh).
 
