@@ -1,8 +1,9 @@
 // Orchestrates the encrypted cloud backup feature (see ARCHITECTURE.md's backup
 // section): dumps both local IndexedDB databases, encrypts them with a key
 // derived from the mnemonic (backupCrypto.ts), and uploads to this app's own
-// Worker via a tmp-key -> verify -> commit sequence so a partial/corrupt
-// upload can never clobber the last good backup. Restore is the inverse,
+// Worker so a partial/corrupt upload can never clobber the last good backup:
+// beta (V2) in one versioned put, verified locally first and checksummed by R2;
+// V1 via tmp-key -> read-back verify -> commit. Restore is the inverse,
 // used only on the import/recovery path (App.tsx).
 //
 // Modeled on notifications.ts's postSubscription()/refreshPushAuthorization()
@@ -11,6 +12,7 @@
 // by design; restore is the one path that does propagate failure, since the
 // caller needs to know whether it got real data back).
 import { decryptBackupBlob, type BackupKeys } from "./backupCrypto";
+import { getDesignVersion } from "../ui/designVersion";
 import { decompressBackup } from "./backupCompress";
 import { ARK_DB_NAME, ONCHAIN_DB_NAME, hasAnyLocalWalletData, restoreDatabase } from "./backupStore";
 import { VOUCHERS_DB_NAME, dumpAllDatabases, stringifyDump, type BundledDump } from "./backupCycle";
@@ -230,15 +232,53 @@ function pendingCommitKey(lookupKey: string): string {
 // base we committed on and holds exactly the bytes we committed. A version
 // from anywhere else never matches: another device's commit carries a
 // different sha256 (its own local state), or a later version number.
-function adoptOwnLostCommit(lookupKey: string, serverVersion: number, serverSha256: unknown): boolean {
+interface PendingCommit {
+  base: number;
+  sha256: string;
+}
+
+// The marker is a list, newest first. An attempt is recorded before it is sent,
+// so a still-unresolved earlier attempt would otherwise be overwritten by the
+// next one, and a reply lost to a closed tab could no longer be recognised. An
+// older marker written as one bare object is read as a list of one.
+function readPendingCommits(lookupKey: string): PendingCommit[] {
   try {
     const raw = localStorage.getItem(pendingCommitKey(lookupKey));
-    if (raw === null) return false;
-    const pending = JSON.parse(raw) as { base?: unknown; sha256?: unknown };
-    if (typeof pending.base !== "number" || typeof pending.sha256 !== "string") return false;
-    if (serverVersion !== pending.base + 1 || serverSha256 !== pending.sha256) return false;
+    if (raw === null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    const list: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+    return list.filter(
+      (p): p is PendingCommit =>
+        typeof p === "object" &&
+        p !== null &&
+        typeof (p as PendingCommit).base === "number" &&
+        typeof (p as PendingCommit).sha256 === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+// Every attempt on the current base stays until one is resolved: any of them may be the one that committed (a reply
+// lost, then later attempts that never reached the server). Markers on an older base can no longer match (the server
+// is past base + 1 of theirs), so they go. The cap only bounds storage after many failures in a row.
+const MAX_PENDING_COMMITS = 16;
+
+function rememberPendingCommit(lookupKey: string, base: number, sha256: string): void {
+  try {
+    const rest = readPendingCommits(lookupKey).filter((p) => p.base >= base && !(p.base === base && p.sha256 === sha256));
+    localStorage.setItem(pendingCommitKey(lookupKey), JSON.stringify([{ base, sha256 }, ...rest].slice(0, MAX_PENDING_COMMITS)));
+  } catch {
+    // Best-effort: without it a lost reply latches, as before.
+  }
+}
+
+function adoptOwnLostCommit(lookupKey: string, serverVersion: number, serverSha256: unknown): boolean {
+  try {
+    const match = readPendingCommits(lookupKey).find((p) => serverVersion === p.base + 1 && serverSha256 === p.sha256);
+    if (!match) return false;
     setKnownVersion(lookupKey, serverVersion);
-    localStorage.setItem(lastUploadedHashKey(lookupKey), pending.sha256);
+    localStorage.setItem(lastUploadedHashKey(lookupKey), match.sha256);
     localStorage.removeItem(pendingCommitKey(lookupKey));
     return true;
   } catch {
@@ -423,8 +463,7 @@ async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine
   // on any balance/history change) fire far more often than the wallet's
   // actual state changes, so this is the difference between backing up on
   // every app open and backing up only when there's something new — each
-  // skipped cycle saves 2 R2 Class A writes (upload-tmp + commit) plus a
-  // Class B read (the fetch-tmp round-trip verify).
+  // skipped cycle saves a Worker request and an R2 write.
   const hashKey = lastUploadedHashKey(keys.lookupKey);
   if (localStorage.getItem(hashKey) === expectedHash) return;
 
@@ -432,18 +471,100 @@ async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine
   // expectedHash when the dump has none, in which case the check above already decided.
   if (fingerprintUnchanged(keys.lookupKey, fingerprint)) return;
 
-  // Optimistic-concurrency guard against a stale device silently
-  // overwriting a newer backup from elsewhere (see backupVersion.ts's own
-  // top-of-file comment for the full scenario: a second device/session with
-  // older local wallet state, e.g. an old laptop that imported the same
-  // mnemonic months ago and was never opened since). Learn the server's
-  // *actual current* version right now, not whatever this device last saw —
-  // another device/session may have committed since — and refuse to
-  // proceed if it doesn't match what this device believes is current.
-  // serverVersion === 0 ("no backup yet", including every backup committed
-  // before this check existed) always passes regardless of baseVersion —
-  // see resolveCommitVersion's own comment for why that one-time exception
-  // is safe.
+  // Beta (V2) uploads in one request (uploadByPut); V1 keeps the four-request flow until put has run on real R2
+  // with real wallets. Both write the same object with the same version CAS, so devices on either path share one
+  // backup safely. Read once per cycle; cycles never overlap.
+  const committedVersion =
+    getDesignVersion() === "v2"
+      ? await uploadByPut(keys, job, engine, expectedHash)
+      : await uploadByTmpCommit(keys, job, engine, expectedHash);
+  if (committedVersion === null) return; // A lost commit of ours already holds this state.
+  setKnownVersion(keys.lookupKey, committedVersion);
+  // Removed only here: a failed reply (5xx) may still have committed. A marker
+  // left behind is harmless, it only ever matches a version holding exactly
+  // these bytes, and the next commit overwrites it.
+  localStorage.removeItem(pendingCommitKey(keys.lookupKey));
+
+  // Only recorded after a verified, committed upload — never speculatively —
+  // so a failed cycle never wrongly marks this state as "already backed up"
+  // and silently suppresses the retry a real failure needs.
+  try {
+    localStorage.setItem(hashKey, expectedHash);
+    localStorage.setItem(lastUploadedFingerprintKey(keys.lookupKey), JSON.stringify({ fp: fingerprint, at: Date.now() }));
+  } catch {
+    // Best-effort — worst case the next cycle just re-uploads unnecessarily,
+    // exactly like today's behavior.
+  }
+}
+
+// One request does what meta + upload-tmp + fetch-tmp + commit do. Returns the committed version, or null when a lost
+// commit of ours already holds exactly this state.
+async function uploadByPut(keys: BackupKeys, job: BackupJob, engine: BackupEngine, expectedHash: string): Promise<number | null> {
+  // Compressed before encryption (backupCompress.ts); the hash above and the
+  // verify below stay on the uncompressed JSON.
+  const { ivHex, cipherB64, cipherSha256 } = await engine.encrypt();
+  job.assertLive();
+
+  // The proof the upload-tmp / fetch-tmp round trip gives, that the blob
+  // decrypts and hashes to the expected plaintext, is done here (in the backup
+  // worker when it runs) before anything is sent. Corruption in transit or in
+  // storage is the server's job: the put carries the ciphertext's own sha256,
+  // which R2 checks on write (handleBackupPut). Never send a blob that does not
+  // verify.
+  const actualHash = await engine.verify(ivHex, cipherB64);
+  job.assertLive();
+  if (actualHash !== expectedHash) {
+    throw new Error("backup verify failed: hash mismatch after local round-trip");
+  }
+
+  // The version check is the server's etag compare-and-swap (see
+  // backupVersion.ts for why a stale device must never overwrite a newer
+  // backup). baseVersion is what this device last knew; 0 is accepted only when
+  // the server has no versioned backup yet. A 409 carries the server's current
+  // version and plaintext hash, which is how a device whose previous reply was
+  // lost recognises its own commit (adoptOwnLostCommit) instead of latching as a
+  // conflict.
+  let baseVersion = getKnownVersion(keys.lookupKey);
+  for (let attempt = 0; ; attempt++) {
+    // Written before sending, kept until the reply is read: a reply lost to a
+    // dropped connection or a closed tab may still have committed.
+    job.assertLive();
+    rememberPendingCommit(keys.lookupKey, baseVersion, expectedHash);
+    const putRes = await postJson("/api/backup/put", {
+      ...authBody(keys),
+      iv: ivHex,
+      ciphertext: cipherB64,
+      sha256: expectedHash,
+      cipherSha256,
+      baseVersion,
+    });
+    if (putRes.status === 409) {
+      const conflict = (await putRes.json().catch(() => null)) as { version?: unknown; sha256?: unknown } | null;
+      const serverVersion = typeof conflict?.version === "number" ? conflict.version : 0;
+      // Only once: a second 409 right after adopting means someone else is writing.
+      if (attempt === 0 && serverVersion !== 0 && adoptOwnLostCommit(keys.lookupKey, serverVersion, conflict?.sha256)) {
+        if (conflict?.sha256 === expectedHash) return null;
+        baseVersion = serverVersion;
+        continue;
+      }
+      throw new BackupVersionConflictError(
+        `refusing to upload: server backup is at version ${serverVersion}, this device last knew ${baseVersion}`,
+      );
+    }
+    if (!putRes.ok) throw new Error(`put failed: ${putRes.status} ${await readErrorBody(putRes)}`);
+    return ((await putRes.json()) as { version: number }).version;
+  }
+}
+
+// The four-request flow (V1): meta, upload-tmp, fetch-tmp, commit. Returns the committed version, or null when a lost
+// commit of ours already holds exactly this state.
+async function uploadByTmpCommit(keys: BackupKeys, job: BackupJob, engine: BackupEngine, expectedHash: string): Promise<number | null> {
+  // Optimistic-concurrency guard against a stale device silently overwriting a
+  // newer backup from elsewhere (see backupVersion.ts). Learn the server's
+  // actual current version right now, not whatever this device last saw, and
+  // refuse to proceed if it does not match what this device believes is
+  // current. serverVersion === 0 ("no backup yet") always passes, see
+  // resolveCommitVersion for why that one-time exception is safe.
   const metaRes = await postJson("/api/backup/meta", authBody(keys));
   if (!metaRes.ok) throw new Error(`meta check failed: ${metaRes.status} ${await readErrorBody(metaRes)}`);
   const { version: serverVersion, sha256: serverSha256 } = (await metaRes.json()) as {
@@ -457,7 +578,7 @@ async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine
     adoptOwnLostCommit(keys.lookupKey, serverVersion, serverSha256)
   ) {
     baseVersion = serverVersion;
-    if (serverSha256 === expectedHash) return; // The lost commit already holds this state.
+    if (serverSha256 === expectedHash) return null;
   }
   if (serverVersion !== 0 && baseVersion !== serverVersion) {
     throw new BackupVersionConflictError(
@@ -478,10 +599,10 @@ async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine
   });
   if (!uploadRes.ok) throw new Error(`upload-tmp failed: ${uploadRes.status} ${await readErrorBody(uploadRes)}`);
 
-  // Read back exactly what the server actually stored and decrypt+hash it
-  // before ever promoting it — this is what makes overwrite-latest safe: a
-  // transit or storage corruption is caught here, before commit, so it can
-  // never clobber the last good backup. Never call commit speculatively.
+  // Read back exactly what the server stored and decrypt+hash it before ever
+  // promoting it: a transit or storage corruption is caught here, before
+  // commit, so it can never clobber the last good backup. Never call commit
+  // speculatively.
   const readBackRes = await postJson("/api/backup/fetch-tmp", authBody(keys));
   if (!readBackRes.ok) {
     throw new Error(`fetch-tmp verify failed: ${readBackRes.status} ${await readErrorBody(readBackRes)}`);
@@ -496,50 +617,24 @@ async function cycleSteps(keys: BackupKeys, job: BackupJob, engine: BackupEngine
     throw new Error("backup verify failed: hash mismatch after round-trip");
   }
 
-  // sha256 lets the server refuse to promote a tmp object it never verified —
-  // see handleBackupCommit's own comment for the concurrent-upload window
-  // this closes: without it, whatever bytes happen to be at the tmp key at
-  // commit time get promoted, not necessarily the ones just hash-verified
-  // above. baseVersion is the second, independent check on the same call —
-  // see resolveCommitVersion — for whether the promoted content is actually
-  // newer than what's already there, which the sha256 check alone can't
-  // tell.
-  try {
-    const pending = JSON.stringify({ base: serverVersion, sha256: expectedHash });
-    localStorage.setItem(pendingCommitKey(keys.lookupKey), pending);
-  } catch {
-    // Best-effort: without it a lost reply latches, as before.
-  }
+  // sha256 lets the server refuse to promote a tmp object it never verified
+  // (handleBackupCommit); baseVersion is the independent check that the
+  // promoted content is newer than what is already there (resolveCommitVersion).
+  // The marker is written in the same list format put uses, so a lost reply is
+  // recognised whichever path the next cycle takes.
+  job.assertLive();
+  rememberPendingCommit(keys.lookupKey, serverVersion, expectedHash);
   const commitRes = await postJson("/api/backup/commit", {
     ...authBody(keys),
     sha256: expectedHash,
     baseVersion: serverVersion,
   });
   if (commitRes.status === 409) {
-    // Someone else (another device/session) committed between the meta
-    // check above and this call — the same conflict, just caught at the
-    // narrower TOCTOU window handleBackupCommit's own head() closes rather
-    // than the coarser one this function's own meta check closes.
+    // Someone else committed between the meta check above and this call.
     throw new BackupVersionConflictError("commit rejected: server backup changed since the meta check");
   }
   if (!commitRes.ok) throw new Error(`commit failed: ${commitRes.status} ${await readErrorBody(commitRes)}`);
-  const { version: committedVersion } = (await commitRes.json()) as { version: number };
-  setKnownVersion(keys.lookupKey, committedVersion);
-  // Removed only here: a failed reply (5xx) may still have committed. A marker
-  // left behind is harmless, it only ever matches a version holding exactly
-  // these bytes, and the next commit overwrites it.
-  localStorage.removeItem(pendingCommitKey(keys.lookupKey));
-
-  // Only recorded after a verified, committed upload — never speculatively —
-  // so a failed cycle never wrongly marks this state as "already backed up"
-  // and silently suppresses the retry a real failure needs.
-  try {
-    localStorage.setItem(hashKey, expectedHash);
-    localStorage.setItem(lastUploadedFingerprintKey(keys.lookupKey), JSON.stringify({ fp: fingerprint, at: Date.now() }));
-  } catch {
-    // Best-effort — worst case the next cycle just re-uploads unnecessarily,
-    // exactly like today's behavior.
-  }
+  return ((await commitRes.json()) as { version: number }).version;
 }
 
 // Takes already-derived keys, never the mnemonic itself. Nothing on the

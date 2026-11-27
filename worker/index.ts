@@ -138,6 +138,8 @@ interface R2Bucket {
       httpMetadata?: { contentType?: string; cacheControl?: string };
       // A put whose precondition fails writes nothing and resolves to null.
       onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string };
+      // Hex sha256 of the body: R2 rejects (throws) a body that does not hash to it.
+      sha256?: string;
     },
   ): Promise<unknown>;
   get(key: string, options?: { range?: { offset: number; length?: number } }): Promise<R2ObjectBody | null>;
@@ -456,6 +458,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (request.method === "POST" && url.pathname.startsWith("/api/lnaddr/admin/")) {
     return handleLnAddrAdmin(request, url, env);
+  }
+  if (request.method === "POST" && url.pathname === "/api/backup/put") {
+    return handleBackupPut(request, env);
   }
   if (request.method === "POST" && url.pathname === "/api/backup/upload-tmp") {
     return handleBackupUploadTmp(request, env);
@@ -2127,6 +2132,120 @@ async function handleBackupCommit(request: Request, env: Env): Promise<Response>
   // setKnownVersion) — a bare 204 gave it no way to learn this without an
   // extra round trip.
   return new Response(JSON.stringify({ version: nextVersion }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+// Single-request upload: validate, authorize, version-check and write in one
+// call, replacing upload-tmp + fetch-tmp + commit (+ meta). Why that is safe:
+// - A partial body cannot be stored: the body is one JSON object, so a
+//   truncated request fails to parse, and the ciphertext must be canonical
+//   base64. An R2 put of one object is atomic, so no half-written backup is
+//   ever visible.
+// - The version check is the R2 etag precondition itself, not a head() followed
+//   by a put, so two devices on the same base cannot both win.
+// - What the old round trip also proved (that the blob decrypts and hashes to
+//   the expected plaintext) the client now proves locally before sending.
+// On a version conflict the answer carries the server's current version and
+// plaintext hash, so the client can recognise its own lost reply (backup.ts's
+// adoptOwnLostCommit) without a separate meta call. They are only returned
+// after the write token was accepted, the same exposure /meta has.
+async function handleBackupPut(request: Request, env: Env): Promise<Response> {
+  const originError = checkSameOrigin(request);
+  if (originError) return originError;
+
+  // Per-IP limiter before the body is read, as in upload-tmp.
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!(await env.BACKUP_RATE_LIMITER.limit({ key: `ip:${bumpRateLimitKey(ip)}` })).success) {
+    return jsonError(429, "Rate limit exceeded.");
+  }
+
+  const bodyText = await readCappedBody(request, MAX_BACKUP_BODY_BYTES);
+  if (typeof bodyText !== "string") return bodyText;
+  let body: unknown;
+  try {
+    body = JSON.parse(bodyText);
+  } catch {
+    return jsonError(400, "Invalid JSON body.");
+  }
+  if (typeof body !== "object" || body === null) return jsonError(400, "Invalid body.");
+  const { lookupKey, writeToken, iv, ciphertext, sha256, cipherSha256, baseVersion } = body as Record<string, unknown>;
+  if (typeof lookupKey !== "string" || !LOOKUP_KEY_RE.test(lookupKey)) return jsonError(400, "Invalid lookupKey.");
+  if (typeof writeToken !== "string" || !WRITE_TOKEN_RE.test(writeToken)) return jsonError(400, "Invalid writeToken.");
+  if (typeof iv !== "string" || !IV_HEX_RE.test(iv)) return jsonError(400, "Invalid iv.");
+  if (typeof ciphertext !== "string" || !isCanonicalBase64(ciphertext)) return jsonError(400, "Invalid ciphertext.");
+  if (ciphertext.length > BACKUP_LARGE_BYTES) console.warn("large backup upload", ciphertext.length);
+  if (typeof sha256 !== "string" || !SHA256_HEX_RE.test(sha256)) return jsonError(400, "Invalid sha256.");
+  if (typeof cipherSha256 !== "string" || !SHA256_HEX_RE.test(cipherSha256)) return jsonError(400, "Invalid cipherSha256.");
+  if (typeof baseVersion !== "number" || !Number.isInteger(baseVersion) || baseVersion < 0) {
+    return jsonError(400, "Invalid baseVersion.");
+  }
+
+  if (!(await env.BACKUP_RATE_LIMITER.limit({ key: await backupKeyBucket(lookupKey, writeToken) })).success) {
+    return jsonError(429, "Rate limit exceeded.");
+  }
+
+  // Fails closed, like upload-tmp: this head() also carries the token hash the
+  // write must match.
+  let existing: R2Object | null;
+  try {
+    existing = await env.WALLET_BACKUPS.head(lookupKey);
+  } catch (err) {
+    console.error("backup lookupKey head() failed", err);
+    return jsonError(503, "Backup storage unavailable.");
+  }
+  const writeTokenHash = await hashWriteToken(writeToken);
+  if (checkWriteToken(existing?.customMetadata?.writeTokenHash, writeTokenHash) === "forbidden") {
+    return jsonError(403, "Write token rejected.");
+  }
+  if (existing === null && !(await allowNewUnderCaps(env, request, "backup", DAILY_NEW_BACKUP_CAP, DAILY_NEW_BACKUP_CAP_PER_SOURCE))) {
+    return jsonError(429, "Daily new-backup limit reached. Try again tomorrow.");
+  }
+
+  const conflict = (current: R2Object | null) =>
+    new Response(
+      JSON.stringify({
+        error: "Backup version conflict: a newer backup already exists, restore before uploading again.",
+        version: parseVersion(current?.customMetadata?.version),
+        sha256: current?.customMetadata?.sha256 ?? null,
+      }),
+      { status: 409, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+    );
+  const decision = resolveCommitVersion(parseVersion(existing?.customMetadata?.version), baseVersion);
+  if (decision === "conflict") return conflict(existing);
+
+  // A first-ever backup has no etag to match and is written unconditionally,
+  // see handleBackupCommit for why create-only is not used. sha256 makes R2
+  // itself refuse a body that is not the one the client verified (it throws).
+  let written: unknown;
+  try {
+    written = await env.WALLET_BACKUPS.put(lookupKey, ciphertext, {
+      customMetadata: { iv, sha256, writeTokenHash, version: String(decision), updatedAt: String(Date.now()) },
+      sha256: cipherSha256,
+      ...(existing?.etag ? { onlyIf: { etagMatches: existing.etag } } : {}),
+    });
+  } catch (err) {
+    console.error("backup put() failed", err);
+    return jsonError(503, "Backup storage refused the write.");
+  }
+  if (written === null) {
+    // Lost the swap: answer with the winner's version and hash, not the stale
+    // head() from above, so a device can still recognise its own lost commit.
+    let current: R2Object | null = null;
+    try {
+      current = await env.WALLET_BACKUPS.head(lookupKey);
+    } catch {
+      // The 409 still holds; only the hint is missing.
+    }
+    // The winner may have set a write token where the object read above had
+    // none: its version and hash go only to a caller that token accepts.
+    if (current && checkWriteToken(current.customMetadata?.writeTokenHash, writeTokenHash) === "forbidden") {
+      return jsonError(403, "Write token rejected.");
+    }
+    return conflict(current ?? existing);
+  }
+  return new Response(JSON.stringify({ version: decision }), {
     status: 200,
     headers: { "content-type": "application/json" },
   });

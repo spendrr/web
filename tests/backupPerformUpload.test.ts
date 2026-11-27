@@ -1,6 +1,8 @@
 // One backup cycle end to end with a fake engine: which engine runs, what the fallback repeats, and that a retired
 // uploader never reaches the commit. The engine's own behaviour is in backupEngine.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// The single-request upload (put) is the beta (V2) path; the V1 flow is in tests/backupPerformUpload.v1.test.ts.
+vi.mock("../src/lib/ui/designVersion", () => ({ getDesignVersion: () => "v2" }));
 import type { BackupEngine } from "../src/lib/backup/backupEngine";
 
 vi.mock("../src/lib/wallet/bark", () => ({ maintenanceWithDeadline: vi.fn() }));
@@ -50,7 +52,7 @@ function engine(over: Partial<BackupEngine> = {}): Fake {
     },
     encrypt: async () => {
       steps.push("encrypt");
-      return { ivHex: "00", cipherB64: "AA==" };
+      return { ivHex: "00", cipherB64: "AA==", cipherSha256: "c".repeat(64) };
     },
     verify: async () => {
       steps.push("verify");
@@ -64,18 +66,19 @@ function engine(over: Partial<BackupEngine> = {}): Fake {
 }
 
 let paths: string[];
+let bodies: Record<string, unknown>[];
 beforeEach(() => {
   localStorage.clear();
   paths = [];
+  bodies = [];
   cfg.worker = true;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, init: RequestInit) => {
       paths.push(path);
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-      if (path === "/api/backup/meta") return Response.json({ version: 0, sha256: null });
-      if (path === "/api/backup/fetch-tmp") return Response.json({ iv: "00", ciphertext: "AA==" });
-      if (path === "/api/backup/commit") return Response.json({ version: (body.baseVersion as number) + 1 });
+      bodies.push(body);
+      if (path === "/api/backup/put") return Response.json({ version: (body.baseVersion as number) + 1 });
       return new Response(null, { status: 204 });
     }),
   );
@@ -85,7 +88,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const commits = () => paths.filter((p) => p === "/api/backup/commit").length;
+const commits = () => paths.filter((p) => p === "/api/backup/put").length;
 
 describe("one backup cycle", () => {
   it("runs on the worker engine and records the path", async () => {
@@ -94,6 +97,9 @@ describe("one backup cycle", () => {
     expect(await uploadBackupNow(keys)).toBe(true);
     expect(w.steps).toEqual(["prepare", "encrypt", "verify", "dispose"]);
     expect(commits()).toBe(1);
+    expect(paths).toEqual(["/api/backup/put"]);
+    // The blob was verified (locally) before the one request that carries it, with its own hash for R2.
+    expect(bodies[0]).toMatchObject({ ciphertext: "AA==", sha256: "h", cipherSha256: "c".repeat(64), baseVersion: 0 });
     expect(getBackupEngineNote()).toMatch(/^worker, \d+ ms/);
   });
 
@@ -113,7 +119,7 @@ describe("one backup cycle", () => {
     expect(getBackupEngineNote()).toMatch(/^inline, .*worker given up .*no indexeddb here/);
   });
 
-  it("a worker that dies after encrypt still gives exactly one commit, from the main thread", async () => {
+  it("a worker that dies after encrypt sends nothing itself; the main thread sends exactly one put", async () => {
     const w = engine({
       verify: async () => {
         throw new BackupWorkerFailure("terminated");
@@ -124,7 +130,7 @@ describe("one backup cycle", () => {
     cfg.makeInline = () => inline;
     expect(await uploadBackupNow(keys)).toBe(true);
     expect(commits()).toBe(1);
-    expect(paths.filter((p) => p === "/api/backup/upload-tmp").length).toBe(2);
+    expect(paths).toEqual(["/api/backup/put"]);
   });
 
   it("an ordinary error from the worker is not repeated on the main thread", async () => {
@@ -183,7 +189,7 @@ describe("a retired uploader", () => {
     expect(w.steps).not.toContain("encrypt");
   });
 
-  it("cancel during the read-back check never reaches the commit", async () => {
+  it("cancel during the local verify sends nothing", async () => {
     vi.useFakeTimers();
     const up = createBackupUploader(keys);
     const w = engine({
@@ -196,7 +202,6 @@ describe("a retired uploader", () => {
     up.trigger();
     await vi.advanceTimersByTimeAsync(30_000);
     await vi.advanceTimersByTimeAsync(100);
-    expect(paths).toContain("/api/backup/fetch-tmp");
-    expect(commits()).toBe(0);
+    expect(paths).toEqual([]);
   });
 });

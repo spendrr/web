@@ -3,8 +3,7 @@
 // the same on both paths. A worker that cannot start, crashes or answers with an error is reported as
 // BackupWorkerFailure; backup.ts then runs the whole cycle again on the main thread, which is the path
 // every version before this one took.
-import { encryptPrepared, hashReadBack, prepareDump, type PreparedDump } from "./backupCycle";
-import type { EncryptedBackupBlob } from "./backupCrypto";
+import { encryptPrepared, hashReadBack, prepareDump, type PreparedDump, type PreparedUpload } from "./backupCycle";
 import type { BackupWorkerReply, BackupWorkerRequest, PrepareReply } from "./backupProtocol";
 
 type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
@@ -13,7 +12,7 @@ export type PrepareOutcome = { kind: "nothing" } | { kind: "noArk" } | { kind: "
 
 export interface BackupEngine {
   prepare(key: CryptoKey): Promise<PrepareOutcome>;
-  encrypt(): Promise<EncryptedBackupBlob>;
+  encrypt(): Promise<PreparedUpload>;
   verify(ivHex: string, cipherB64: string): Promise<string>;
   dispose(): void;
 }
@@ -163,7 +162,7 @@ export function createWorkerEngine(timeouts: WorkerTimeouts = WORKER_TIMEOUTS): 
       if (r.kind === "nothing" || r.kind === "noArk") return { kind: r.kind };
       throw new BackupWorkerFailure("backup worker returned a malformed prepare reply");
     },
-    encrypt: () => call<EncryptedBackupBlob>({ type: "encrypt" }),
+    encrypt: () => call<PreparedUpload>({ type: "encrypt" }),
     verify: (ivHex, cipherB64) => call<string>({ type: "verify", ivHex, cipherB64 }),
     dispose,
   };
